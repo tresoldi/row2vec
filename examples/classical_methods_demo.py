@@ -52,7 +52,7 @@ def demo_classical_methods():
             print(f"✅ {method_name} completed successfully!")
             print(f"   Output shape: {embeddings.shape}")
             print(
-                f"   Embedding range: [{embeddings.values.min():.3f}, {embeddings.values.max():.3f}]"
+                f"   Embedding range: [{embeddings.values.min():.3f}, {embeddings.values.max():.3f}]",
             )
             print(f"   Column names: {list(embeddings.columns)}")
             print()
@@ -87,7 +87,7 @@ def demo_classical_methods():
             )
 
             print(
-                f"   {scale_method:8} scaling: range [{scaled_emb.values.min():.3f}, {scaled_emb.values.max():.3f}]"
+                f"   {scale_method:8} scaling: range [{scaled_emb.values.min():.3f}, {scaled_emb.values.max():.3f}]",
             )
 
         except Exception as e:

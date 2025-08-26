@@ -51,7 +51,7 @@ if __name__ == "__main__":
 
     # Merge both embeddings on country
     merged = pd.merge(
-        target_emb, unsup_avg, on="Country", suffixes=("_target", "_unsup")
+        target_emb, unsup_avg, on="Country", suffixes=("_target", "_unsup"),
     )
 
     # Reorder columns for clarity

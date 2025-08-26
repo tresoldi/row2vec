@@ -58,7 +58,7 @@ class TestInputValidation:
         """Test that target mode without reference_column raises ValueError."""
         df = generate_synthetic_data(10)
         with pytest.raises(
-            ValueError, match="reference_column is required when mode='target'"
+            ValueError, match="reference_column is required when mode='target'",
         ):
             learn_embedding(df, embedding_dim=2, mode="target")
 
@@ -72,10 +72,10 @@ class TestInputValidation:
         """Test that non-existent reference_column raises ValueError."""
         df = generate_synthetic_data(10)
         with pytest.raises(
-            ValueError, match="reference_column 'NonExistent' not found"
+            ValueError, match="reference_column 'NonExistent' not found",
         ):
             learn_embedding(
-                df, embedding_dim=2, mode="target", reference_column="NonExistent"
+                df, embedding_dim=2, mode="target", reference_column="NonExistent",
             )
 
     def test_target_mode_with_single_unique_value_raises_error(self):
@@ -85,11 +85,11 @@ class TestInputValidation:
                 "feature1": [1, 2, 3, 4, 5],
                 "feature2": [6, 7, 8, 9, 10],
                 "constant_target": ["A", "A", "A", "A", "A"],  # Only one unique value
-            }
+            },
         )
         with pytest.raises(ValueError, match="must have at least 2 unique values"):
             learn_embedding(
-                df, embedding_dim=1, mode="target", reference_column="constant_target"
+                df, embedding_dim=1, mode="target", reference_column="constant_target",
             )
 
     def test_target_mode_with_too_many_unique_values_raises_error(self):
@@ -99,11 +99,11 @@ class TestInputValidation:
             {
                 "feature1": range(1001),
                 "target": [f"category_{i}" for i in range(1001)],  # 1001 unique values
-            }
+            },
         )
         with pytest.raises(ValueError, match="has too many unique values"):
             learn_embedding(
-                df, embedding_dim=1, mode="target", reference_column="target"
+                df, embedding_dim=1, mode="target", reference_column="target",
             )
 
     def test_invalid_max_epochs_raises_error(self):
@@ -122,7 +122,7 @@ class TestInputValidation:
         """Test that batch_size larger than dataset raises ValueError."""
         df = generate_synthetic_data(5)
         with pytest.raises(
-            ValueError, match="batch_size .* cannot be larger than dataset size"
+            ValueError, match="batch_size .* cannot be larger than dataset size",
         ):
             learn_embedding(df, embedding_dim=1, batch_size=10)
 
@@ -130,10 +130,10 @@ class TestInputValidation:
         """Test that invalid dropout_rate raises ValueError."""
         df = generate_synthetic_data(10)
         with pytest.raises(
-            ValueError, match="dropout_rate must be a number between 0 and 1"
+            ValueError, match="dropout_rate must be a number between 0 and 1",
         ):
             learn_embedding(
-                df, embedding_dim=2, dropout_rate=1.5, max_epochs=1, batch_size=10
+                df, embedding_dim=2, dropout_rate=1.5, max_epochs=1, batch_size=10,
             )
 
     def test_invalid_hidden_units_raises_error(self):
@@ -141,7 +141,7 @@ class TestInputValidation:
         df = generate_synthetic_data(10)
         with pytest.raises(ValueError, match="hidden_units must be a positive integer"):
             learn_embedding(
-                df, embedding_dim=2, hidden_units=-10, max_epochs=1, batch_size=10
+                df, embedding_dim=2, hidden_units=-10, max_epochs=1, batch_size=10,
             )
 
     def test_invalid_scale_method_raises_error(self):
@@ -161,27 +161,27 @@ class TestInputValidation:
         df = generate_synthetic_data(10)
         with pytest.raises(TypeError, match="scale_range must be a tuple or list"):
             learn_embedding(
-                df, embedding_dim=2, scale_range="invalid", max_epochs=1, batch_size=10
+                df, embedding_dim=2, scale_range="invalid", max_epochs=1, batch_size=10,
             )  # type: ignore
 
     def test_invalid_scale_range_length_raises_error(self):
         """Test that scale_range with wrong length raises TypeError."""
         df = generate_synthetic_data(10)
         with pytest.raises(
-            TypeError, match="scale_range must be a tuple or list of two numbers"
+            TypeError, match="scale_range must be a tuple or list of two numbers",
         ):
             learn_embedding(
-                df, embedding_dim=2, scale_range=(0, 1, 2), max_epochs=1, batch_size=10
+                df, embedding_dim=2, scale_range=(0, 1, 2), max_epochs=1, batch_size=10,
             )  # type: ignore
 
     def test_invalid_scale_range_values_raises_error(self):
         """Test that scale_range with low >= high raises ValueError."""
         df = generate_synthetic_data(10)
         with pytest.raises(
-            ValueError, match="scale_range low value .* must be less than high value"
+            ValueError, match="scale_range low value .* must be less than high value",
         ):
             learn_embedding(
-                df, embedding_dim=2, scale_range=(1, 0), max_epochs=1, batch_size=10
+                df, embedding_dim=2, scale_range=(1, 0), max_epochs=1, batch_size=10,
             )
 
     def test_all_nan_columns_raises_error(self):
@@ -190,10 +190,10 @@ class TestInputValidation:
             {
                 "valid_col": [1, 2, 3, 4, 5],
                 "nan_col": [np.nan, np.nan, np.nan, np.nan, np.nan],
-            }
+            },
         )
         with pytest.raises(
-            ValueError, match="DataFrame contains columns with all NaN values"
+            ValueError, match="DataFrame contains columns with all NaN values",
         ):
             learn_embedding(df, embedding_dim=1, max_epochs=1, batch_size=5)
 
@@ -229,14 +229,14 @@ class TestScalingValidation:
             {
                 "varying": [1, 2, 3, 4, 5],
                 "constant": [5, 5, 5, 5, 5],  # Constant column
-            }
+            },
         )
         # This should work since our preprocessing handles constant columns differently
         # But let's test if we can trigger the error by creating a situation where
         # the embeddings themselves are constant
         try:
             result = learn_embedding(
-                df, embedding_dim=1, scale_method="minmax", max_epochs=1, batch_size=5
+                df, embedding_dim=1, scale_method="minmax", max_epochs=1, batch_size=5,
             )
             # If it doesn't raise an error, that's actually fine - the preprocessing handled it
             assert result.shape == (5, 1)
@@ -260,7 +260,7 @@ class TestValidInputs:
             {
                 "feature": [1, 2, 3, 4],
                 "target": ["A", "B", "A", "B"],
-            }
+            },
         )
         result = learn_embedding(
             df,

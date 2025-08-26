@@ -161,7 +161,7 @@ class TestLoggingIntegration:
                 "feature1": np.random.randn(50),
                 "feature2": np.random.randn(50),
                 "category": np.random.choice(["A", "B", "C"], 50),
-            }
+            },
         )
 
         result = learn_embedding(

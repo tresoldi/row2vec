@@ -50,7 +50,7 @@ def demo_debug_logging():
             "income": np.random.normal(50000, 15000, 100),
             "category": np.random.choice(["A", "B", "C", "D"], 100),
             "region": np.random.choice(["North", "South", "East", "West"], 100),
-        }
+        },
     )
 
     # Use target mode with debug logging

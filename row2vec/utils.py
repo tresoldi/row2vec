@@ -3,7 +3,7 @@ Row2Vec: Utility functions
 """
 
 import random
-from typing import Any, Dict, List, Set
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -36,7 +36,7 @@ def generate_synthetic_data(num_records: int, seed: int = 1305) -> pd.DataFrame:
             sales = np.random.normal(100, 10)
         else:
             sales = np.random.choice(
-                [np.random.normal(500, 50), np.random.normal(20, 5)]
+                [np.random.normal(500, 50), np.random.normal(20, 5)],
             )
 
         data.append({"Country": country, "Product": product, "Sales": max(0, sales)})
@@ -44,7 +44,7 @@ def generate_synthetic_data(num_records: int, seed: int = 1305) -> pd.DataFrame:
     return pd.DataFrame(data)
 
 
-def create_dataframe_schema(df: pd.DataFrame) -> Dict[str, Any]:
+def create_dataframe_schema(df: pd.DataFrame) -> dict[str, Any]:
     """
     Create a schema dictionary from a DataFrame for validation purposes.
     
@@ -60,25 +60,25 @@ def create_dataframe_schema(df: pd.DataFrame) -> Dict[str, Any]:
         "shape": df.shape,
         "nullable_columns": df.isnull().any().to_dict(),
     }
-    
+
     # Add categorical information for object columns
     categorical_info = {}
-    for col in df.select_dtypes(include=['object', 'category']).columns:
+    for col in df.select_dtypes(include=["object", "category"]).columns:
         unique_values = df[col].unique()
         if len(unique_values) <= 50:  # Only store if reasonable number of categories
             categorical_info[col] = list(unique_values)
         else:
             categorical_info[col] = f"Too many categories: {len(unique_values)}"
-    
+
     if categorical_info:
         schema["categorical_info"] = categorical_info
-    
+
     return schema
 
 
 def validate_dataframe_schema(
-    df: pd.DataFrame, 
-    expected_schema: Dict[str, Any],
+    df: pd.DataFrame,
+    expected_schema: dict[str, Any],
     allow_extra_columns: bool = False,
     allow_missing_columns: bool = False,
 ) -> None:
@@ -96,40 +96,40 @@ def validate_dataframe_schema(
     """
     if not isinstance(df, pd.DataFrame):
         raise ValueError(f"Expected pandas DataFrame, got {type(df).__name__}")
-    
+
     if df.empty:
         raise ValueError("DataFrame cannot be empty")
-    
+
     expected_columns = set(expected_schema.get("columns", []))
     actual_columns = set(df.columns)
-    
+
     # Check for missing columns
     missing_columns = expected_columns - actual_columns
     if missing_columns and not allow_missing_columns:
         raise ValueError(f"Missing required columns: {sorted(missing_columns)}")
-    
+
     # Check for extra columns
     extra_columns = actual_columns - expected_columns
     if extra_columns and not allow_extra_columns:
         raise ValueError(f"Unexpected columns found: {sorted(extra_columns)}")
-    
+
     # Check data types for common columns
     common_columns = expected_columns & actual_columns
     expected_dtypes = expected_schema.get("dtypes", {})
-    
+
     for col in common_columns:
         if col in expected_dtypes:
             expected_dtype = expected_dtypes[col]
             actual_dtype = str(df[col].dtype)
-            
+
             # Allow some flexibility in numeric types
             if _are_compatible_dtypes(expected_dtype, actual_dtype):
                 continue
-            
+
             if expected_dtype != actual_dtype:
                 raise ValueError(
                     f"Column '{col}' has incorrect type. "
-                    f"Expected: {expected_dtype}, got: {actual_dtype}"
+                    f"Expected: {expected_dtype}, got: {actual_dtype}",
                 )
 
 
@@ -146,19 +146,19 @@ def _are_compatible_dtypes(expected: str, actual: str) -> bool:
     """
     # Numeric type compatibility
     numeric_types = {
-        'int8', 'int16', 'int32', 'int64', 
-        'uint8', 'uint16', 'uint32', 'uint64',
-        'float16', 'float32', 'float64'
+        "int8", "int16", "int32", "int64",
+        "uint8", "uint16", "uint32", "uint64",
+        "float16", "float32", "float64",
     }
-    
+
     # If both are numeric, they're compatible
     if expected in numeric_types and actual in numeric_types:
         return True
-    
+
     # Object and string types are compatible
-    string_types = {'object', 'string'}
+    string_types = {"object", "string"}
     if expected in string_types and actual in string_types:
         return True
-    
+
     # Exact match
     return expected == actual

@@ -7,16 +7,13 @@ simplicity for beginners and flexibility for advanced users.
 """
 
 import warnings
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Union
+from dataclasses import dataclass
+from typing import Any
 
-import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator
-from sklearn.impute import SimpleImputer, KNNImputer
+from sklearn.impute import KNNImputer, SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import LabelEncoder
-from sklearn.compose import ColumnTransformer
 
 # Enable experimental features
 try:
@@ -36,7 +33,7 @@ class ImputationConfig:
     with sensible defaults that work well for most datasets while allowing power
     users to fine-tune every aspect of the imputation process.
     """
-    
+
     # Core strategy selection
     numeric_strategy: str = "adaptive"
     """Numeric imputation strategy. Options:
@@ -46,7 +43,7 @@ class ImputationConfig:
     - "knn": K-nearest neighbors imputation (better for >30% missing)
     - "iterative": MICE-style iterative imputation (best quality, slowest)
     """
-    
+
     categorical_strategy: str = "adaptive"
     """Categorical imputation strategy. Options:
     - "adaptive": Automatically selects best strategy based on data characteristics
@@ -54,26 +51,26 @@ class ImputationConfig:
     - "constant": Fill with specified constant value
     - "missing_category": Create explicit "Missing" category
     """
-    
+
     # Performance vs accuracy trade-off
     prefer_speed: bool = True
     """Whether to prefer faster methods over more accurate but slower ones.
     When True, uses simpler strategies by default. When False, prefers
     more sophisticated methods even if they take longer."""
-    
+
     # Missing data thresholds
     missing_threshold: float = 0.7
     """Columns with more than this fraction of missing values will be flagged.
     Conservative default of 0.7 to avoid dropping useful but sparse columns."""
-    
+
     row_missing_threshold: float = 0.9
     """Rows with more than this fraction of missing values will be flagged.
     Very conservative default to avoid losing data."""
-    
+
     # Advanced options for KNN imputation
     knn_neighbors: int = 5
     """Number of neighbors for KNN imputation. Should be odd to avoid ties."""
-    
+
     # Pattern analysis and preservation
     preserve_missing_patterns: bool = False
     """Whether to preserve missing patterns when they might be informative.
@@ -86,38 +83,38 @@ class ImputationConfig:
         Original: [1.0, NaN, 3.0] -> After imputation: [1.0, 2.0, 3.0]
         With preservation: adds column [False, True, False] indicating missingness
     """
-    
+
     missing_indicator_suffix: str = "_was_missing"
     """Suffix for missing indicator columns when preserve_missing_patterns=True."""
-    
+
     # Automatic detection and warnings
     auto_detect_patterns: bool = True
     """Whether to automatically analyze missing data patterns and adjust strategies."""
-    
+
     warn_high_missingness: bool = True
     """Whether to warn users about columns/rows with high missing percentages."""
-    
+
     # Constants for categorical imputation
     categorical_fill_value: str = "Missing"
     """Fill value when using 'constant' strategy for categorical data."""
-    
+
     def __post_init__(self):
         """Validate configuration parameters."""
         # Validate strategies
         valid_numeric = {"adaptive", "mean", "median", "knn", "iterative"}
         if self.numeric_strategy not in valid_numeric:
             raise ValueError(f"numeric_strategy must be one of: {valid_numeric}")
-        
+
         valid_categorical = {"adaptive", "mode", "constant", "missing_category"}
         if self.categorical_strategy not in valid_categorical:
             raise ValueError(f"categorical_strategy must be one of: {valid_categorical}")
-        
+
         # Validate thresholds
         if not 0 <= self.missing_threshold <= 1:
             raise ValueError("missing_threshold must be between 0 and 1")
         if not 0 <= self.row_missing_threshold <= 1:
             raise ValueError("row_missing_threshold must be between 0 and 1")
-        
+
         # Validate KNN parameters
         if self.knn_neighbors < 1:
             raise ValueError("knn_neighbors must be at least 1")
@@ -125,11 +122,11 @@ class ImputationConfig:
 
 class MissingPatternAnalyzer:
     """Analyzes missing data patterns to inform imputation strategy selection."""
-    
+
     def __init__(self, config: ImputationConfig):
         self.config = config
-    
-    def analyze(self, df: pd.DataFrame) -> Dict[str, Any]:
+
+    def analyze(self, df: pd.DataFrame) -> dict[str, Any]:
         """
         Analyze missing data patterns in the DataFrame.
         
@@ -147,59 +144,58 @@ class MissingPatternAnalyzer:
             "rows_with_missing": df.isnull().any(axis=1).sum(),
             "completely_missing_columns": df.columns[df.isnull().all()].tolist(),
             "high_missing_columns": [],
-            "recommendations": {}
+            "recommendations": {},
         }
-        
+
         # Identify high missing columns
         for col, pct in analysis["column_missing_percentages"].items():
             if pct > self.config.missing_threshold * 100:
                 analysis["high_missing_columns"].append(col)
-        
+
         # Generate column-specific recommendations
         for col in df.columns:
             missing_pct = analysis["column_missing_percentages"][col]
             dtype = df[col].dtype
-            
+
             if missing_pct == 0:
                 continue
-                
+
             recommendation = self._recommend_strategy(col, missing_pct, dtype, df[col])
             analysis["recommendations"][col] = recommendation
-        
+
         return analysis
-    
-    def _recommend_strategy(self, column: str, missing_pct: float, dtype: Any, series: pd.Series) -> Dict[str, Any]:
+
+    def _recommend_strategy(self, column: str, missing_pct: float, dtype: Any, series: pd.Series) -> dict[str, Any]:
         """Recommend imputation strategy for a specific column."""
         is_numeric = pd.api.types.is_numeric_dtype(dtype)
-        
+
         recommendation = {
             "missing_percentage": missing_pct,
             "is_numeric": is_numeric,
             "suggested_strategy": None,
             "reasoning": "",
-            "alternatives": []
+            "alternatives": [],
         }
-        
+
         if is_numeric:
             if self.config.prefer_speed:
                 if missing_pct < 10:
                     recommendation["suggested_strategy"] = "mean"
                     recommendation["reasoning"] = "Low missingness, mean imputation is fast and effective"
                 elif missing_pct < 30:
-                    recommendation["suggested_strategy"] = "median" 
+                    recommendation["suggested_strategy"] = "median"
                     recommendation["reasoning"] = "Moderate missingness, median is robust to outliers"
                 else:
                     recommendation["suggested_strategy"] = "knn"
                     recommendation["reasoning"] = "High missingness, KNN can capture relationships"
+            # Prefer accuracy over speed
+            elif missing_pct < 20:
+                recommendation["suggested_strategy"] = "median"
+                recommendation["reasoning"] = "Median is robust and accurate for moderate missingness"
             else:
-                # Prefer accuracy over speed
-                if missing_pct < 20:
-                    recommendation["suggested_strategy"] = "median"
-                    recommendation["reasoning"] = "Median is robust and accurate for moderate missingness"
-                else:
-                    recommendation["suggested_strategy"] = "knn"
-                    recommendation["reasoning"] = "KNN provides better accuracy for high missingness"
-            
+                recommendation["suggested_strategy"] = "knn"
+                recommendation["reasoning"] = "KNN provides better accuracy for high missingness"
+
             recommendation["alternatives"] = ["mean", "median", "knn", "iterative"]
         else:
             # Categorical data
@@ -213,9 +209,9 @@ class MissingPatternAnalyzer:
             else:
                 recommendation["suggested_strategy"] = "mode"
                 recommendation["reasoning"] = "Standard mode imputation for categorical data"
-                
+
             recommendation["alternatives"] = ["mode", "constant", "missing_category"]
-        
+
         return recommendation
 
 
@@ -224,7 +220,7 @@ class AdaptiveImputer(BaseEstimator):
     Adaptive imputer that automatically selects and applies appropriate 
     imputation strategies based on data characteristics.
     """
-    
+
     def __init__(self, config: ImputationConfig):
         self.config = config
         self.analyzer = MissingPatternAnalyzer(config)
@@ -232,7 +228,7 @@ class AdaptiveImputer(BaseEstimator):
         self.imputation_pipelines_ = None
         self.feature_names_in_ = None
         self.missing_indicators_ = None
-    
+
     def fit(self, X: pd.DataFrame, y=None):
         """
         Fit the adaptive imputer to the data.
@@ -246,23 +242,23 @@ class AdaptiveImputer(BaseEstimator):
         """
         X = self._validate_input(X)
         self.feature_names_in_ = X.columns.tolist()
-        
+
         # Analyze missing patterns
         if self.config.auto_detect_patterns:
             self.analysis_report_ = self.analyzer.analyze(X)
             if self.config.warn_high_missingness:
                 self._warn_about_high_missingness()
-        
+
         # Create column-specific imputation strategies
         self.imputation_pipelines_ = self._create_imputation_pipelines(X)
-        
+
         # Fit the pipelines
         for col, pipeline in self.imputation_pipelines_.items():
             if pipeline is not None:
                 pipeline.fit(X[[col]])
-        
+
         return self
-    
+
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """
         Transform the data by applying imputation strategies.
@@ -275,7 +271,7 @@ class AdaptiveImputer(BaseEstimator):
         """
         X = self._validate_input(X)
         result = X.copy()
-        
+
         # Store missing indicators if requested
         if self.config.preserve_missing_patterns:
             self.missing_indicators_ = {}
@@ -283,7 +279,7 @@ class AdaptiveImputer(BaseEstimator):
                 if X[col].isnull().any():
                     indicator_name = f"{col}{self.config.missing_indicator_suffix}"
                     self.missing_indicators_[indicator_name] = X[col].isnull()
-        
+
         # Apply column-specific imputation
         if self.imputation_pipelines_:
             for col, pipeline in self.imputation_pipelines_.items():
@@ -291,70 +287,66 @@ class AdaptiveImputer(BaseEstimator):
                     if result[col].isnull().any():
                         imputed_values = pipeline.transform(result[[col]])
                         result[col] = imputed_values.ravel()
-        
+
         # Add missing indicators if requested
         if self.config.preserve_missing_patterns and self.missing_indicators_:
             for indicator_name, indicator_values in self.missing_indicators_.items():
                 result[indicator_name] = indicator_values
-        
+
         return result
-    
+
     def fit_transform(self, X: pd.DataFrame, y=None, **fit_params) -> pd.DataFrame:
         """Fit the imputer and transform the data in one step."""
         return self.fit(X, y).transform(X)
-    
+
     def _validate_input(self, X: pd.DataFrame) -> pd.DataFrame:
         """Validate input DataFrame."""
         if not isinstance(X, pd.DataFrame):
             raise TypeError(f"Expected pandas DataFrame, got {type(X)}")
-        
+
         if X.empty:
             raise ValueError("Input DataFrame is empty")
-        
+
         return X
-    
-    def _create_imputation_pipelines(self, X: pd.DataFrame) -> Dict[str, Optional[Pipeline]]:
+
+    def _create_imputation_pipelines(self, X: pd.DataFrame) -> dict[str, Pipeline | None]:
         """Create column-specific imputation pipelines."""
         pipelines = {}
-        
+
         for col in X.columns:
             if not X[col].isnull().any():
                 pipelines[col] = None  # No imputation needed
                 continue
-            
+
             strategy = self._get_column_strategy(col, X[col])
             pipeline = self._create_column_pipeline(col, strategy, X[col])
             pipelines[col] = pipeline
-        
+
         return pipelines
-    
+
     def _get_column_strategy(self, column: str, series: pd.Series) -> str:
         """Determine the imputation strategy for a specific column."""
         if self.analysis_report_ and column in self.analysis_report_["recommendations"]:
             return self.analysis_report_["recommendations"][column]["suggested_strategy"]
-        
+
         # Fallback to simple rules if no analysis available
         is_numeric = pd.api.types.is_numeric_dtype(series.dtype)
         missing_pct = (series.isnull().sum() / len(series)) * 100
-        
+
         if is_numeric:
             if self.config.numeric_strategy == "adaptive":
                 if self.config.prefer_speed:
                     return "mean" if missing_pct < 20 else "median"
-                else:
-                    return "median" if missing_pct < 30 else "knn"
-            else:
-                return self.config.numeric_strategy
-        else:
-            if self.config.categorical_strategy == "adaptive":
-                return "mode" if missing_pct < 30 else "missing_category"
-            else:
-                return self.config.categorical_strategy
-    
+                return "median" if missing_pct < 30 else "knn"
+            return self.config.numeric_strategy
+        if self.config.categorical_strategy == "adaptive":
+            return "mode" if missing_pct < 30 else "missing_category"
+        return self.config.categorical_strategy
+
     def _create_column_pipeline(self, column: str, strategy: str, series: pd.Series) -> Pipeline:
         """Create imputation pipeline for a specific column and strategy."""
         is_numeric = pd.api.types.is_numeric_dtype(series.dtype)
-        
+
         if is_numeric:
             if strategy == "mean":
                 imputer = SimpleImputer(strategy="mean")
@@ -369,29 +361,26 @@ class AdaptiveImputer(BaseEstimator):
                 else:
                     warnings.warn(
                         "IterativeImputer not available, falling back to KNN imputation",
-                        UserWarning
+                        UserWarning,
                     )
                     imputer = KNNImputer(n_neighbors=self.config.knn_neighbors)
             else:
                 raise ValueError(f"Unknown numeric strategy: {strategy}")
+        # Categorical data
+        elif strategy == "mode":
+            imputer = SimpleImputer(strategy="most_frequent")
+        elif strategy == "constant" or strategy == "missing_category":
+            imputer = SimpleImputer(strategy="constant", fill_value=self.config.categorical_fill_value)
         else:
-            # Categorical data
-            if strategy == "mode":
-                imputer = SimpleImputer(strategy="most_frequent")
-            elif strategy == "constant":
-                imputer = SimpleImputer(strategy="constant", fill_value=self.config.categorical_fill_value)
-            elif strategy == "missing_category":
-                imputer = SimpleImputer(strategy="constant", fill_value=self.config.categorical_fill_value)
-            else:
-                raise ValueError(f"Unknown categorical strategy: {strategy}")
-        
+            raise ValueError(f"Unknown categorical strategy: {strategy}")
+
         return Pipeline([("imputer", imputer)])
-    
+
     def _warn_about_high_missingness(self):
         """Warn users about potentially problematic missing data patterns."""
         if not self.analysis_report_:
             return
-        
+
         # Warn about high missing columns
         high_missing = self.analysis_report_["high_missing_columns"]
         if high_missing:
@@ -399,23 +388,23 @@ class AdaptiveImputer(BaseEstimator):
             for col in high_missing:
                 pct = self.analysis_report_["column_missing_percentages"][col]
                 missing_info.append(f"{col} ({pct:.1f}%)")
-            
+
             warnings.warn(
                 f"High missingness detected in columns: {', '.join(missing_info)}. "
                 f"Consider investigating these patterns or setting preserve_missing_patterns=True "
                 f"if missingness is informative.",
-                UserWarning
+                UserWarning,
             )
-        
+
         # Warn about completely missing columns
         completely_missing = self.analysis_report_["completely_missing_columns"]
         if completely_missing:
             warnings.warn(
                 f"Columns with all missing values will be dropped: {completely_missing}",
-                UserWarning
+                UserWarning,
             )
-    
-    def get_imputation_report(self) -> Dict[str, Any]:
+
+    def get_imputation_report(self) -> dict[str, Any]:
         """
         Get detailed report about the imputation process.
         
@@ -424,9 +413,9 @@ class AdaptiveImputer(BaseEstimator):
         """
         if self.analysis_report_ is None:
             return {"error": "No analysis performed. Call fit() first."}
-        
+
         report = self.analysis_report_.copy()
-        
+
         # Add applied strategies
         applied_strategies = {}
         if self.imputation_pipelines_:
@@ -434,10 +423,10 @@ class AdaptiveImputer(BaseEstimator):
                 if pipeline is not None:
                     strategy_name = type(pipeline.named_steps["imputer"]).__name__
                     applied_strategies[col] = strategy_name
-        
+
         report["applied_strategies"] = applied_strategies
         report["missing_indicators_added"] = list(self.missing_indicators_.keys()) if self.missing_indicators_ else []
-        
+
         return report
 
 
@@ -460,5 +449,5 @@ def create_imputation_pipeline(config: ImputationConfig = None) -> AdaptiveImput
     """
     if config is None:
         config = ImputationConfig()
-    
+
     return AdaptiveImputer(config)

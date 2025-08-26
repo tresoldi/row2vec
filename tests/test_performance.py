@@ -45,7 +45,7 @@ class PerformanceBenchmark:
 
     @staticmethod
     def generate_benchmark_data(
-        n_samples: int, n_features: int = 10, n_categorical: int = 3
+        n_samples: int, n_features: int = 10, n_categorical: int = 3,
     ) -> pd.DataFrame:
         """Generate synthetic data for benchmarking."""
         np.random.seed(42)

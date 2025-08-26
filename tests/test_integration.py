@@ -239,7 +239,7 @@ class TestEdgeCases:
                 "constant_num": [5.0] * 100,
                 "constant_cat": ["A"] * 100,
                 "variable": range(100),
-            }
+            },
         )
 
         # This should work but might give warnings
@@ -260,11 +260,11 @@ class TestEdgeCases:
                 "tiny_int": np.random.randint(0, 2, 100),
                 "large_float": np.random.uniform(1e6, 1e9, 100),
                 "many_categories": np.random.choice(
-                    [f"cat_{i}" for i in range(20)], 100
+                    [f"cat_{i}" for i in range(20)], 100,
                 ),
                 "binary_str": np.random.choice(["yes", "no"], 100),
                 "normal_float": np.random.normal(0, 1, 100),
-            }
+            },
         )
 
         embeddings = learn_embedding(
@@ -286,7 +286,7 @@ class TestEdgeCases:
                 "col1": [1, 2, np.nan, 4, 5] * 20,
                 "col2": ["A", "B", "C", np.nan, "D"] * 20,
                 "col3": np.random.normal(0, 1, 100),
-            }
+            },
         )
 
         # The preprocessing should handle NaNs
@@ -309,7 +309,7 @@ class TestEdgeCases:
             {
                 "col1": [1, 2, 3],
                 "col2": ["A", "B", "C"],
-            }
+            },
         )
 
         # Use appropriate batch size
@@ -357,7 +357,7 @@ class TestCompatibility:
                 "x": np.random.normal(0, 1, 100),
                 "y": np.random.normal(0, 1, 100),
                 "category": np.random.choice(["A", "B", "C"], 100),
-            }
+            },
         )
 
         # After one-hot encoding, we'll have 2 numeric + 3 categorical = 5 features max
@@ -381,7 +381,7 @@ class TestCompatibility:
                 "x": np.random.normal(0, 1, 200),
                 "y": np.random.normal(0, 1, 200),
                 "category": np.random.choice(["A", "B", "C"], 200),
-            }
+            },
         )
 
         batch_sizes = [16, 32, 64, 128]
@@ -405,7 +405,7 @@ class TestCompatibility:
                 "numeric1": np.random.exponential(2, 100),  # Skewed distribution
                 "numeric2": np.random.uniform(-10, 10, 100),
                 "category": np.random.choice(["low", "medium", "high"], 100),
-            }
+            },
         )
 
         scaling_methods = ["none", "minmax", "standard", "l2", "tanh"]

@@ -5,9 +5,8 @@ This module provides a pandas accessor that allows direct embedding
 generation from DataFrames using the `.row2vec` accessor.
 """
 
+
 import pandas as pd
-import numpy as np
-from typing import Optional, Dict, Any, Union
 
 from .api import learn_embedding_v2
 from .config import EmbeddingConfig, create_config_for_mode
@@ -38,16 +37,16 @@ class Row2VecAccessor:
     >>> embeddings = df.row2vec.contrastive(dim=20, loss_type="triplet")
     >>> embeddings = df.row2vec.classical(method="pca", dim=5)
     """
-    
+
     def __init__(self, pandas_obj):
         self._obj = pandas_obj
-    
+
     def embed(
         self,
         dim: int = 10,
         mode: str = "unsupervised",
-        config: Optional[EmbeddingConfig] = None,
-        **kwargs
+        config: EmbeddingConfig | None = None,
+        **kwargs,
     ) -> pd.DataFrame:
         """
         Generate embeddings for the DataFrame.
@@ -77,29 +76,29 @@ class Row2VecAccessor:
             # Create config with specified parameters
             config = create_config_for_mode(mode)
             config.embedding_dim = dim
-            
+
             # Apply any additional kwargs
             for key, value in kwargs.items():
                 if hasattr(config, key):
                     setattr(config, key, value)
-                elif '.' in key:
+                elif "." in key:
                     # Handle nested parameters like neural.max_epochs
-                    section, param = key.split('.', 1)
+                    section, param = key.split(".", 1)
                     if hasattr(config, section):
                         section_config = getattr(config, section)
                         if hasattr(section_config, param):
                             setattr(section_config, param, value)
-        
+
         return learn_embedding_v2(self._obj, config, **kwargs)
-    
+
     def unsupervised(
-        self, 
-        dim: int = 10, 
+        self,
+        dim: int = 10,
         max_epochs: int = 50,
         batch_size: int = 64,
         dropout_rate: float = 0.2,
         hidden_units: int = 128,
-        **kwargs
+        **kwargs,
     ) -> pd.DataFrame:
         """
         Generate unsupervised embeddings using autoencoder.
@@ -134,16 +133,16 @@ class Row2VecAccessor:
         config.neural.batch_size = batch_size
         config.neural.dropout_rate = dropout_rate
         config.neural.hidden_units = hidden_units
-        
+
         return learn_embedding_v2(self._obj, config, **kwargs)
-    
+
     def supervised(
         self,
         target_column: str,
         dim: int = 10,
         max_epochs: int = 50,
         batch_size: int = 64,
-        **kwargs
+        **kwargs,
     ) -> pd.DataFrame:
         """
         Generate supervised embeddings using target column.
@@ -175,9 +174,9 @@ class Row2VecAccessor:
         config.reference_column = target_column
         config.neural.max_epochs = max_epochs
         config.neural.batch_size = batch_size
-        
+
         return learn_embedding_v2(self._obj, config, **kwargs)
-    
+
     def contrastive(
         self,
         dim: int = 10,
@@ -187,7 +186,7 @@ class Row2VecAccessor:
         negative_samples: int = 5,
         max_epochs: int = 100,
         batch_size: int = 32,
-        **kwargs
+        **kwargs,
     ) -> pd.DataFrame:
         """
         Generate contrastive embeddings using similarity learning.
@@ -220,7 +219,7 @@ class Row2VecAccessor:
         --------
         >>> embeddings = df.row2vec.contrastive(dim=20, loss_type="triplet")
         """
-        config = create_config_for_mode("contrastive") 
+        config = create_config_for_mode("contrastive")
         config.embedding_dim = dim
         config.contrastive.loss_type = loss_type
         config.contrastive.auto_pairs = auto_pairs
@@ -228,14 +227,14 @@ class Row2VecAccessor:
         config.contrastive.negative_samples = negative_samples
         config.neural.max_epochs = max_epochs
         config.neural.batch_size = batch_size
-        
+
         return learn_embedding_v2(self._obj, config, **kwargs)
-    
+
     def classical(
         self,
         method: str = "pca",
         dim: int = 10,
-        **kwargs
+        **kwargs,
     ) -> pd.DataFrame:
         """
         Generate embeddings using classical ML methods.
@@ -269,7 +268,7 @@ class Row2VecAccessor:
         """
         config = create_config_for_mode(method)
         config.embedding_dim = dim
-        
+
         # Apply method-specific parameters
         if method == "tsne":
             if "perplexity" in kwargs:
@@ -281,50 +280,50 @@ class Row2VecAccessor:
                 config.classical.n_neighbors = kwargs.pop("n_neighbors")
             if "min_dist" in kwargs:
                 config.classical.min_dist = kwargs.pop("min_dist")
-        
+
         return learn_embedding_v2(self._obj, config, **kwargs)
-    
+
     def pca(self, dim: int = 10, **kwargs) -> pd.DataFrame:
         """Generate PCA embeddings."""
         return self.classical("pca", dim=dim, **kwargs)
-    
+
     def tsne(
-        self, 
-        dim: int = 2, 
-        perplexity: float = 30.0, 
+        self,
+        dim: int = 2,
+        perplexity: float = 30.0,
         n_iter: int = 1000,
-        **kwargs
+        **kwargs,
     ) -> pd.DataFrame:
         """Generate t-SNE embeddings."""
         return self.classical(
-            "tsne", 
-            dim=dim, 
-            perplexity=perplexity, 
-            n_iter=n_iter, 
-            **kwargs
+            "tsne",
+            dim=dim,
+            perplexity=perplexity,
+            n_iter=n_iter,
+            **kwargs,
         )
-    
+
     def umap(
-        self, 
-        dim: int = 3, 
-        n_neighbors: int = 15, 
+        self,
+        dim: int = 3,
+        n_neighbors: int = 15,
         min_dist: float = 0.1,
-        **kwargs
+        **kwargs,
     ) -> pd.DataFrame:
         """Generate UMAP embeddings."""
         return self.classical(
-            "umap", 
-            dim=dim, 
-            n_neighbors=n_neighbors, 
-            min_dist=min_dist, 
-            **kwargs
+            "umap",
+            dim=dim,
+            n_neighbors=n_neighbors,
+            min_dist=min_dist,
+            **kwargs,
         )
-    
+
     def compare_methods(
         self,
         dim: int = 5,
-        methods: Optional[list] = None
-    ) -> Dict[str, pd.DataFrame]:
+        methods: list | None = None,
+    ) -> dict[str, pd.DataFrame]:
         """
         Compare multiple embedding methods on the same data.
         
@@ -348,7 +347,7 @@ class Row2VecAccessor:
         """
         if methods is None:
             methods = ["unsupervised", "pca", "tsne", "umap"]
-        
+
         results = {}
         for method in methods:
             try:
@@ -364,5 +363,5 @@ class Row2VecAccessor:
             except Exception as e:
                 print(f"Warning: Method '{method}' failed: {e}")
                 continue
-        
+
         return results
