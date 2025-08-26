@@ -25,7 +25,10 @@ def main(args):
     # --- 1. Load the selected dataset ---
     dataset_name = args.dataset
     data_path = os.path.join(
-        os.path.dirname(__file__), "..", "data", f"{dataset_name}.csv",
+        os.path.dirname(__file__),
+        "..",
+        "data",
+        f"{dataset_name}.csv",
     )
 
     if not os.path.exists(data_path):

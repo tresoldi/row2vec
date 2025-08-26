@@ -82,7 +82,11 @@ def test_standard_l2_tanh_scaling(synthetic_data):
     df = synthetic_data
     # standard
     emb_std = learn_embedding(
-        df, mode="unsupervised", embedding_dim=4, max_epochs=1, scale_method="standard",
+        df,
+        mode="unsupervised",
+        embedding_dim=4,
+        max_epochs=1,
+        scale_method="standard",
     )
     import numpy as np
 
@@ -92,13 +96,21 @@ def test_standard_l2_tanh_scaling(synthetic_data):
     assert (col_stds > 0).all()
     # l2
     emb_l2 = learn_embedding(
-        df, mode="unsupervised", embedding_dim=4, max_epochs=1, scale_method="l2",
+        df,
+        mode="unsupervised",
+        embedding_dim=4,
+        max_epochs=1,
+        scale_method="l2",
     )
     norms = np.linalg.norm(emb_l2.values, axis=1)
     assert (abs(norms - 1.0) < 1e-3).mean() > 0.9  # most rows should be ~unit norm
     # tanh
     emb_th = learn_embedding(
-        df, mode="unsupervised", embedding_dim=4, max_epochs=1, scale_method="tanh",
+        df,
+        mode="unsupervised",
+        embedding_dim=4,
+        max_epochs=1,
+        scale_method="tanh",
     )
     assert (emb_th.values <= 1.0 + 1e-6).all()
     assert (emb_th.values >= -1.0 - 1e-6).all()

@@ -154,7 +154,9 @@ class TestConfigBasedAPI:
         assert embeddings.shape == (100, 8)
 
         # Test nested overrides
-        embeddings = learn_embedding_v2(df, **{"neural.batch_size": 32, "embedding_dim": 3})
+        embeddings = learn_embedding_v2(
+            df, **{"neural.batch_size": 32, "embedding_dim": 3}
+        )
         assert embeddings.shape == (100, 3)
 
     def test_learn_embedding_with_model_v2(self):
@@ -162,7 +164,9 @@ class TestConfigBasedAPI:
         df = generate_synthetic_data(80)
         config = EmbeddingConfig(embedding_dim=4)
 
-        embeddings, model, preprocessor, metadata = learn_embedding_with_model_v2(df, config)
+        embeddings, model, preprocessor, metadata = learn_embedding_with_model_v2(
+            df, config
+        )
 
         assert embeddings.shape == (80, 4)
         assert model is not None
@@ -182,14 +186,18 @@ class TestConfigBasedAPI:
         df_with_cat = df.copy()
         df_with_cat["category"] = np.random.choice(["A", "B", "C"], 80)
         embeddings = learn_embedding_target(df_with_cat, "category", embedding_dim=4)
-        assert embeddings.shape[1] == 4  # 3 categories, but embedding_dim controls output
+        assert (
+            embeddings.shape[1] == 4
+        )  # 3 categories, but embedding_dim controls output
 
         # Test classical convenience function
         embeddings = learn_embedding_classical(df, method="pca", embedding_dim=3)
         assert embeddings.shape == (80, 3)
 
         # Test contrastive convenience function
-        embeddings = learn_embedding_contrastive(df, embedding_dim=5, loss_type="triplet", auto_pairs="cluster")
+        embeddings = learn_embedding_contrastive(
+            df, embedding_dim=5, loss_type="triplet", auto_pairs="cluster"
+        )
         assert embeddings.shape == (80, 5)
 
 
@@ -224,7 +232,8 @@ class TestAPICompatibility:
         np.testing.assert_allclose(
             legacy_embeddings.values,
             config_embeddings.values,
-            rtol=1e-10, atol=1e-10,
+            rtol=1e-10,
+            atol=1e-10,
         )
 
     def test_multiple_mode_compatibility(self):
@@ -237,9 +246,15 @@ class TestAPICompatibility:
         np.testing.assert_allclose(legacy_pca.values, config_pca.values, rtol=1e-10)
 
         # Test t-SNE mode
-        legacy_tsne = learn_embedding(df, mode="tsne", embedding_dim=3, seed=1305, n_iter=500, perplexity=15.0)
-        config_tsne = learn_embedding_v2(df, mode="tsne", embedding_dim=3, seed=1305, n_iter=500, perplexity=15.0)
-        np.testing.assert_allclose(legacy_tsne.values, config_tsne.values, rtol=1e-5)  # t-SNE may have more variation
+        legacy_tsne = learn_embedding(
+            df, mode="tsne", embedding_dim=3, seed=1305, n_iter=500, perplexity=15.0
+        )
+        config_tsne = learn_embedding_v2(
+            df, mode="tsne", embedding_dim=3, seed=1305, n_iter=500, perplexity=15.0
+        )
+        np.testing.assert_allclose(
+            legacy_tsne.values, config_tsne.values, rtol=1e-5
+        )  # t-SNE may have more variation
 
 
 class TestConfigFactories:
@@ -250,9 +265,13 @@ class TestConfigFactories:
         # Test contrastive mode gets optimized settings
         contrastive_config = create_config_for_mode("contrastive")
         assert contrastive_config.mode == "contrastive"
-        assert contrastive_config.neural.max_epochs == 100  # More epochs for contrastive
-        assert contrastive_config.neural.batch_size == 32   # Smaller batches
-        assert contrastive_config.contrastive.auto_pairs == "cluster"  # Default auto_pairs
+        assert (
+            contrastive_config.neural.max_epochs == 100
+        )  # More epochs for contrastive
+        assert contrastive_config.neural.batch_size == 32  # Smaller batches
+        assert (
+            contrastive_config.contrastive.auto_pairs == "cluster"
+        )  # Default auto_pairs
 
         # Test target mode gets optimized settings
         target_config = create_config_for_mode("target")

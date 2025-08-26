@@ -71,7 +71,9 @@ class PipelineBuilder:
                 categorical_cols.remove(target_name)
 
         # Build numeric pipeline
-        numeric_pipeline = self._build_numeric_pipeline(df[numeric_cols] if numeric_cols else pd.DataFrame())
+        numeric_pipeline = self._build_numeric_pipeline(
+            df[numeric_cols] if numeric_cols else pd.DataFrame()
+        )
 
         # Build categorical pipeline
         categorical_pipeline = self._build_categorical_pipeline(
@@ -100,7 +102,9 @@ class PipelineBuilder:
 
         # Store pipeline description
         self.pipeline_description_ = self._describe_pipeline(
-            numeric_cols, categorical_cols, data_analysis,
+            numeric_cols,
+            categorical_cols,
+            data_analysis,
         )
 
         return preprocessor, data_analysis
@@ -117,7 +121,9 @@ class PipelineBuilder:
             "total_missing": df.isnull().sum().sum(),
             "missing_percentage": (df.isnull().sum().sum() / df.size) * 100,
             "numeric_columns": len(df.select_dtypes(include=[np.number]).columns),
-            "categorical_columns": len(df.select_dtypes(include=["object", "category"]).columns),
+            "categorical_columns": len(
+                df.select_dtypes(include=["object", "category"]).columns
+            ),
             "memory_usage_mb": df.memory_usage(deep=True).sum() / 1024 / 1024,
             "has_target": target is not None,
             "target_type": None,
@@ -142,13 +148,27 @@ class PipelineBuilder:
 
             if df[col].dtype in ["object", "category"]:
                 col_analysis["cardinality"] = df[col].nunique()
-                col_analysis["most_frequent"] = df[col].value_counts().iloc[0] if len(df[col].value_counts()) > 0 else 0
-                col_analysis["frequency_distribution"] = df[col].value_counts().head(5).to_dict()
+                col_analysis["most_frequent"] = (
+                    df[col].value_counts().iloc[0]
+                    if len(df[col].value_counts()) > 0
+                    else 0
+                )
+                col_analysis["frequency_distribution"] = (
+                    df[col].value_counts().head(5).to_dict()
+                )
             else:
-                col_analysis["mean"] = df[col].mean() if not df[col].isnull().all() else None
-                col_analysis["std"] = df[col].std() if not df[col].isnull().all() else None
-                col_analysis["min"] = df[col].min() if not df[col].isnull().all() else None
-                col_analysis["max"] = df[col].max() if not df[col].isnull().all() else None
+                col_analysis["mean"] = (
+                    df[col].mean() if not df[col].isnull().all() else None
+                )
+                col_analysis["std"] = (
+                    df[col].std() if not df[col].isnull().all() else None
+                )
+                col_analysis["min"] = (
+                    df[col].min() if not df[col].isnull().all() else None
+                )
+                col_analysis["max"] = (
+                    df[col].max() if not df[col].isnull().all() else None
+                )
 
             analysis["column_analysis"][col] = col_analysis
 
@@ -179,7 +199,8 @@ class PipelineBuilder:
                 # Use adaptive imputer for more sophisticated strategies
                 imputation_config = ImputationConfig(
                     numeric_strategy=missing_strategy,
-                    prefer_speed=self.config.preprocessing.numeric_scaling == "standard",
+                    prefer_speed=self.config.preprocessing.numeric_scaling
+                    == "standard",
                 )
                 steps.append(("imputer", AdaptiveImputer(imputation_config)))
 
@@ -241,7 +262,9 @@ class PipelineBuilder:
 
         # Analyze dataset characteristics to adjust configuration
         total_memory = categorical_df.memory_usage(deep=True).sum() / 1024 / 1024  # MB
-        total_cardinality = sum(categorical_df[col].nunique() for col in categorical_df.columns)
+        total_cardinality = sum(
+            categorical_df[col].nunique() for col in categorical_df.columns
+        )
 
         # Adjust thresholds based on dataset size and memory constraints
         if total_memory > 100:  # Large dataset, be more conservative
@@ -327,9 +350,10 @@ class PipelineBuilder:
             )
 
         high_cardinality_cols = [
-            col for col in categorical_cols
-            if col in analysis["column_analysis"] and
-            analysis["column_analysis"][col].get("cardinality", 0) > 100
+            col
+            for col in categorical_cols
+            if col in analysis["column_analysis"]
+            and analysis["column_analysis"][col].get("cardinality", 0) > 100
         ]
         if high_cardinality_cols:
             description["recommendations"].append(

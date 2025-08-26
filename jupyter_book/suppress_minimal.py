@@ -1,6 +1,7 @@
 """
 Minimal suppression system that doesn't crash the kernel.
 """
+
 import logging
 import os
 import warnings
@@ -25,8 +26,13 @@ root_logger.addHandler(logging.NullHandler())
 
 # Suppress common library loggers more aggressively
 loggers_to_suppress = [
-    "tensorflow", "keras", "row2vec", "row2vec.learn_embedding",
-    "row2vec.core", "sklearn", "absl",
+    "tensorflow",
+    "keras",
+    "row2vec",
+    "row2vec.learn_embedding",
+    "row2vec.core",
+    "sklearn",
+    "absl",
 ]
 
 for logger_name in loggers_to_suppress:

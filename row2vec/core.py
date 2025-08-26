@@ -93,7 +93,9 @@ def _scale_embeddings(
                     col = values[:, j]
                     if np.max(col) == np.min(col):
                         col_name = (
-                            df_in.columns[j] if j < len(df_in.columns) else f"column_{j}"
+                            df_in.columns[j]
+                            if j < len(df_in.columns)
+                            else f"column_{j}"
                         )
                         raise ValueError(
                             f"MinMax scaling undefined for constant column '{col_name}' "
@@ -283,14 +285,20 @@ def _validate_inputs(
     # Validate hidden_units (can be int or list of ints)
     if isinstance(hidden_units, int):
         if hidden_units <= 0:
-            raise ValueError(f"hidden_units must be a positive integer, got {hidden_units}")
+            raise ValueError(
+                f"hidden_units must be a positive integer, got {hidden_units}"
+            )
     elif isinstance(hidden_units, list):
         if not hidden_units:
             raise ValueError("hidden_units list cannot be empty")
         if not all(isinstance(h, int) and h > 0 for h in hidden_units):
-            raise ValueError(f"All hidden_units must be positive integers, got {hidden_units}")
+            raise ValueError(
+                f"All hidden_units must be positive integers, got {hidden_units}"
+            )
     else:
-        raise ValueError(f"hidden_units must be an integer or list of integers, got {hidden_units}")
+        raise ValueError(
+            f"hidden_units must be an integer or list of integers, got {hidden_units}"
+        )
 
     # 6. Validate scaling parameters
     if scale_method is not None:
@@ -328,7 +336,9 @@ def _validate_inputs(
 
         # Validate negative_samples
         if not isinstance(negative_samples, int) or negative_samples <= 0:
-            raise ValueError(f"negative_samples must be a positive integer, got {negative_samples}")
+            raise ValueError(
+                f"negative_samples must be a positive integer, got {negative_samples}"
+            )
 
         # Validate auto_pairs if provided
         if auto_pairs is not None:
@@ -344,7 +354,9 @@ def _validate_inputs(
                 raise TypeError("similar_pairs must be a list of tuples")
             for i, pair in enumerate(similar_pairs):
                 if not isinstance(pair, tuple) or len(pair) != 2:
-                    raise ValueError(f"similar_pairs[{i}] must be a tuple of 2 integers")
+                    raise ValueError(
+                        f"similar_pairs[{i}] must be a tuple of 2 integers"
+                    )
                 if not all(isinstance(idx, int) for idx in pair):
                     raise ValueError(f"similar_pairs[{i}] must contain only integers")
                 if not all(0 <= idx < len(df) for idx in pair):
@@ -355,11 +367,17 @@ def _validate_inputs(
                 raise TypeError("dissimilar_pairs must be a list of tuples")
             for i, pair in enumerate(dissimilar_pairs):
                 if not isinstance(pair, tuple) or len(pair) != 2:
-                    raise ValueError(f"dissimilar_pairs[{i}] must be a tuple of 2 integers")
+                    raise ValueError(
+                        f"dissimilar_pairs[{i}] must be a tuple of 2 integers"
+                    )
                 if not all(isinstance(idx, int) for idx in pair):
-                    raise ValueError(f"dissimilar_pairs[{i}] must contain only integers")
+                    raise ValueError(
+                        f"dissimilar_pairs[{i}] must contain only integers"
+                    )
                 if not all(0 <= idx < len(df) for idx in pair):
-                    raise ValueError(f"dissimilar_pairs[{i}] contains invalid row indices")
+                    raise ValueError(
+                        f"dissimilar_pairs[{i}] contains invalid row indices"
+                    )
 
         # Check that we have some way to generate pairs
         if similar_pairs is None and dissimilar_pairs is None and auto_pairs is None:
@@ -534,7 +552,9 @@ def _learn_classical_embedding(
         return _scale_embeddings(df_in, method, rng)
 
     final_embeddings = _scale_embeddings_classical(
-        embedding_df, scale_method, scale_range,
+        embedding_df,
+        scale_method,
+        scale_range,
     )
 
     if logger:
@@ -565,7 +585,9 @@ def _generate_contrastive_pairs(
 
     if auto_pairs is not None:
         if logger:
-            logger.log_debug_info(f"Generating automatic pairs using strategy: {auto_pairs}")
+            logger.log_debug_info(
+                f"Generating automatic pairs using strategy: {auto_pairs}"
+            )
 
         n_samples = len(df)
 
@@ -580,7 +602,9 @@ def _generate_contrastive_pairs(
                 cluster_indices = np.where(cluster_labels == cluster_id)[0]
                 if len(cluster_indices) >= 2:
                     # Sample pairs within cluster
-                    n_pairs = min(len(cluster_indices) // 2, 50)  # Limit pairs per cluster
+                    n_pairs = min(
+                        len(cluster_indices) // 2, 50
+                    )  # Limit pairs per cluster
                     for _ in range(n_pairs):
                         idx1, idx2 = np.random.choice(cluster_indices, 2, replace=False)
                         final_similar_pairs.append((int(idx1), int(idx2)))
@@ -589,7 +613,9 @@ def _generate_contrastive_pairs(
             for _ in range(min(len(final_similar_pairs) * negative_samples, 500)):
                 idx1 = np.random.randint(n_samples)
                 # Find a point from a different cluster
-                different_cluster_indices = np.where(cluster_labels != cluster_labels[idx1])[0]
+                different_cluster_indices = np.where(
+                    cluster_labels != cluster_labels[idx1]
+                )[0]
                 if len(different_cluster_indices) > 0:
                     idx2 = np.random.choice(different_cluster_indices)
                     final_dissimilar_pairs.append((int(idx1), int(idx2)))
@@ -621,7 +647,9 @@ def _generate_contrastive_pairs(
 
         elif auto_pairs == "categorical":
             # Use categorical columns to define similarity
-            categorical_cols = df.select_dtypes(include=["object", "category"]).columns.tolist()
+            categorical_cols = df.select_dtypes(
+                include=["object", "category"]
+            ).columns.tolist()
             if reference_column and reference_column in categorical_cols:
                 categorical_cols.remove(reference_column)
 
@@ -680,6 +708,7 @@ def _create_contrastive_loss_function(loss_type: str, margin: float) -> Any:
     """Create the contrastive loss function."""
 
     if loss_type == "triplet":
+
         def triplet_loss(y_true: Any, y_pred: Any) -> Any:
             """Triplet loss: minimize distance between anchor-positive, maximize anchor-negative."""
             # y_pred contains [anchor, positive, negative] embeddings
@@ -687,8 +716,8 @@ def _create_contrastive_loss_function(loss_type: str, margin: float) -> Any:
             embedding_dim = tf.shape(y_pred)[1] // 3
 
             anchor = y_pred[:, :embedding_dim]
-            positive = y_pred[:, embedding_dim:2*embedding_dim]
-            negative = y_pred[:, 2*embedding_dim:]
+            positive = y_pred[:, embedding_dim : 2 * embedding_dim]
+            negative = y_pred[:, 2 * embedding_dim :]
 
             # Calculate distances
             pos_dist = tf.reduce_sum(tf.square(anchor - positive), axis=1)
@@ -701,6 +730,7 @@ def _create_contrastive_loss_function(loss_type: str, margin: float) -> Any:
         return triplet_loss
 
     if loss_type == "contrastive":
+
         def contrastive_loss(y_true: Any, y_pred: Any) -> Any:
             """Contrastive loss: minimize distance for similar pairs, maximize for dissimilar."""
             # y_pred contains [anchor, comparison] embeddings
@@ -717,11 +747,15 @@ def _create_contrastive_loss_function(loss_type: str, margin: float) -> Any:
             comparison = y_pred[:, embedding_dim:]
 
             # Calculate Euclidean distance
-            distance = tf.sqrt(tf.reduce_sum(tf.square(anchor - comparison), axis=1) + 1e-8)
+            distance = tf.sqrt(
+                tf.reduce_sum(tf.square(anchor - comparison), axis=1) + 1e-8
+            )
 
             # Contrastive loss
             similar_loss = y_true * tf.square(distance)
-            dissimilar_loss = (1 - y_true) * tf.square(tf.maximum(0.0, margin - distance))
+            dissimilar_loss = (1 - y_true) * tf.square(
+                tf.maximum(0.0, margin - distance)
+            )
 
             return tf.reduce_mean(similar_loss + dissimilar_loss)
 
@@ -756,7 +790,7 @@ def _build_contrastive_model(
     else:
         # Multi-layer architecture
         for i, units in enumerate(hidden_units):
-            x = Dense(units, activation="relu", name=f"hidden_{i+1}")(x)
+            x = Dense(units, activation="relu", name=f"hidden_{i + 1}")(x)
             x = Dropout(dropout_rate)(x)
 
     embedding_output = Dense(embedding_dim, activation=None, name="embedding")(x)
@@ -774,7 +808,9 @@ def _build_contrastive_model(
         negative_emb = encoder(negative_input)
 
         # Concatenate embeddings for loss calculation
-        concat_output = tf.keras.layers.Concatenate()([anchor_emb, positive_emb, negative_emb])
+        concat_output = tf.keras.layers.Concatenate()(
+            [anchor_emb, positive_emb, negative_emb]
+        )
 
         model = Model(
             inputs=[anchor_input, positive_input, negative_input],
@@ -870,7 +906,7 @@ def _create_contrastive_dataset(
             while True:  # Infinite generator for repeated epochs
                 np.random.shuffle(indices)
                 for i in range(0, n_samples, batch_size):
-                    batch_indices = indices[i:i + batch_size]
+                    batch_indices = indices[i : i + batch_size]
                     if len(batch_indices) == 0:
                         continue
 
@@ -884,12 +920,13 @@ def _create_contrastive_dataset(
         return tf.data.Dataset.from_generator(
             data_generator,
             output_signature=(
-                (tf.TensorSpec(shape=(None, X_processed.shape[1]), dtype=tf.float32),
-                 tf.TensorSpec(shape=(None, X_processed.shape[1]), dtype=tf.float32)),
+                (
+                    tf.TensorSpec(shape=(None, X_processed.shape[1]), dtype=tf.float32),
+                    tf.TensorSpec(shape=(None, X_processed.shape[1]), dtype=tf.float32),
+                ),
                 tf.TensorSpec(shape=(None,), dtype=tf.float32),
             ),
         )
-
 
     if loss_type == "triplet":
         # Prepare data for triplet learning (anchor, positive, negative)
@@ -951,7 +988,7 @@ def _create_contrastive_dataset(
             while True:  # Infinite generator for repeated epochs
                 np.random.shuffle(indices)
                 for i in range(0, n_samples, batch_size):
-                    batch_indices = indices[i:i + batch_size]
+                    batch_indices = indices[i : i + batch_size]
                     if len(batch_indices) == 0:
                         continue
 
@@ -968,15 +1005,18 @@ def _create_contrastive_dataset(
         return tf.data.Dataset.from_generator(
             triplet_data_generator,
             output_signature=(
-                (tf.TensorSpec(shape=(None, X_processed.shape[1]), dtype=tf.float32),
-                 tf.TensorSpec(shape=(None, X_processed.shape[1]), dtype=tf.float32),
-                 tf.TensorSpec(shape=(None, X_processed.shape[1]), dtype=tf.float32)),
+                (
+                    tf.TensorSpec(shape=(None, X_processed.shape[1]), dtype=tf.float32),
+                    tf.TensorSpec(shape=(None, X_processed.shape[1]), dtype=tf.float32),
+                    tf.TensorSpec(shape=(None, X_processed.shape[1]), dtype=tf.float32),
+                ),
                 tf.TensorSpec(shape=(None,), dtype=tf.float32),
             ),
         )
 
-
-    raise ValueError(f"Unknown loss type: {loss_type}. Supported types: 'contrastive', 'triplet'")
+    raise ValueError(
+        f"Unknown loss type: {loss_type}. Supported types: 'contrastive', 'triplet'"
+    )
 
 
 def learn_embedding(
@@ -1203,7 +1243,9 @@ def learn_embedding(
 
     preprocessing_time = time.time() - preprocessing_start_time
     if logger:
-        logger.log_preprocessing_result(df.shape, (X.shape[0], X.shape[1]), preprocessing_time)
+        logger.log_preprocessing_result(
+            df.shape, (X.shape[0], X.shape[1]), preprocessing_time
+        )
 
         # Performance warnings
         if X.shape[1] > 1000:
@@ -1260,8 +1302,16 @@ def learn_embedding(
 
         # Generate pairs for contrastive learning
         similar_pairs_final, dissimilar_pairs_final = _generate_contrastive_pairs(
-            df, similar_pairs, dissimilar_pairs, auto_pairs, reference_column,
-            X, negative_samples, contrastive_loss, seed, logger,
+            df,
+            similar_pairs,
+            dissimilar_pairs,
+            auto_pairs,
+            reference_column,
+            X,
+            negative_samples,
+            contrastive_loss,
+            seed,
+            logger,
         )
 
         if logger:
@@ -1269,14 +1319,23 @@ def learn_embedding(
 
         # Build contrastive model
         model = _build_contrastive_model(
-            X.shape[1], embedding_dim, hidden_units, dropout_rate,
-            contrastive_loss, margin, seed,
+            X.shape[1],
+            embedding_dim,
+            hidden_units,
+            dropout_rate,
+            contrastive_loss,
+            margin,
+            seed,
         )
 
         # Create training dataset
         train_dataset = _create_contrastive_dataset(
-            X, similar_pairs_final, dissimilar_pairs_final,
-            batch_size, contrastive_loss, seed,
+            X,
+            similar_pairs_final,
+            dissimilar_pairs_final,
+            batch_size,
+            contrastive_loss,
+            seed,
         )
 
         # Calculate steps per epoch
@@ -1286,7 +1345,9 @@ def learn_embedding(
         # Train the model
         callbacks = []
         if early_stopping:
-            callbacks.append(EarlyStopping(monitor="loss", patience=5, restore_best_weights=True))
+            callbacks.append(
+                EarlyStopping(monitor="loss", patience=5, restore_best_weights=True)
+            )
 
         if logger:
             callbacks.append(Row2VecTrainingCallback(logger))
@@ -1324,7 +1385,10 @@ def learn_embedding(
         X_train: npt.NDArray[Any]
         X_test: npt.NDArray[Any]
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=seed,
+            X,
+            y,
+            test_size=0.2,
+            random_state=seed,
         )
     else:
         X_train, X_test = train_test_split(X, test_size=0.2, random_state=seed)
@@ -1341,7 +1405,7 @@ def learn_embedding(
     else:
         # Multi-layer architecture
         for i, units in enumerate(hidden_units):
-            x = Dense(units, activation="relu", name=f"encoder_hidden_{i+1}")(x)
+            x = Dense(units, activation="relu", name=f"encoder_hidden_{i + 1}")(x)
             x = Dropout(dropout_rate)(x)
 
     encoded = Dense(embedding_dim, activation="linear", name="embedding")(x)
@@ -1364,7 +1428,9 @@ def learn_embedding(
         else:
             # Multi-layer architecture (reverse order)
             for i, units in enumerate(reversed(hidden_units)):
-                decoded = Dense(units, activation="relu", name=f"decoder_hidden_{i+1}")(decoded)
+                decoded = Dense(
+                    units, activation="relu", name=f"decoder_hidden_{i + 1}"
+                )(decoded)
                 decoded = Dropout(dropout_rate)(decoded)
 
         decoded = Dense(X_train.shape[1], activation="linear")(decoded)
@@ -1430,7 +1496,8 @@ def learn_embedding(
 
     # === EMBEDDING EXTRACTION ===
     encoder: Model = Model(
-        inputs=model.input, outputs=model.get_layer("embedding").output,
+        inputs=model.input,
+        outputs=model.get_layer("embedding").output,
     )
     final_embedded_values: npt.NDArray[Any] = encoder.predict(X, verbose=0)
     final_embedding_df: pd.DataFrame = pd.DataFrame(
@@ -1439,13 +1506,17 @@ def learn_embedding(
     )
 
     if mode == "target":
-        final_embedding_df["category"] = df[reference_column].astype("category").cat.codes
+        final_embedding_df["category"] = (
+            df[reference_column].astype("category").cat.codes
+        )
         grouped: pd.DataFrame = final_embedding_df.groupby("category").mean()
         # Apply scaling after grouping per user preference
         final_embeddings = _scale_embeddings(grouped, scale_method, scale_range)
     else:
         # Apply scaling to row embeddings
-        final_embeddings = _scale_embeddings(final_embedding_df, scale_method, scale_range)
+        final_embeddings = _scale_embeddings(
+            final_embedding_df, scale_method, scale_range
+        )
 
     # Log final embedding statistics
     if logger:
@@ -1486,7 +1557,9 @@ def learn_embedding_with_model(
     margin: float = 1.0,
     # Preprocessing configuration
     config: EmbeddingConfig | None = None,
-) -> tuple[pd.DataFrame, tf.keras.Model | BaseEstimator, ColumnTransformer, dict[str, Any]]:
+) -> tuple[
+    pd.DataFrame, tf.keras.Model | BaseEstimator, ColumnTransformer, dict[str, Any]
+]:
     """
     Extended version of learn_embedding that also returns the model, preprocessor, and training metadata.
 
@@ -1586,9 +1659,11 @@ def learn_embedding_with_model(
         # For classical methods, recreate the fitted estimator
         if mode == "pca":
             from sklearn.decomposition import PCA
+
             model = PCA(n_components=embedding_dim, random_state=seed)
         elif mode == "tsne":
             from sklearn.manifold import TSNE
+
             model = TSNE(
                 n_components=embedding_dim,
                 perplexity=perplexity,
@@ -1599,6 +1674,7 @@ def learn_embedding_with_model(
         else:  # umap
             try:
                 import umap
+
                 model = umap.UMAP(
                     n_components=embedding_dim,
                     n_neighbors=n_neighbors,
@@ -1607,7 +1683,9 @@ def learn_embedding_with_model(
                     verbose=verbose,
                 )
             except ImportError:
-                raise ImportError("UMAP not installed. Install with: pip install umap-learn")
+                raise ImportError(
+                    "UMAP not installed. Install with: pip install umap-learn"
+                )
 
         # Fit the model
         if mode == "tsne":
@@ -1628,28 +1706,50 @@ def learn_embedding_with_model(
             y = df[reference_column].astype("category").cat.codes
             num_classes = len(np.unique(y))
             X_train, X_test, y_train, y_test = train_test_split(
-                X_processed, y, test_size=0.2, random_state=seed,
+                X_processed,
+                y,
+                test_size=0.2,
+                random_state=seed,
             )
         elif mode == "contrastive":
             # Generate pairs for contrastive learning
             similar_pairs_final, dissimilar_pairs_final = _generate_contrastive_pairs(
-                df, similar_pairs, dissimilar_pairs, auto_pairs, reference_column,
-                X_processed, negative_samples, contrastive_loss, seed, logger,
+                df,
+                similar_pairs,
+                dissimilar_pairs,
+                auto_pairs,
+                reference_column,
+                X_processed,
+                negative_samples,
+                contrastive_loss,
+                seed,
+                logger,
             )
 
             if logger:
-                logger.log_debug_info(f"Using {contrastive_loss} loss with margin={margin}")
+                logger.log_debug_info(
+                    f"Using {contrastive_loss} loss with margin={margin}"
+                )
 
             # Build contrastive model
             model = _build_contrastive_model(
-                input_shape, embedding_dim, hidden_units, dropout_rate,
-                contrastive_loss, margin, seed,
+                input_shape,
+                embedding_dim,
+                hidden_units,
+                dropout_rate,
+                contrastive_loss,
+                margin,
+                seed,
             )
 
             # Create training dataset
             train_dataset = _create_contrastive_dataset(
-                X_processed, similar_pairs_final, dissimilar_pairs_final,
-                batch_size, contrastive_loss, seed,
+                X_processed,
+                similar_pairs_final,
+                dissimilar_pairs_final,
+                batch_size,
+                contrastive_loss,
+                seed,
             )
 
             # Calculate steps per epoch
@@ -1659,7 +1759,9 @@ def learn_embedding_with_model(
             # Train the model
             callbacks = []
             if early_stopping:
-                callbacks.append(EarlyStopping(monitor="loss", patience=5, restore_best_weights=True))
+                callbacks.append(
+                    EarlyStopping(monitor="loss", patience=5, restore_best_weights=True)
+                )
 
             if logger:
                 callbacks.append(Row2VecTrainingCallback(logger))
@@ -1678,7 +1780,9 @@ def learn_embedding_with_model(
             embeddings = model.encoder.predict(X_processed)
 
         else:
-            X_train, X_test = train_test_split(X_processed, test_size=0.2, random_state=seed)
+            X_train, X_test = train_test_split(
+                X_processed, test_size=0.2, random_state=seed
+            )
             y_train = y_test = None
             num_classes = 0
 
@@ -1688,7 +1792,9 @@ def learn_embedding_with_model(
             input_layer = Input(shape=(input_shape,))
             encoded = Dense(hidden_units, activation="relu")(input_layer)
             encoded = Dropout(dropout_rate)(encoded)
-            encoded = Dense(embedding_dim, activation="linear", name="embedding")(encoded)
+            encoded = Dense(embedding_dim, activation="linear", name="embedding")(
+                encoded
+            )
 
             if mode == "target":
                 output = Dense(num_classes, activation="softmax")(encoded)
@@ -1709,7 +1815,11 @@ def learn_embedding_with_model(
             # Train the model
             callbacks = []
             if early_stopping:
-                callbacks.append(EarlyStopping(monitor="val_loss", patience=5, restore_best_weights=True))
+                callbacks.append(
+                    EarlyStopping(
+                        monitor="val_loss", patience=5, restore_best_weights=True
+                    )
+                )
 
             history = model.fit(
                 X_train,
@@ -1726,11 +1836,15 @@ def learn_embedding_with_model(
             # Extract embeddings
             if mode == "target":
                 # For target mode, get embeddings from the encoder part
-                encoder = Model(inputs=model.input, outputs=model.get_layer("embedding").output)
+                encoder = Model(
+                    inputs=model.input, outputs=model.get_layer("embedding").output
+                )
                 embeddings = encoder.predict(X_processed)
             else:
                 # For unsupervised mode, get embeddings from the encoder part
-                encoder = Model(inputs=model.input, outputs=model.get_layer("embedding").output)
+                encoder = Model(
+                    inputs=model.input, outputs=model.get_layer("embedding").output
+                )
                 embeddings = encoder.predict(X_processed)
 
     # Convert embeddings to DataFrame with proper column names
@@ -1766,19 +1880,16 @@ def learn_embedding_with_model(
         "perplexity": perplexity,
         "min_dist": min_dist,
         "n_iter": n_iter,
-
         # Training results
         "training_history": training_history,
         "final_loss": final_loss,
         "epochs_trained": epochs_trained,
         "training_time": training_time,
-
         # Data information
         "original_columns": list(df.columns),
         "preprocessed_feature_names": _get_feature_names(preprocessor),
         "data_shape": df.shape,
         "data_types": {col: str(dtype) for col, dtype in df.dtypes.items()},
-
         # Schema validation
         "expected_schema": original_schema,
     }
@@ -1816,7 +1927,10 @@ def _get_feature_names(preprocessor: ColumnTransformer) -> list[str]:
                 feature_names.extend(names)
             except:
                 # Fallback for transformers without proper feature name support
-                if hasattr(transformer, "named_steps") and "onehot" in transformer.named_steps:
+                if (
+                    hasattr(transformer, "named_steps")
+                    and "onehot" in transformer.named_steps
+                ):
                     # For categorical features with OneHot
                     onehot = transformer.named_steps["onehot"]
                     if hasattr(onehot, "categories_"):

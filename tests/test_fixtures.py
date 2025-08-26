@@ -106,10 +106,12 @@ def mixed_complex_data():
         # Categorical features with different cardinalities
         "low_cardinality": np.random.choice(["A", "B", "C"], n_samples),
         "medium_cardinality": np.random.choice(
-            [f"cat_{i}" for i in range(10)], n_samples,
+            [f"cat_{i}" for i in range(10)],
+            n_samples,
         ),
         "high_cardinality": np.random.choice(
-            [f"item_{i}" for i in range(50)], n_samples,
+            [f"item_{i}" for i in range(50)],
+            n_samples,
         ),
         # Features with missing values
         "numeric_with_nan": np.random.normal(0, 1, n_samples),
@@ -125,7 +127,9 @@ def mixed_complex_data():
 
     # Add NaN to categorical column using a simpler approach
     cat_nan_indices = np.random.choice(
-        n_samples, size=int(0.05 * n_samples), replace=False,
+        n_samples,
+        size=int(0.05 * n_samples),
+        replace=False,
     )
     for idx in cat_nan_indices:
         df.at[idx, "categorical_with_nan"] = None

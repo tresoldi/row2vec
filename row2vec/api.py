@@ -74,14 +74,19 @@ def learn_embedding_v2(
         config = _apply_config_overrides(config, config_overrides)
 
     # Handle automatic architecture search for neural modes
-    if auto_architecture and config.mode in ["unsupervised", "contrastive"]:  # Neural-based modes
+    if auto_architecture and config.mode in [
+        "unsupervised",
+        "contrastive",
+    ]:  # Neural-based modes
         from .architecture_search import ArchitectureSearchConfig, search_architecture
 
         if architecture_search_config is None:
             architecture_search_config = ArchitectureSearchConfig()
 
         # Perform architecture search
-        best_architecture, search_result = search_architecture(df, config, architecture_search_config)
+        best_architecture, search_result = search_architecture(
+            df, config, architecture_search_config
+        )
 
         # Update config with best architecture
         config.neural.hidden_units = best_architecture["hidden_units"]
@@ -129,25 +134,38 @@ def learn_embedding_with_model_v2(
     return _legacy_learn_embedding_with_model(df, **legacy_params)
 
 
-def _apply_config_overrides(config: EmbeddingConfig, overrides: dict[str, Any]) -> EmbeddingConfig:
+def _apply_config_overrides(
+    config: EmbeddingConfig, overrides: dict[str, Any]
+) -> EmbeddingConfig:
     """Apply override values to a config object."""
     # Convert config to dict, apply overrides, and convert back
     config_dict = config.to_dict()
 
     # Neural method parameters that need special handling
     neural_params = {
-        "max_epochs", "batch_size", "dropout_rate", "hidden_units", "early_stopping",
+        "max_epochs",
+        "batch_size",
+        "dropout_rate",
+        "hidden_units",
+        "early_stopping",
     }
 
     # Classical method parameters that need special handling
     classical_params = {
-        "n_neighbors", "perplexity", "min_dist", "n_iter",
+        "n_neighbors",
+        "perplexity",
+        "min_dist",
+        "n_iter",
     }
 
     # Contrastive method parameters that need special handling
     contrastive_params = {
-        "similar_pairs", "dissimilar_pairs", "auto_pairs",
-        "contrastive_loss", "margin", "negative_samples",
+        "similar_pairs",
+        "dissimilar_pairs",
+        "auto_pairs",
+        "contrastive_loss",
+        "margin",
+        "negative_samples",
     }
 
     for key, value in overrides.items():
@@ -191,20 +209,17 @@ def _config_to_legacy_params(config: EmbeddingConfig) -> dict[str, Any]:
         "reference_column": config.reference_column,
         "seed": config.seed,
         "verbose": config.verbose,
-
         # Neural parameters
         "max_epochs": config.neural.max_epochs,
         "batch_size": config.neural.batch_size,
         "dropout_rate": config.neural.dropout_rate,
         "hidden_units": config.neural.hidden_units,
         "early_stopping": config.neural.early_stopping,
-
         # Classical parameters
         "n_neighbors": config.classical.n_neighbors,
         "perplexity": config.classical.perplexity,
         "min_dist": config.classical.min_dist,
         "n_iter": config.classical.n_iter,
-
         # Contrastive parameters
         "similar_pairs": config.contrastive.similar_pairs,
         "dissimilar_pairs": config.contrastive.dissimilar_pairs,
@@ -212,11 +227,9 @@ def _config_to_legacy_params(config: EmbeddingConfig) -> dict[str, Any]:
         "contrastive_loss": config.contrastive.loss_type,
         "margin": config.contrastive.margin,
         "negative_samples": config.contrastive.negative_samples,
-
         # Scaling parameters
         "scale_method": config.scaling.method,
         "scale_range": config.scaling.range,
-
         # Logging parameters
         "log_level": config.logging.level,
         "log_file": config.logging.file,
@@ -225,15 +238,21 @@ def _config_to_legacy_params(config: EmbeddingConfig) -> dict[str, Any]:
 
 
 # Convenience functions for common configurations
-def learn_embedding_unsupervised(df: pd.DataFrame, embedding_dim: int = 10, **overrides) -> pd.DataFrame:
+def learn_embedding_unsupervised(
+    df: pd.DataFrame, embedding_dim: int = 10, **overrides
+) -> pd.DataFrame:
     """Learn unsupervised embeddings with optimized defaults."""
     config = EmbeddingConfig(mode="unsupervised", embedding_dim=embedding_dim)
     return learn_embedding_v2(df, config, **overrides)
 
 
-def learn_embedding_target(df: pd.DataFrame, reference_column: str, embedding_dim: int = 10, **overrides) -> pd.DataFrame:
+def learn_embedding_target(
+    df: pd.DataFrame, reference_column: str, embedding_dim: int = 10, **overrides
+) -> pd.DataFrame:
     """Learn target-based embeddings with optimized defaults."""
-    config = EmbeddingConfig(mode="target", reference_column=reference_column, embedding_dim=embedding_dim)
+    config = EmbeddingConfig(
+        mode="target", reference_column=reference_column, embedding_dim=embedding_dim
+    )
     return learn_embedding_v2(df, config, **overrides)
 
 
@@ -255,7 +274,9 @@ def learn_embedding_contrastive(df: pd.DataFrame, **overrides) -> pd.DataFrame:
     return learn_embedding_v2(df, config, **overrides)
 
 
-def learn_embedding_classical(df: pd.DataFrame, method: str = "pca", embedding_dim: int = 10, **overrides) -> pd.DataFrame:
+def learn_embedding_classical(
+    df: pd.DataFrame, method: str = "pca", embedding_dim: int = 10, **overrides
+) -> pd.DataFrame:
     """Learn classical ML embeddings (PCA, t-SNE, UMAP) with optimized defaults."""
     if method not in ["pca", "tsne", "umap"]:
         raise ValueError("method must be one of: pca, tsne, umap")

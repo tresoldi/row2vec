@@ -63,6 +63,7 @@ from .utils import (
 # Import pandas accessor to register it
 try:
     from . import pandas  # This registers the .row2vec accessor
+
     _PANDAS_AVAILABLE = True
 except ImportError:
     _PANDAS_AVAILABLE = False
@@ -70,6 +71,7 @@ except ImportError:
 # Sklearn integration (optional import)
 try:
     from .sklearn import Row2VecClassifier, Row2VecTransformer
+
     _SKLEARN_AVAILABLE = True
 except ImportError:
     _SKLEARN_AVAILABLE = False
@@ -128,7 +130,9 @@ __all__ = [
 
 # Add sklearn integrations if available
 if _SKLEARN_AVAILABLE:
-    __all__.extend([
-        "Row2VecClassifier",
-        "Row2VecTransformer",
-    ])
+    __all__.extend(
+        [
+            "Row2VecClassifier",
+            "Row2VecTransformer",
+        ]
+    )

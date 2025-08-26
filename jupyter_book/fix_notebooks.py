@@ -31,6 +31,7 @@ EXECUTABLE_FILES = [
     "installation.md",  # Has one verification code block
 ]
 
+
 def fix_file(filename):
     """Add notebook metadata to a markdown file if it doesn't have it."""
     with open(filename) as f:
@@ -49,6 +50,7 @@ def fix_file(filename):
 
     print(f"✓ Added metadata to {filename}")
 
+
 def main():
     """Fix all executable markdown files."""
     print("Adding Jupyter notebook metadata to MyST files...")
@@ -60,6 +62,7 @@ def main():
             print(f"⚠ File not found: {filename}")
 
     print("\nDone! Files are now ready for execution.")
+
 
 if __name__ == "__main__":
     main()

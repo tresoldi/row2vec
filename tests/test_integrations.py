@@ -2,7 +2,6 @@
 Tests for scikit-learn and pandas integrations.
 """
 
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -29,8 +28,10 @@ def sample_data_with_target():
 class TestSklearnIntegration:
     """Test the scikit-learn integration."""
 
-    @pytest.mark.skipif(not hasattr(row2vec, "Row2VecTransformer"),
-                       reason="sklearn integration not available")
+    @pytest.mark.skipif(
+        not hasattr(row2vec, "Row2VecTransformer"),
+        reason="sklearn integration not available",
+    )
     def test_row2vec_transformer_basic(self, sample_data):
         """Test basic Row2VecTransformer functionality."""
         from row2vec import Row2VecTransformer
@@ -48,8 +49,10 @@ class TestSklearnIntegration:
         assert X_embedded.shape == (100, 5)
         assert isinstance(X_embedded, np.ndarray)
 
-    @pytest.mark.skipif(not hasattr(row2vec, "Row2VecTransformer"),
-                       reason="sklearn integration not available")
+    @pytest.mark.skipif(
+        not hasattr(row2vec, "Row2VecTransformer"),
+        reason="sklearn integration not available",
+    )
     def test_row2vec_transformer_fit_transform(self, sample_data):
         """Test fit_transform method."""
         from row2vec import Row2VecTransformer
@@ -61,8 +64,10 @@ class TestSklearnIntegration:
         assert hasattr(transformer, "config_")
         assert transformer.config_.mode == "pca"
 
-    @pytest.mark.skipif(not hasattr(row2vec, "Row2VecTransformer"),
-                       reason="sklearn integration not available")
+    @pytest.mark.skipif(
+        not hasattr(row2vec, "Row2VecTransformer"),
+        reason="sklearn integration not available",
+    )
     def test_row2vec_transformer_with_config(self, sample_data):
         """Test transformer with pre-configured config object."""
         from row2vec import EmbeddingConfig, NeuralConfig, Row2VecTransformer
@@ -80,8 +85,10 @@ class TestSklearnIntegration:
         assert transformer.config_.neural.max_epochs == 25
         assert transformer.config_.neural.batch_size == 32
 
-    @pytest.mark.skipif(not hasattr(row2vec, "Row2VecTransformer"),
-                       reason="sklearn integration not available")
+    @pytest.mark.skipif(
+        not hasattr(row2vec, "Row2VecTransformer"),
+        reason="sklearn integration not available",
+    )
     def test_row2vec_transformer_with_numpy(self, sample_data):
         """Test transformer with numpy arrays."""
         from row2vec import Row2VecTransformer
@@ -98,8 +105,10 @@ class TestSklearnIntegration:
         X_embedded2 = transformer.transform(X_numpy)
         assert X_embedded2.shape == (100, 4)
 
-    @pytest.mark.skipif(not hasattr(row2vec, "Row2VecTransformer"),
-                       reason="sklearn integration not available")
+    @pytest.mark.skipif(
+        not hasattr(row2vec, "Row2VecTransformer"),
+        reason="sklearn integration not available",
+    )
     def test_row2vec_transformer_nested_params(self, sample_data):
         """Test transformer with nested parameter overrides."""
         from row2vec import Row2VecTransformer
@@ -116,8 +125,10 @@ class TestSklearnIntegration:
         assert transformer.config_.neural.max_epochs == 15
         assert transformer.config_.neural.batch_size == 16
 
-    @pytest.mark.skipif(not hasattr(row2vec, "Row2VecTransformer"),
-                       reason="sklearn integration not available")
+    @pytest.mark.skipif(
+        not hasattr(row2vec, "Row2VecTransformer"),
+        reason="sklearn integration not available",
+    )
     def test_row2vec_transformer_sklearn_pipeline(self, sample_data):
         """Test transformer in sklearn pipeline."""
         from sklearn.cluster import KMeans
@@ -126,19 +137,23 @@ class TestSklearnIntegration:
 
         from row2vec import Row2VecTransformer
 
-        pipeline = Pipeline([
-            ("embed", Row2VecTransformer(embedding_dim=5, mode="pca")),
-            ("scale", StandardScaler()),
-            ("cluster", KMeans(n_clusters=3, random_state=1305)),
-        ])
+        pipeline = Pipeline(
+            [
+                ("embed", Row2VecTransformer(embedding_dim=5, mode="pca")),
+                ("scale", StandardScaler()),
+                ("cluster", KMeans(n_clusters=3, random_state=1305)),
+            ]
+        )
 
         # Fit pipeline
         labels = pipeline.fit_predict(sample_data)
         assert len(labels) == 100
         assert len(np.unique(labels)) <= 3  # Should have at most 3 clusters
 
-    @pytest.mark.skipif(not hasattr(row2vec, "Row2VecClassifier"),
-                       reason="sklearn integration not available")
+    @pytest.mark.skipif(
+        not hasattr(row2vec, "Row2VecClassifier"),
+        reason="sklearn integration not available",
+    )
     def test_row2vec_classifier(self, sample_data_with_target):
         """Test Row2VecClassifier."""
         from sklearn.model_selection import train_test_split
@@ -150,7 +165,10 @@ class TestSklearnIntegration:
         y = sample_data_with_target["category"]
 
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.3, random_state=1305,
+            X,
+            y,
+            test_size=0.3,
+            random_state=1305,
         )
 
         # Test classifier (use PCA to avoid batch size issues)
@@ -184,7 +202,9 @@ class TestPandasIntegration:
 
         assert isinstance(embeddings, pd.DataFrame)
         assert embeddings.shape == (100, 5)
-        assert all(col.startswith("embedding_") or col.isdigit() for col in embeddings.columns)
+        assert all(
+            col.startswith("embedding_") or col.isdigit() for col in embeddings.columns
+        )
 
     def test_pandas_unsupervised(self, sample_data):
         """Test unsupervised method."""
@@ -234,7 +254,9 @@ class TestPandasIntegration:
         embeddings = sample_data.row2vec.classical("pca", dim=4)
         assert embeddings.shape == (100, 4)
 
-        embeddings = sample_data.row2vec.classical("tsne", dim=2, perplexity=20, n_iter=250)
+        embeddings = sample_data.row2vec.classical(
+            "tsne", dim=2, perplexity=20, n_iter=250
+        )
         assert embeddings.shape == (100, 2)
 
     def test_pandas_compare_methods(self, sample_data):
@@ -330,6 +352,7 @@ def test_integrations_manually():
     print("\nTesting sklearn integration...")
     try:
         from row2vec import Row2VecTransformer
+
         transformer = Row2VecTransformer(embedding_dim=3, mode="pca")
         X_embedded = transformer.fit_transform(sample_data)
         print(f"✅ Sklearn integration works! Embeddings shape: {X_embedded.shape}")

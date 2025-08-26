@@ -16,13 +16,20 @@ def test_contrastive_integration():
     # Test 1: Verify that 'contrastive' is a valid mode choice
     test_args = [
         "train",
-        "--input", "dummy.csv",
-        "--output", "dummy_output.csv",
-        "--mode", "contrastive",
-        "--contrastive-loss", "triplet",
-        "--auto-pairs", "cluster",
-        "--negative-samples", "3",
-        "--margin", "0.5",
+        "--input",
+        "dummy.csv",
+        "--output",
+        "dummy_output.csv",
+        "--mode",
+        "contrastive",
+        "--contrastive-loss",
+        "triplet",
+        "--auto-pairs",
+        "cluster",
+        "--negative-samples",
+        "3",
+        "--margin",
+        "0.5",
     ]
 
     try:
@@ -50,11 +57,16 @@ def test_contrastive_integration():
     # Test 2: Verify that similar/dissimilar pairs file arguments are available
     test_args_with_files = [
         "train",
-        "--input", "dummy.csv",
-        "--output", "dummy_output.csv",
-        "--mode", "contrastive",
-        "--similar-pairs-file", "similar.csv",
-        "--dissimilar-pairs-file", "dissimilar.csv",
+        "--input",
+        "dummy.csv",
+        "--output",
+        "dummy_output.csv",
+        "--mode",
+        "contrastive",
+        "--similar-pairs-file",
+        "similar.csv",
+        "--dissimilar-pairs-file",
+        "dissimilar.csv",
     ]
 
     try:
@@ -72,6 +84,7 @@ def test_contrastive_integration():
 
     print("\n✓ All contrastive learning CLI tests passed!")
     return True
+
 
 if __name__ == "__main__":
     success = test_contrastive_integration()

@@ -54,11 +54,13 @@ class TestCreateDataFrameSchema:
 
     def test_create_schema_basic(self):
         """Test basic schema creation."""
-        df = pd.DataFrame({
-            "int_col": [1, 2, 3],
-            "float_col": [1.1, 2.2, 3.3],
-            "str_col": ["a", "b", "c"],
-        })
+        df = pd.DataFrame(
+            {
+                "int_col": [1, 2, 3],
+                "float_col": [1.1, 2.2, 3.3],
+                "str_col": ["a", "b", "c"],
+            }
+        )
 
         schema = create_dataframe_schema(df)
 
@@ -72,11 +74,13 @@ class TestCreateDataFrameSchema:
 
     def test_create_schema_with_nulls(self):
         """Test schema creation with null values."""
-        df = pd.DataFrame({
-            "col1": [1, 2, None],
-            "col2": ["a", None, "c"],
-            "col3": [1.1, 2.2, 3.3],
-        })
+        df = pd.DataFrame(
+            {
+                "col1": [1, 2, None],
+                "col2": ["a", None, "c"],
+                "col3": [1.1, 2.2, 3.3],
+            }
+        )
 
         schema = create_dataframe_schema(df)
 
@@ -86,10 +90,12 @@ class TestCreateDataFrameSchema:
 
     def test_create_schema_with_categories(self):
         """Test schema creation with categorical columns."""
-        df = pd.DataFrame({
-            "category_col": ["X", "Y", "Z", "X", "Y"],
-            "numeric_col": [1, 2, 3, 4, 5],
-        })
+        df = pd.DataFrame(
+            {
+                "category_col": ["X", "Y", "Z", "X", "Y"],
+                "numeric_col": [1, 2, 3, 4, 5],
+            }
+        )
 
         schema = create_dataframe_schema(df)
 
@@ -99,10 +105,12 @@ class TestCreateDataFrameSchema:
     def test_create_schema_too_many_categories(self):
         """Test schema creation with too many categories."""
         # Create a column with more than 50 unique values
-        df = pd.DataFrame({
-            "many_cats": [f"cat_{i}" for i in range(60)],
-            "numeric": list(range(60)),
-        })
+        df = pd.DataFrame(
+            {
+                "many_cats": [f"cat_{i}" for i in range(60)],
+                "numeric": list(range(60)),
+            }
+        )
 
         schema = create_dataframe_schema(df)
 
@@ -116,10 +124,12 @@ class TestValidateDataFrameSchema:
 
     def test_validate_schema_success(self):
         """Test successful schema validation."""
-        df = pd.DataFrame({
-            "col1": [1, 2, 3],
-            "col2": ["a", "b", "c"],
-        })
+        df = pd.DataFrame(
+            {
+                "col1": [1, 2, 3],
+                "col2": ["a", "b", "c"],
+            }
+        )
 
         schema = create_dataframe_schema(df)
 
@@ -159,11 +169,13 @@ class TestValidateDataFrameSchema:
 
     def test_validate_schema_extra_columns(self):
         """Test validation with extra columns."""
-        df = pd.DataFrame({
-            "col1": [1, 2, 3],
-            "col2": ["a", "b", "c"],
-            "extra": [4, 5, 6],
-        })
+        df = pd.DataFrame(
+            {
+                "col1": [1, 2, 3],
+                "col2": ["a", "b", "c"],
+                "extra": [4, 5, 6],
+            }
+        )
         schema = {"columns": ["col1", "col2"]}
 
         with pytest.raises(ValueError, match="Unexpected columns found"):
@@ -171,11 +183,13 @@ class TestValidateDataFrameSchema:
 
     def test_validate_schema_allow_extra_columns(self):
         """Test validation allowing extra columns."""
-        df = pd.DataFrame({
-            "col1": [1, 2, 3],
-            "col2": ["a", "b", "c"],
-            "extra": [4, 5, 6],
-        })
+        df = pd.DataFrame(
+            {
+                "col1": [1, 2, 3],
+                "col2": ["a", "b", "c"],
+                "extra": [4, 5, 6],
+            }
+        )
         schema = {"columns": ["col1", "col2"]}
 
         # Should not raise when allowing extra columns
@@ -183,9 +197,11 @@ class TestValidateDataFrameSchema:
 
     def test_validate_schema_wrong_dtype(self):
         """Test validation with wrong data types."""
-        df = pd.DataFrame({
-            "col1": ["a", "b", "c"],  # Should be numeric
-        })
+        df = pd.DataFrame(
+            {
+                "col1": ["a", "b", "c"],  # Should be numeric
+            }
+        )
         schema = {
             "columns": ["col1"],
             "dtypes": {"col1": "int64"},
@@ -196,11 +212,13 @@ class TestValidateDataFrameSchema:
 
     def test_validate_schema_compatible_dtypes(self):
         """Test validation with compatible data types."""
-        df = pd.DataFrame({
-            "int_col": [1, 2, 3],  # int64
-            "float_col": [1.0, 2.0, 3.0],  # float64
-            "str_col": ["a", "b", "c"],  # object
-        })
+        df = pd.DataFrame(
+            {
+                "int_col": [1, 2, 3],  # int64
+                "float_col": [1.0, 2.0, 3.0],  # float64
+                "str_col": ["a", "b", "c"],  # object
+            }
+        )
 
         # Create schema with slightly different but compatible types
         schema = {

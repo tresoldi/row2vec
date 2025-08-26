@@ -135,7 +135,9 @@ def main():
     sample_config = EmbeddingConfig(
         embedding_dim=8,  # Reduced size
         mode="contrastive",
-        neural=NeuralConfig(max_epochs=25, batch_size=32, dropout_rate=0.25),  # Reduced epochs
+        neural=NeuralConfig(
+            max_epochs=25, batch_size=32, dropout_rate=0.25
+        ),  # Reduced epochs
         contrastive=ContrastiveConfig(
             loss_type="contrastive",
             auto_pairs="neighbors",

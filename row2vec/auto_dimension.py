@@ -55,8 +55,11 @@ class AutoDimensionSelector:
             verbose: Whether to show selection progress
         """
         self.methods = methods or [
-            "pca_variance", "intrinsic_dim", "performance_based",
-            "clustering_quality", "heuristic_rules",
+            "pca_variance",
+            "intrinsic_dim",
+            "performance_based",
+            "clustering_quality",
+            "heuristic_rules",
         ]
         self.performance_weight = performance_weight
         self.efficiency_weight = efficiency_weight
@@ -108,7 +111,9 @@ class AutoDimensionSelector:
                 if self.verbose:
                     pass
 
-                result = self._apply_method(method, df, config, candidate_dims, target_column)
+                result = self._apply_method(
+                    method, df, config, candidate_dims, target_column
+                )
                 method_results[method] = result
 
                 if self.verbose:
@@ -124,7 +129,9 @@ class AutoDimensionSelector:
 
         # Store results
         self.selection_results_ = method_results
-        self.dimension_scores_ = self._calculate_dimension_scores(method_results, candidate_dims)
+        self.dimension_scores_ = self._calculate_dimension_scores(
+            method_results, candidate_dims
+        )
 
         metadata = {
             "candidate_dimensions": candidate_dims,
@@ -158,7 +165,9 @@ class AutoDimensionSelector:
             max_dim = self.max_dimension
         else:
             # Auto-determine max dimension
-            max_dim = min(n_features // 2, 50, n_samples // 10, max(sqrt_features * 2, 10))
+            max_dim = min(
+                n_features // 2, 50, n_samples // 10, max(sqrt_features * 2, 10)
+            )
 
         max_dim = max(max_dim, min_dim)
 
@@ -194,22 +203,31 @@ class AutoDimensionSelector:
         if method == "intrinsic_dim":
             return self._intrinsic_dimensionality_method(df, candidate_dims)
         if method == "performance_based":
-            return self._performance_based_method(df, config, candidate_dims, target_column)
+            return self._performance_based_method(
+                df, config, candidate_dims, target_column
+            )
         if method == "clustering_quality":
             return self._clustering_quality_method(df, config, candidate_dims)
         if method == "heuristic_rules":
             return self._heuristic_rules_method(df, candidate_dims)
         raise ValueError(f"Unknown method: {method}")
 
-    def _pca_variance_method(self, df: pd.DataFrame, candidate_dims: list[int]) -> dict[str, Any]:
+    def _pca_variance_method(
+        self, df: pd.DataFrame, candidate_dims: list[int]
+    ) -> dict[str, Any]:
         """Select dimension based on PCA explained variance analysis."""
         # Prepare numeric data
         numeric_df = df.select_dtypes(include=[np.number])
         if numeric_df.empty:
-            return {"recommended_dim": candidate_dims[len(candidate_dims)//2], "score": 0.0}
+            return {
+                "recommended_dim": candidate_dims[len(candidate_dims) // 2],
+                "score": 0.0,
+            }
 
         # Fit PCA
-        max_components = min(len(candidate_dims), numeric_df.shape[1], numeric_df.shape[0])
+        max_components = min(
+            len(candidate_dims), numeric_df.shape[1], numeric_df.shape[0]
+        )
         pca = PCA(n_components=max_components)
         pca.fit(numeric_df.fillna(0))
 
@@ -237,12 +255,17 @@ class AutoDimensionSelector:
             "target_dimension": target_dim,
         }
 
-    def _intrinsic_dimensionality_method(self, df: pd.DataFrame, candidate_dims: list[int]) -> dict[str, Any]:
+    def _intrinsic_dimensionality_method(
+        self, df: pd.DataFrame, candidate_dims: list[int]
+    ) -> dict[str, Any]:
         """Estimate intrinsic dimensionality using manifold learning."""
         # Prepare numeric data
         numeric_df = df.select_dtypes(include=[np.number])
         if numeric_df.empty or numeric_df.shape[0] < 20:
-            return {"recommended_dim": candidate_dims[len(candidate_dims)//2], "score": 0.5}
+            return {
+                "recommended_dim": candidate_dims[len(candidate_dims) // 2],
+                "score": 0.5,
+            }
 
         try:
             # Use subset if data is large
@@ -271,17 +294,22 @@ class AutoDimensionSelector:
                     errors.append(np.inf)
 
             if not errors or all(e == np.inf for e in errors):
-                return {"recommended_dim": candidate_dims[len(candidate_dims)//2], "score": 0.5}
+                return {
+                    "recommended_dim": candidate_dims[len(candidate_dims) // 2],
+                    "score": 0.5,
+                }
 
             # Find dimension where error stabilizes
             errors = np.array(errors)
             valid_errors = errors[errors != np.inf]
 
             if len(valid_errors) < 2:
-                recommended_dim = candidate_dims[len(candidate_dims)//2]
+                recommended_dim = candidate_dims[len(candidate_dims) // 2]
             else:
                 # Normalize errors and find stabilization point
-                norm_errors = (valid_errors - valid_errors.min()) / (valid_errors.max() - valid_errors.min() + 1e-8)
+                norm_errors = (valid_errors - valid_errors.min()) / (
+                    valid_errors.max() - valid_errors.min() + 1e-8
+                )
                 diff_errors = np.diff(norm_errors)
 
                 # Find where improvement becomes marginal
@@ -304,7 +332,10 @@ class AutoDimensionSelector:
             }
 
         except Exception:
-            return {"recommended_dim": candidate_dims[len(candidate_dims)//2], "score": 0.5}
+            return {
+                "recommended_dim": candidate_dims[len(candidate_dims) // 2],
+                "score": 0.5,
+            }
 
     def _performance_based_method(
         self,
@@ -335,7 +366,9 @@ class AutoDimensionSelector:
                     test_config = EmbeddingConfig(
                         mode=config.mode,
                         embedding_dim=dim,
-                        neural=NeuralConfig(max_epochs=min(10, config.neural.max_epochs)),  # Faster evaluation
+                        neural=NeuralConfig(
+                            max_epochs=min(10, config.neural.max_epochs)
+                        ),  # Faster evaluation
                         scaling=config.scaling,
                     )
 
@@ -343,14 +376,19 @@ class AutoDimensionSelector:
 
                     # Evaluate with simple classifier
                     clf = LogisticRegression(random_state=1305, max_iter=100)
-                    cv_scores = cross_val_score(clf, embeddings, y, cv=3, scoring="accuracy")
+                    cv_scores = cross_val_score(
+                        clf, embeddings, y, cv=3, scoring="accuracy"
+                    )
                     scores.append(cv_scores.mean())
 
                 except Exception:
                     scores.append(0.0)
 
             if not scores or max(scores) == 0:
-                return {"recommended_dim": candidate_dims[len(candidate_dims)//2], "score": 0.5}
+                return {
+                    "recommended_dim": candidate_dims[len(candidate_dims) // 2],
+                    "score": 0.5,
+                }
 
             best_idx = np.argmax(scores)
             recommended_dim = candidate_dims[best_idx]
@@ -363,7 +401,10 @@ class AutoDimensionSelector:
             }
 
         except Exception:
-            return {"recommended_dim": candidate_dims[len(candidate_dims)//2], "score": 0.5}
+            return {
+                "recommended_dim": candidate_dims[len(candidate_dims) // 2],
+                "score": 0.5,
+            }
 
     def _clustering_quality_method(
         self,
@@ -379,7 +420,9 @@ class AutoDimensionSelector:
                 try:
                     # Generate embeddings with fast configuration
                     test_config = EmbeddingConfig(
-                        mode="pca" if config.mode in ["unsupervised", "contrastive"] else config.mode,
+                        mode="pca"
+                        if config.mode in ["unsupervised", "contrastive"]
+                        else config.mode,
                         embedding_dim=dim,
                         scaling=config.scaling,
                     )
@@ -403,7 +446,10 @@ class AutoDimensionSelector:
                     silhouette_scores.append(0.0)
 
             if not silhouette_scores or max(silhouette_scores) <= 0:
-                return {"recommended_dim": candidate_dims[len(candidate_dims)//2], "score": 0.5}
+                return {
+                    "recommended_dim": candidate_dims[len(candidate_dims) // 2],
+                    "score": 0.5,
+                }
 
             best_idx = np.argmax(silhouette_scores)
             recommended_dim = candidate_dims[best_idx]
@@ -416,9 +462,14 @@ class AutoDimensionSelector:
             }
 
         except Exception:
-            return {"recommended_dim": candidate_dims[len(candidate_dims)//2], "score": 0.5}
+            return {
+                "recommended_dim": candidate_dims[len(candidate_dims) // 2],
+                "score": 0.5,
+            }
 
-    def _heuristic_rules_method(self, df: pd.DataFrame, candidate_dims: list[int]) -> dict[str, Any]:
+    def _heuristic_rules_method(
+        self, df: pd.DataFrame, candidate_dims: list[int]
+    ) -> dict[str, Any]:
         """Apply rule-of-thumb heuristics for dimension selection."""
         n_samples, n_features = df.shape
 
@@ -452,7 +503,9 @@ class AutoDimensionSelector:
         recommended_dim = min(candidate_dims, key=lambda x: abs(x - target_dim))
 
         # Score based on how well it matches multiple heuristics
-        agreements = sum(1 for h_dim in heuristics.values() if abs(h_dim - recommended_dim) <= 2)
+        agreements = sum(
+            1 for h_dim in heuristics.values() if abs(h_dim - recommended_dim) <= 2
+        )
         score = agreements / len(heuristics)
 
         return {
@@ -463,7 +516,9 @@ class AutoDimensionSelector:
             "agreements": agreements,
         }
 
-    def _combine_recommendations(self, method_results: dict, candidate_dims: list[int]) -> int:
+    def _combine_recommendations(
+        self, method_results: dict, candidate_dims: list[int]
+    ) -> int:
         """Combine recommendations from different methods using weighted voting."""
         # Create vote matrix
         votes = dict.fromkeys(candidate_dims, 0.0)
@@ -489,7 +544,9 @@ class AutoDimensionSelector:
 
         return max(votes.keys(), key=lambda k: votes[k])
 
-    def _calculate_dimension_scores(self, method_results: dict, candidate_dims: list[int]) -> dict[int, float]:
+    def _calculate_dimension_scores(
+        self, method_results: dict, candidate_dims: list[int]
+    ) -> dict[int, float]:
         """Calculate overall scores for each candidate dimension."""
         scores = dict.fromkeys(candidate_dims, 0.0)
 
@@ -513,7 +570,7 @@ class AutoDimensionSelector:
                     if distance == 0:
                         scores[dim] += weight * method_score
                     elif distance <= 2:
-                        scores[dim] += weight * method_score * (0.5 ** distance)
+                        scores[dim] += weight * method_score * (0.5**distance)
 
         return scores
 
@@ -539,7 +596,9 @@ def auto_select_dimension(
         Tuple of (optimal_dimension, selection_metadata)
     """
     if config is None:
-        config = EmbeddingConfig(mode="pca", embedding_dim=5)  # Temporary, will be overridden
+        config = EmbeddingConfig(
+            mode="pca", embedding_dim=5
+        )  # Temporary, will be overridden
 
     selector = AutoDimensionSelector(methods=methods, **selector_kwargs)
     return selector.select_dimension(df, config, target_column)

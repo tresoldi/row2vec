@@ -18,6 +18,7 @@ EXECUTABLE_FILES = [
     "test_simple.md",
 ]
 
+
 def update_code_cells(filename):
     """Update code cell tags to suppress all unwanted output."""
     if not os.path.exists(filename):
@@ -36,7 +37,9 @@ def update_code_cells(filename):
 
     # Also update cells without any tags to include clean output tags
     pattern_no_tags = r"```{code-cell} python\n(?!:tags:)"
-    replacement_no_tags = r"```{code-cell} python\n:tags: [remove-stderr, remove-warnings]\n"
+    replacement_no_tags = (
+        r"```{code-cell} python\n:tags: [remove-stderr, remove-warnings]\n"
+    )
 
     new_content = re.sub(pattern_no_tags, replacement_no_tags, new_content)
 
@@ -47,6 +50,7 @@ def update_code_cells(filename):
     else:
         print(f"- No changes needed in {filename}")
 
+
 def main():
     """Update all executable markdown files."""
     print("Updating code cell tags for cleaner output...")
@@ -55,6 +59,7 @@ def main():
         update_code_cells(filename)
 
     print("\nDone! Code cells now have improved output filtering.")
+
 
 if __name__ == "__main__":
     main()

@@ -65,7 +65,9 @@ def test_contrastive_basic():
             max_epochs=3,
             verbose=True,
         )
-        print(f"✅ Cluster auto-pairs test passed! Embeddings shape: {embeddings.shape}")
+        print(
+            f"✅ Cluster auto-pairs test passed! Embeddings shape: {embeddings.shape}"
+        )
     except Exception as e:
         print(f"❌ Cluster auto-pairs test failed: {e}")
         return False
@@ -81,7 +83,9 @@ def test_contrastive_basic():
             max_epochs=3,
             verbose=True,
         )
-        print(f"✅ Categorical auto-pairs test passed! Embeddings shape: {embeddings.shape}")
+        print(
+            f"✅ Categorical auto-pairs test passed! Embeddings shape: {embeddings.shape}"
+        )
     except Exception as e:
         print(f"❌ Categorical auto-pairs test failed: {e}")
         return False
@@ -99,7 +103,9 @@ def test_contrastive_basic():
                 max_epochs=2,
                 verbose=False,
             )
-            print(f"✅ {loss_type} loss test passed! Embeddings shape: {embeddings.shape}")
+            print(
+                f"✅ {loss_type} loss test passed! Embeddings shape: {embeddings.shape}"
+            )
         except Exception as e:
             print(f"❌ {loss_type} loss test failed: {e}")
             return False
@@ -107,18 +113,23 @@ def test_contrastive_basic():
     print("\n🎉 All contrastive learning tests passed!")
     return True
 
+
 def test_validation():
     """Test validation of contrastive parameters"""
     print("\n=== Testing parameter validation ===")
 
-    df = pd.DataFrame({
-        "x": [1, 2, 3, 4],
-        "y": [1, 2, 3, 4],
-    })
+    df = pd.DataFrame(
+        {
+            "x": [1, 2, 3, 4],
+            "y": [1, 2, 3, 4],
+        }
+    )
 
     # Test invalid contrastive_loss
     try:
-        learn_embedding(df, mode="contrastive", auto_pairs="random", contrastive_loss="invalid")
+        learn_embedding(
+            df, mode="contrastive", auto_pairs="random", contrastive_loss="invalid"
+        )
         print("❌ Should have failed with invalid contrastive_loss")
         return False
     except ValueError as e:
@@ -142,6 +153,7 @@ def test_validation():
 
     print("✅ All validation tests passed!")
     return True
+
 
 if __name__ == "__main__":
     print("🔥 Testing Row2Vec Contrastive Learning Implementation")

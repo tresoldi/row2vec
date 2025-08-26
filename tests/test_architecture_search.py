@@ -109,11 +109,13 @@ class TestArchitectureSearcher:
     def sample_data(self):
         """Create sample data for testing."""
         np.random.seed(42)
-        return pd.DataFrame({
-            "feature1": np.random.normal(0, 1, 100),
-            "feature2": np.random.uniform(-1, 1, 100),
-            "feature3": np.random.exponential(1, 100),
-        })
+        return pd.DataFrame(
+            {
+                "feature1": np.random.normal(0, 1, 100),
+                "feature2": np.random.uniform(-1, 1, 100),
+                "feature3": np.random.exponential(1, 100),
+            }
+        )
 
     @pytest.fixture
     def base_config(self):
@@ -125,7 +127,7 @@ class TestArchitectureSearcher:
         """Create search config for testing."""
         return ArchitectureSearchConfig(
             max_trials=3,  # Small number for testing
-            max_time=60,   # Short time for testing
+            max_time=60,  # Short time for testing
             patience=2,
             verbose=False,
         )
@@ -151,7 +153,11 @@ class TestArchitectureSearcher:
         assert "dropout_rate" in architecture
         assert "activation" in architecture
 
-        assert search_config.layer_range[0] <= architecture["n_layers"] <= search_config.layer_range[1]
+        assert (
+            search_config.layer_range[0]
+            <= architecture["n_layers"]
+            <= search_config.layer_range[1]
+        )
         assert architecture["dropout_rate"] in search_config.dropout_options
         assert architecture["activation"] in search_config.activation_options
         # Check that hidden_units structure matches n_layers
@@ -177,7 +183,9 @@ class TestArchitectureSearcher:
             assert "activation" in arch
 
     @patch("row2vec.architecture_search.learn_embedding_v2")
-    def test_evaluate_architecture(self, mock_learn_embedding, sample_data, base_config, search_config):
+    def test_evaluate_architecture(
+        self, mock_learn_embedding, sample_data, base_config, search_config
+    ):
         """Test architecture evaluation."""
         # Mock embedding generation
         mock_embeddings = pd.DataFrame(np.random.randn(100, 5))
@@ -191,7 +199,9 @@ class TestArchitectureSearcher:
             "activation": "relu",
         }
 
-        score = searcher._evaluate_architecture(sample_data, base_config, architecture, None, 0)
+        score = searcher._evaluate_architecture(
+            sample_data, base_config, architecture, None, 0
+        )
 
         assert isinstance(score, float)
         assert score != float("-inf")  # Should not fail
@@ -204,7 +214,9 @@ class TestArchitectureSearcher:
         assert "metrics" in trial_record
 
     @patch("row2vec.architecture_search.learn_embedding_v2")
-    def test_search_random(self, mock_learn_embedding, sample_data, base_config, search_config):
+    def test_search_random(
+        self, mock_learn_embedding, sample_data, base_config, search_config
+    ):
         """Test random search execution."""
         # Mock embedding generation
         mock_embeddings = pd.DataFrame(np.random.randn(100, 5))
@@ -270,10 +282,12 @@ class TestSearchArchitectureFunction:
     def sample_data(self):
         """Create sample data for testing."""
         np.random.seed(42)
-        return pd.DataFrame({
-            "feature1": np.random.normal(0, 1, 50),
-            "feature2": np.random.uniform(-1, 1, 50),
-        })
+        return pd.DataFrame(
+            {
+                "feature1": np.random.normal(0, 1, 50),
+                "feature2": np.random.uniform(-1, 1, 50),
+            }
+        )
 
     @pytest.fixture
     def base_config(self):
@@ -281,7 +295,9 @@ class TestSearchArchitectureFunction:
         return EmbeddingConfig(mode="unsupervised", embedding_dim=3)
 
     @patch("row2vec.architecture_search.learn_embedding_v2")
-    def test_search_architecture_default_config(self, mock_learn_embedding, sample_data, base_config):
+    def test_search_architecture_default_config(
+        self, mock_learn_embedding, sample_data, base_config
+    ):
         """Test search_architecture with default config."""
         # Mock embedding generation
         mock_embeddings = pd.DataFrame(np.random.randn(50, 3))
@@ -297,7 +313,9 @@ class TestSearchArchitectureFunction:
         assert "activation" in best_arch
 
     @patch("row2vec.architecture_search.learn_embedding_v2")
-    def test_search_architecture_custom_config(self, mock_learn_embedding, sample_data, base_config):
+    def test_search_architecture_custom_config(
+        self, mock_learn_embedding, sample_data, base_config
+    ):
         """Test search_architecture with custom config."""
         # Mock embedding generation
         mock_embeddings = pd.DataFrame(np.random.randn(50, 3))
@@ -323,14 +341,18 @@ class TestIntegrationWithAPI:
     def sample_data(self):
         """Create sample data for testing."""
         np.random.seed(42)
-        return pd.DataFrame({
-            "feature1": np.random.normal(0, 1, 30),
-            "feature2": np.random.uniform(-1, 1, 30),
-        })
+        return pd.DataFrame(
+            {
+                "feature1": np.random.normal(0, 1, 30),
+                "feature2": np.random.uniform(-1, 1, 30),
+            }
+        )
 
     @patch("row2vec.architecture_search.search_architecture")
     @patch("row2vec.api._legacy_learn_embedding")
-    def test_learn_embedding_v2_with_auto_architecture(self, mock_legacy, mock_search, sample_data):
+    def test_learn_embedding_v2_with_auto_architecture(
+        self, mock_legacy, mock_search, sample_data
+    ):
         """Test learn_embedding_v2 with auto_architecture=True."""
         from row2vec.api import learn_embedding_v2
         from row2vec.config import EmbeddingConfig
@@ -382,7 +404,9 @@ class TestErrorHandling:
             searcher.search(sample_data, base_config)
 
     @patch("row2vec.architecture_search.learn_embedding_v2")
-    def test_embedding_generation_failure(self, mock_learn_embedding, sample_data, base_config):
+    def test_embedding_generation_failure(
+        self, mock_learn_embedding, sample_data, base_config
+    ):
         """Test handling of embedding generation failures."""
         # Mock embedding generation to fail
         mock_learn_embedding.side_effect = Exception("Embedding failed")

@@ -41,8 +41,12 @@ class ArchitectureSearchConfig:
     layer_range: tuple[int, int] = (1, 4)  # Min/max number of hidden layers
     max_layers: int = 4  # Maximum number of hidden layers
     width_options: list[int] = field(default_factory=lambda: [32, 64, 128, 256, 512])
-    dropout_options: list[float] = field(default_factory=lambda: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5])
-    activation_options: list[str] = field(default_factory=lambda: ["relu", "elu", "swish"])
+    dropout_options: list[float] = field(
+        default_factory=lambda: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]
+    )
+    activation_options: list[str] = field(
+        default_factory=lambda: ["relu", "elu", "swish"]
+    )
 
     def __post_init__(self):
         """Initialize derived parameters."""
@@ -92,7 +96,9 @@ class ArchitectureSearchResult:
             "total_time": self.total_time,
             "trials_completed": self.trials_completed,
             "improvement_over_baseline": self._compute_improvement(),
-            "search_efficiency": self.best_score / self.total_time if self.total_time > 0 else 0,
+            "search_efficiency": self.best_score / self.total_time
+            if self.total_time > 0
+            else 0,
         }
 
     def _compute_improvement(self) -> float:
@@ -101,7 +107,11 @@ class ArchitectureSearchResult:
             return 0.0
 
         baseline_score = self.search_history[0]["score"]
-        return (self.best_score - baseline_score) / baseline_score if baseline_score > 0 else 0.0
+        return (
+            (self.best_score - baseline_score) / baseline_score
+            if baseline_score > 0
+            else 0.0
+        )
 
 
 class ArchitectureSearcher:
@@ -161,7 +171,9 @@ class ArchitectureSearcher:
             return ArchitectureSearchResult(
                 best_architecture=self.best_architecture or {},
                 best_score=self.best_score,
-                search_history=self.search_history if self.config.return_full_history else [],
+                search_history=self.search_history
+                if self.config.return_full_history
+                else [],
                 total_time=total_time,
                 trials_completed=len(self.search_history),
             )
@@ -188,7 +200,9 @@ class ArchitectureSearcher:
             architecture = self._sample_random_architecture()
 
             # Evaluate architecture
-            score = self._evaluate_architecture(df, base_config, architecture, target_column, trial)
+            score = self._evaluate_architecture(
+                df, base_config, architecture, target_column, trial
+            )
 
             # Update best
             if score > self.best_score:
@@ -228,7 +242,9 @@ class ArchitectureSearcher:
                 break
 
             # Evaluate architecture
-            score = self._evaluate_architecture(df, base_config, architecture, target_column, trial)
+            score = self._evaluate_architecture(
+                df, base_config, architecture, target_column, trial
+            )
 
             # Update best
             if score > self.best_score:
@@ -274,25 +290,35 @@ class ArchitectureSearcher:
         architectures = []
 
         # Grid over number of layers, widths, dropout, and activation
-        for n_layers in range(1, min(self.config.max_layers + 1, 3)):  # Limit to 2 layers for grid efficiency
-            for width in self.config.width_options[::2]:  # Use every other width for efficiency
-                for dropout in self.config.dropout_options[::2]:  # Use every other dropout
+        for n_layers in range(
+            1, min(self.config.max_layers + 1, 3)
+        ):  # Limit to 2 layers for grid efficiency
+            for width in self.config.width_options[
+                ::2
+            ]:  # Use every other width for efficiency
+                for dropout in self.config.dropout_options[
+                    ::2
+                ]:  # Use every other dropout
                     for activation in self.config.activation_options:
                         if n_layers == 1:
                             hidden_units = width
                         else:
                             # For multi-layer, create decreasing layer sizes
                             hidden_units = [width // (i + 1) for i in range(n_layers)]
-                            hidden_units = [max(h, 16) for h in hidden_units]  # Ensure minimum size
+                            hidden_units = [
+                                max(h, 16) for h in hidden_units
+                            ]  # Ensure minimum size
 
-                        architectures.append({
-                            "n_layers": n_layers,
-                            "hidden_units": hidden_units,
-                            "dropout_rate": dropout,
-                            "activation": activation,
-                        })
+                        architectures.append(
+                            {
+                                "n_layers": n_layers,
+                                "hidden_units": hidden_units,
+                                "dropout_rate": dropout,
+                                "activation": activation,
+                            }
+                        )
 
-        return architectures[:self.config.max_trials]  # Limit grid size
+        return architectures[: self.config.max_trials]  # Limit grid size
 
     def _generate_width_configurations(self, n_layers: int) -> list[list[int]]:
         """Generate sensible width configurations for a given number of layers."""
@@ -302,17 +328,29 @@ class ArchitectureSearcher:
         if n_layers == 1:
             configs.extend([[w] for w in [64, 128, 256]])
         elif n_layers == 2:
-            configs.extend([
-                [128, 64], [256, 128], [512, 256], [128, 128],
-            ])
+            configs.extend(
+                [
+                    [128, 64],
+                    [256, 128],
+                    [512, 256],
+                    [128, 128],
+                ]
+            )
         elif n_layers == 3:
-            configs.extend([
-                [256, 128, 64], [512, 256, 128], [128, 128, 64],
-            ])
+            configs.extend(
+                [
+                    [256, 128, 64],
+                    [512, 256, 128],
+                    [128, 128, 64],
+                ]
+            )
         elif n_layers == 4:
-            configs.extend([
-                [512, 256, 128, 64], [256, 256, 128, 64],
-            ])
+            configs.extend(
+                [
+                    [512, 256, 128, 64],
+                    [256, 256, 128, 64],
+                ]
+            )
 
         return configs
 
@@ -356,14 +394,16 @@ class ArchitectureSearcher:
             training_time = time.time() - start_time
 
             # Compute evaluation metrics
-            metrics = self._compute_evaluation_metrics(df, embeddings, training_time, target_column)
+            metrics = self._compute_evaluation_metrics(
+                df, embeddings, training_time, target_column
+            )
 
             # Compute weighted score
             score = (
-                self.config.reconstruction_weight * metrics["reconstruction_score"] +
-                self.config.clustering_weight * metrics["clustering_score"] +
-                self.config.efficiency_weight * metrics["efficiency_score"] +
-                self.config.stability_weight * metrics["stability_score"]
+                self.config.reconstruction_weight * metrics["reconstruction_score"]
+                + self.config.clustering_weight * metrics["clustering_score"]
+                + self.config.efficiency_weight * metrics["efficiency_score"]
+                + self.config.stability_weight * metrics["stability_score"]
             )
 
             # Record trial
@@ -424,7 +464,9 @@ class ArchitectureSearcher:
             # Use variance preservation as a proxy for reconstruction quality
             original_var = df.select_dtypes(include=[np.number]).var().mean()
             embedding_var = embeddings.var().mean()
-            reconstruction_score = min(1.0, embedding_var / original_var) if original_var > 0 else 0.5
+            reconstruction_score = (
+                min(1.0, embedding_var / original_var) if original_var > 0 else 0.5
+            )
             metrics["reconstruction_score"] = reconstruction_score
         except:
             metrics["reconstruction_score"] = 0.5
@@ -505,11 +547,15 @@ class ArchitectureSearcher:
         dropout_count = len(self.config.dropout_options)
         activation_count = len(self.config.activation_options)
 
-        total_combinations = layer_count * (width_count ** 3) * dropout_count * activation_count
+        total_combinations = (
+            layer_count * (width_count**3) * dropout_count * activation_count
+        )
 
-        return (f"{layer_count} layer configs × {width_count} width options × "
-                f"{dropout_count} dropout rates × {activation_count} activations "
-                f"≈ {total_combinations:,} total combinations")
+        return (
+            f"{layer_count} layer configs × {width_count} width options × "
+            f"{dropout_count} dropout rates × {activation_count} activations "
+            f"≈ {total_combinations:,} total combinations"
+        )
 
 
 def search_architecture(

@@ -29,13 +29,15 @@ def basic_architecture_search_example():
     df = generate_synthetic_data(400, seed=1305)
     # Add more features for architecture search testing
     rng = np.random.default_rng(1305)
-    additional_features = pd.DataFrame({
-        "feature4": rng.normal(0, 1, len(df)),
-        "feature5": rng.uniform(-1, 1, len(df)),
-        "feature6": rng.exponential(1, len(df)),
-        "feature7": rng.gamma(2, 2, len(df)),
-        "feature8": rng.beta(2, 5, len(df)),
-    })
+    additional_features = pd.DataFrame(
+        {
+            "feature4": rng.normal(0, 1, len(df)),
+            "feature5": rng.uniform(-1, 1, len(df)),
+            "feature6": rng.exponential(1, len(df)),
+            "feature7": rng.gamma(2, 2, len(df)),
+            "feature8": rng.beta(2, 5, len(df)),
+        }
+    )
     df = pd.concat([df, additional_features], axis=1)
     print(f"Dataset shape: {df.shape}")
 
@@ -66,15 +68,17 @@ def advanced_architecture_search_example():
 
     # Generate larger, more complex dataset
     rng = np.random.default_rng(1305)
-    df = pd.DataFrame({
-        "feature1": rng.normal(0, 1, 600),
-        "feature2": rng.exponential(1, 600),
-        "feature3": rng.uniform(-2, 2, 600),
-        "feature4": rng.gamma(2, 2, 600),
-        "feature5": rng.beta(2, 5, 600),
-        "feature6": rng.lognormal(0, 1, 600),
-        "category": rng.choice(["A", "B", "C", "D"], 600),
-    })
+    df = pd.DataFrame(
+        {
+            "feature1": rng.normal(0, 1, 600),
+            "feature2": rng.exponential(1, 600),
+            "feature3": rng.uniform(-2, 2, 600),
+            "feature4": rng.gamma(2, 2, 600),
+            "feature5": rng.beta(2, 5, 600),
+            "feature6": rng.lognormal(0, 1, 600),
+            "category": rng.choice(["A", "B", "C", "D"], 600),
+        }
+    )
 
     # Remove category for embedding (keep for evaluation)
     df_features = df.drop(columns=["category"])
@@ -86,19 +90,16 @@ def advanced_architecture_search_example():
         max_trials=25,
         max_time=900,  # 15 minutes
         patience=8,
-
         # Search space customization
         layer_range=(1, 4),
         width_options=[32, 64, 128, 256],
         dropout_options=[0.0, 0.1, 0.2, 0.3],
         activation_options=["relu", "elu", "swish"],
-
         # Evaluation weights
         reconstruction_weight=0.4,
         clustering_weight=0.4,
         efficiency_weight=0.15,
         stability_weight=0.05,
-
         verbose=True,
     )
 
@@ -128,10 +129,12 @@ def direct_search_example():
     df = generate_synthetic_data(300, seed=1305)
     # Add more features for testing
     rng = np.random.default_rng(1305)
-    additional_features = pd.DataFrame({
-        "feature4": rng.normal(0, 1, len(df)),
-        "feature5": rng.uniform(-1, 1, len(df)),
-    })
+    additional_features = pd.DataFrame(
+        {
+            "feature4": rng.normal(0, 1, len(df)),
+            "feature5": rng.uniform(-1, 1, len(df)),
+        }
+    )
     df = pd.concat([df, additional_features], axis=1)
     print(f"Dataset shape: {df.shape}")
 
@@ -189,10 +192,12 @@ def direct_search_example():
         )[:5]
 
         for i, trial in enumerate(sorted_history):
-            print(f"   {i+1}. Score: {trial['score']:.4f}, "
-                  f"Layers: {trial['architecture']['n_layers']}, "
-                  f"Widths: {trial['architecture']['layer_widths']}, "
-                  f"Dropout: {trial['architecture']['dropout_rate']:.2f}")
+            print(
+                f"   {i + 1}. Score: {trial['score']:.4f}, "
+                f"Layers: {trial['architecture']['n_layers']}, "
+                f"Widths: {trial['architecture']['layer_widths']}, "
+                f"Dropout: {trial['architecture']['dropout_rate']:.2f}"
+            )
 
     # Use best architecture for final embedding
     print("\n🚀 Generating final embeddings with best architecture...")
@@ -230,7 +235,7 @@ def grid_search_example():
     search_config = ArchitectureSearchConfig(
         method="grid",
         max_trials=20,  # Limit grid size
-        max_time=600,   # 10 minutes
+        max_time=600,  # 10 minutes
         verbose=True,
     )
 
@@ -261,11 +266,13 @@ def comparison_example():
     df = generate_synthetic_data(350, seed=1305)
     # Add more features for comparison testing
     rng = np.random.default_rng(1305)
-    additional_features = pd.DataFrame({
-        "feature4": rng.normal(0, 1, len(df)),
-        "feature5": rng.uniform(-1, 1, len(df)),
-        "feature6": rng.exponential(1, len(df)),
-    })
+    additional_features = pd.DataFrame(
+        {
+            "feature4": rng.normal(0, 1, len(df)),
+            "feature5": rng.uniform(-1, 1, len(df)),
+            "feature6": rng.exponential(1, len(df)),
+        }
+    )
     df = pd.concat([df, additional_features], axis=1)
     print(f"Dataset shape: {df.shape}")
 
@@ -293,11 +300,11 @@ def comparison_example():
             )
 
             embeddings = learn_embedding_v2(df, config)
-            print(f"   Manual {i+1}: {arch_config['layers']} - SUCCESS")
+            print(f"   Manual {i + 1}: {arch_config['layers']} - SUCCESS")
             manual_results.append((arch_config, embeddings.shape))
 
         except Exception as e:
-            print(f"   Manual {i+1}: {arch_config['layers']} - FAILED: {e}")
+            print(f"   Manual {i + 1}: {arch_config['layers']} - FAILED: {e}")
 
     # Automatic architecture search
     print("\n    search_config = ArchitectureSearchConfig(
@@ -317,7 +324,9 @@ def comparison_example():
 
     print("\n📊 Comparison Summary:")
     print(f"   Manual architectures tested: {len(manual_results)}")
-    print(f"   Manual success rate: {len(manual_results)/len(manual_configs)*100:.1f}%")
+    print(
+        f"   Manual success rate: {len(manual_results) / len(manual_configs) * 100:.1f}%"
+    )
     print("   Automatic search: Always finds working architecture")
     print("   Recommendation: Use automatic search for optimal results")
 

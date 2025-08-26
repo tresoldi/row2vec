@@ -29,8 +29,7 @@ def _detect_input_format(file_path: Path) -> str:
     if suffix in [".parquet", ".pq"]:
         return "parquet"
     raise ValueError(
-        f"Unsupported file format: {suffix}. "
-        f"Supported formats: .csv, .tsv, .parquet",
+        f"Unsupported file format: {suffix}. Supported formats: .csv, .tsv, .parquet",
     )
 
 
@@ -50,7 +49,6 @@ def _load_dataframe(file_path: Path, validate_only: bool = False) -> pd.DataFram
             df = pd.read_parquet(file_path)
         else:
             raise ValueError(f"Unsupported format: {format_type}")
-
 
         if validate_only:
             pass
@@ -74,12 +72,13 @@ def _save_dataframe(df: pd.DataFrame, file_path: Path) -> None:
         elif format_type == "parquet":
             df.to_parquet(file_path, index=False)
 
-
     except Exception as e:
         raise ValueError(f"Failed to save to {file_path}: {e!s}")
 
 
-def _validate_schema_friendly(df: pd.DataFrame, reference_column: str | None = None) -> bool:
+def _validate_schema_friendly(
+    df: pd.DataFrame, reference_column: str | None = None
+) -> bool:
     """Validate DataFrame schema with user-friendly error messages."""
     try:
         # Create and validate schema
@@ -99,11 +98,15 @@ def _validate_schema_friendly(df: pd.DataFrame, reference_column: str | None = N
         # Mode-specific validation
         if reference_column:
             if reference_column not in df.columns:
-                raise ValueError(f"Target column '{reference_column}' not found in dataset. Available columns: {list(df.columns)}")
+                raise ValueError(
+                    f"Target column '{reference_column}' not found in dataset. Available columns: {list(df.columns)}"
+                )
 
             unique_values = df[reference_column].nunique()
             if unique_values < 2:
-                raise ValueError(f"Target column '{reference_column}' must have at least 2 unique values, found {unique_values}")
+                raise ValueError(
+                    f"Target column '{reference_column}' must have at least 2 unique values, found {unique_values}"
+                )
             if unique_values > 1000:
                 pass
 
@@ -114,14 +117,17 @@ def _validate_schema_friendly(df: pd.DataFrame, reference_column: str | None = N
 
         # Check data types
         numeric_cols = df.select_dtypes(include=["number"]).columns.tolist()
-        categorical_cols = df.select_dtypes(include=["object", "category"]).columns.tolist()
+        categorical_cols = df.select_dtypes(
+            include=["object", "category"]
+        ).columns.tolist()
 
         if reference_column and reference_column in categorical_cols:
             categorical_cols.remove(reference_column)
 
-
         if len(numeric_cols) == 0 and len(categorical_cols) == 0:
-            raise ValueError("Dataset must contain at least one numeric or categorical column for embedding")
+            raise ValueError(
+                "Dataset must contain at least one numeric or categorical column for embedding"
+            )
 
         return True
 
@@ -139,12 +145,14 @@ def _generate_model_name(mode: str, timestamp: str | None = None) -> str:
 def _add_common_args(parser: argparse.ArgumentParser) -> None:
     """Add common arguments to subcommand parsers."""
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Enable verbose output and training progress",
     )
     parser.add_argument(
-        "--quiet", "-q",
+        "--quiet",
+        "-q",
         action="store_true",
         help="Suppress all non-error output",
     )
@@ -159,13 +167,15 @@ def _add_embedding_args(parser: argparse.ArgumentParser) -> None:
     """Add embedding-specific arguments."""
     # Core parameters
     parser.add_argument(
-        "--mode", "-m",
+        "--mode",
+        "-m",
         choices=["unsupervised", "target", "pca", "tsne", "umap", "contrastive"],
         default="unsupervised",
         help="Embedding method (default: unsupervised)",
     )
     parser.add_argument(
-        "--dim", "-d",
+        "--dim",
+        "-d",
         type=int,
         default=10,
         help="Embedding dimensions (default: 10)",
@@ -342,7 +352,9 @@ def cmd_train(args: argparse.Namespace) -> int:
                     pairs_df = pd.read_csv(args.similar_pairs_file, header=None)
                     if pairs_df.shape[1] != 2:
                         return 1
-                    similar_pairs = [(int(row[0]), int(row[1])) for _, row in pairs_df.iterrows()]
+                    similar_pairs = [
+                        (int(row[0]), int(row[1])) for _, row in pairs_df.iterrows()
+                    ]
                     if not args.quiet:
                         pass
                 except Exception:
@@ -353,7 +365,9 @@ def cmd_train(args: argparse.Namespace) -> int:
                     pairs_df = pd.read_csv(args.dissimilar_pairs_file, header=None)
                     if pairs_df.shape[1] != 2:
                         return 1
-                    dissimilar_pairs = [(int(row[0]), int(row[1])) for _, row in pairs_df.iterrows()]
+                    dissimilar_pairs = [
+                        (int(row[0]), int(row[1])) for _, row in pairs_df.iterrows()
+                    ]
                     if not args.quiet:
                         pass
                 except Exception:
@@ -506,7 +520,9 @@ def cmd_annotate(args: argparse.Namespace) -> int:
                     pairs_df = pd.read_csv(args.similar_pairs_file, header=None)
                     if pairs_df.shape[1] != 2:
                         return 1
-                    similar_pairs = [(int(row[0]), int(row[1])) for _, row in pairs_df.iterrows()]
+                    similar_pairs = [
+                        (int(row[0]), int(row[1])) for _, row in pairs_df.iterrows()
+                    ]
                     if not args.quiet:
                         pass
                 except Exception:
@@ -517,7 +533,9 @@ def cmd_annotate(args: argparse.Namespace) -> int:
                     pairs_df = pd.read_csv(args.dissimilar_pairs_file, header=None)
                     if pairs_df.shape[1] != 2:
                         return 1
-                    dissimilar_pairs = [(int(row[0]), int(row[1])) for _, row in pairs_df.iterrows()]
+                    dissimilar_pairs = [
+                        (int(row[0]), int(row[1])) for _, row in pairs_df.iterrows()
+                    ]
                     if not args.quiet:
                         pass
                 except Exception:
@@ -642,14 +660,12 @@ def cmd_search_architecture(args: argparse.Namespace) -> int:
         summary = search_result.summary()
 
         if not args.quiet:
-
             # Handle both single layer (int) and multi-layer (list) formats
             hidden_units = best_architecture["hidden_units"]
             if isinstance(hidden_units, list):
                 pass
             else:
                 pass
-
 
             if summary["improvement_over_baseline"] > 0:
                 pass
@@ -676,11 +692,13 @@ def cmd_search_architecture(args: argparse.Namespace) -> int:
 
             if output_path.suffix == ".json":
                 import json
+
                 with open(output_path, "w") as f:
                     json.dump(results_dict, f, indent=2)
             else:
                 # Save as YAML
                 import yaml
+
                 with open(output_path, "w") as f:
                     yaml.dump(results_dict, f, default_flow_style=False)
 
@@ -740,12 +758,14 @@ Supported formats: CSV, TSV, Parquet (auto-detected by file extension)
         description="Train a Row2Vec embedding model and save it for later use",
     )
     train_parser.add_argument(
-        "--input", "-i",
+        "--input",
+        "-i",
         required=True,
         help="Input data file (CSV, TSV, or Parquet)",
     )
     train_parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         help="Output model file path (default: auto-generated with timestamp)",
     )
     _add_common_args(train_parser)
@@ -759,17 +779,20 @@ Supported formats: CSV, TSV, Parquet (auto-detected by file extension)
         description="Use a previously trained Row2Vec model to generate embeddings for new data",
     )
     predict_parser.add_argument(
-        "--input", "-i",
+        "--input",
+        "-i",
         required=True,
         help="Input data file (CSV, TSV, or Parquet)",
     )
     predict_parser.add_argument(
-        "--model", "-m",
+        "--model",
+        "-m",
         required=True,
         help="Saved Row2Vec model file (.py)",
     )
     predict_parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         required=True,
         help="Output embeddings file (CSV, TSV, or Parquet)",
     )
@@ -783,12 +806,14 @@ Supported formats: CSV, TSV, Parquet (auto-detected by file extension)
         description="Generate embeddings for data without saving a model (for one-time use)",
     )
     annotate_parser.add_argument(
-        "--input", "-i",
+        "--input",
+        "-i",
         required=True,
         help="Input data file (CSV, TSV, or Parquet)",
     )
     annotate_parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         required=True,
         help="Output embeddings file (CSV, TSV, or Parquet)",
     )
@@ -803,12 +828,14 @@ Supported formats: CSV, TSV, Parquet (auto-detected by file extension)
         description="Automatically search for the best neural architecture for your dataset",
     )
     arch_search_parser.add_argument(
-        "--input", "-i",
+        "--input",
+        "-i",
         required=True,
         help="Input data file (CSV, TSV, or Parquet)",
     )
     arch_search_parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         help="Output results file (JSON or YAML)",
     )
     arch_search_parser.add_argument(

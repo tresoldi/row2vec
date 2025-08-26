@@ -195,7 +195,9 @@ class Row2VecLogger:
                     f"(+{memory_delta:.2f} MB from start)",
                 )
 
-    def log_data_preprocessing(self, df_shape: tuple[int, int], processing_steps: list[str]) -> None:
+    def log_data_preprocessing(
+        self, df_shape: tuple[int, int], processing_steps: list[str]
+    ) -> None:
         """Log data preprocessing information."""
         if self._should_log(logging.INFO):
             self.logger.info(f"🔄 Preprocessing data: shape {df_shape}")
@@ -267,7 +269,9 @@ class Row2VecLogger:
                 error_msg += f" | Context: {context}"
             self.logger.error(error_msg, exc_info=True)
 
-    def log_completion(self, message: str = "Embedding generation completed successfully!") -> None:
+    def log_completion(
+        self, message: str = "Embedding generation completed successfully!"
+    ) -> None:
         """Log completion of embedding generation."""
         if self._should_log(logging.INFO):
             self.logger.info(f"🎯 {message}")

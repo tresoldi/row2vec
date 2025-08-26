@@ -13,10 +13,12 @@ def test_minimal():
     print("Testing minimal contrastive learning...")
 
     # Create very simple data
-    df = pd.DataFrame({
-        "x": [1, 2, 3, 4, 5, 6],
-        "y": [1, 2, 3, 4, 5, 6],
-    })
+    df = pd.DataFrame(
+        {
+            "x": [1, 2, 3, 4, 5, 6],
+            "y": [1, 2, 3, 4, 5, 6],
+        }
+    )
 
     # Manual pairs only
     similar_pairs = [(0, 1), (2, 3)]
@@ -40,8 +42,10 @@ def test_minimal():
     except Exception as e:
         print(f"❌ Failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     test_minimal()

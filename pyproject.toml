@@ -219,6 +219,7 @@ ignore = [
     "S102",    # exec builtin
     "S301",    # pickle usage
     "PTH100",  # os.path.abspath
+    "COM812",  # trailing comma (conflicts with formatter)
 ]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
