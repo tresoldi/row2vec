@@ -27,8 +27,8 @@ Automatically find optimal neural network architectures:
 exec(open('suppress_minimal.py').read())
 
 from row2vec import (
-    ArchitectureSearchConfig, 
-    search_architecture, 
+    ArchitectureSearchConfig,
+    search_architecture,
     generate_synthetic_data
 )
 
@@ -49,7 +49,7 @@ config = ArchitectureSearchConfig(
     initial_epochs=10      # Reduced epochs for faster demo
 )
 
-# Run architecture search  
+# Run architecture search
 print("Searching for optimal architecture...")
 
 # Need base config for architecture search
@@ -153,7 +153,7 @@ strategies = {
 for name, strategy_config in strategies.items():
     imputer = AdaptiveImputer(strategy_config)
     df_imputed = imputer.fit_transform(df_missing)
-    
+
     remaining_missing = df_imputed.isnull().sum().sum()
     print(f"{name:12}: {remaining_missing} missing values remaining")
 ```
@@ -179,12 +179,12 @@ for strategy in encoding_strategies:
             categorical_encoding_strategy=strategy
         )
     )
-    
+
     embeddings = learn_embedding_v2(
         df,
         config=config
     )
-    
+
     print(f"{strategy:12}: shape {embeddings.shape}, mean={embeddings.mean().mean():.3f}")
 ```
 
@@ -198,7 +198,7 @@ Deep architectures for complex patterns:
 # Compare single vs multi-layer networks
 architectures = {
     'Single Layer': [128],
-    'Two Layer': [256, 128], 
+    'Two Layer': [256, 128],
     'Three Layer': [512, 256, 128]
 }
 
@@ -213,11 +213,11 @@ for name, hidden_units in architectures.items():
         verbose=False,
         seed=42
     )
-    
+
     # Calculate some basic metrics
     mean_emb = embeddings.mean().mean()
     std_emb = embeddings.std().mean()
-    
+
     print(f"{name:15}: mean={mean_emb:7.3f}, std={std_emb:6.3f}")
 ```
 
@@ -276,7 +276,7 @@ Advanced embedding technique (if available):
 try:
     # Try to use contrastive learning functionality if available
     from row2vec import learn_embedding
-    
+
     # Use regular neural embeddings as contrastive learning may not be available
     # in the current API version
     contrastive_embeddings = learn_embedding(
@@ -287,12 +287,12 @@ try:
         verbose=False,
         seed=42
     )
-    
+
     print(f"Neural embeddings shape: {contrastive_embeddings.shape}")
     print("First 3 embeddings (using standard neural approach):")
     print(contrastive_embeddings.head(3).round(4))
     print("\nNote: Advanced contrastive learning features may require specific Row2Vec versions")
-    
+
 except ImportError as e:
     print(f"Advanced contrastive learning mode not available: {e}")
 ```
@@ -358,17 +358,17 @@ row2vec_model = Row2VecModel(
 # Save model with comprehensive information
 with tempfile.TemporaryDirectory() as tmpdir:
     model_path = os.path.join(tmpdir, "advanced_model")
-    
+
     script_path, binary_path = save_model(row2vec_model, model_path)
-    
+
     print(f"Model saved with metadata:")
-    print(f"  Script: {os.path.basename(script_path)}")  
+    print(f"  Script: {os.path.basename(script_path)}")
     print(f"  Binary: {os.path.basename(binary_path)}")
-    
+
     # Load and inspect metadata
     from row2vec import load_model
     loaded_model = load_model(script_path)
-    
+
     print(f"\nLoaded model metadata:")
     print(f"  Data shape: {loaded_model.metadata.data_shape}")
     print(f"  Original columns: {len(loaded_model.metadata.original_columns) if loaded_model.metadata.original_columns else 0}")
@@ -399,19 +399,19 @@ with tempfile.TemporaryDirectory() as tmpdir:
         max_epochs=5,
         verbose=False
     )
-    
+
     # Load the model
     model = load_model(script_path)
-    
+
     # This will pass validation (correct schema)
     correct_data = generate_synthetic_data(10, seed=123)
     embeddings = model.predict(correct_data)
     print(f"✓ Validation passed: {embeddings.shape}")
-    
+
     # This would fail validation (missing column)
     # incorrect_data = correct_data.drop(columns=["Sales"])
     # embeddings = model.predict(incorrect_data)  # Would raise ValueError
-    
+
     # Skip validation if needed (not recommended for production)
     partial_data = correct_data[['Country', 'Product']]  # Missing columns
     try:
@@ -456,7 +456,7 @@ Use configuration objects for complex setups:
 
 from row2vec import (
     EmbeddingConfig,
-    NeuralConfig, 
+    NeuralConfig,
     ScalingConfig,
     LoggingConfig
 )
@@ -514,7 +514,7 @@ start_time = time.time()
 
 embeddings_monitored = learn_embedding(
     df,
-    mode="unsupervised", 
+    mode="unsupervised",
     embedding_dim=10,
     max_epochs=20,
     batch_size=128,

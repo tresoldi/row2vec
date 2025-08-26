@@ -44,7 +44,7 @@ row2vec data.csv --target-column category --output embeddings.csv
 # Neural network (default)
 row2vec data.csv --mode unsupervised --dimensions 5 --output neural_emb.csv
 
-# PCA for fast linear reduction  
+# PCA for fast linear reduction
 row2vec data.csv --mode pca --dimensions 5 --output pca_emb.csv
 
 # t-SNE for visualization
@@ -140,7 +140,7 @@ Row2Vec CLI supports multiple formats:
 
 **Input formats:**
 - CSV (`.csv`)
-- Parquet (`.parquet`) 
+- Parquet (`.parquet`)
 - Excel (`.xlsx`, `.xls`)
 - JSON (`.json`)
 - TSV (`.tsv`)
@@ -154,7 +154,7 @@ Row2Vec CLI supports multiple formats:
 ```bash
 # Different format examples
 row2vec data.parquet --output embeddings.parquet  # Parquet to Parquet
-row2vec data.xlsx --output embeddings.csv         # Excel to CSV  
+row2vec data.xlsx --output embeddings.csv         # Excel to CSV
 row2vec data.json --output embeddings.json        # JSON to JSON
 ```
 
@@ -273,7 +273,7 @@ OUTPUT_DIR="/embeddings/daily"
 for file in $DATA_DIR/*.csv; do
   basename=$(basename "$file" .csv)
   echo "Processing $basename..."
-  
+
   row2vec-embed "$file" \
     --model "$MODEL_PATH" \
     --output "$OUTPUT_DIR/${basename}_embeddings.csv" \
@@ -381,7 +381,7 @@ row2vec-embed data.csv \
 # General help
 row2vec --help
 
-# Command-specific help  
+# Command-specific help
 row2vec-train --help
 row2vec-embed --help
 
@@ -405,7 +405,7 @@ neural:
 
 classical:
   n_neighbors: 20        # UMAP
-  perplexity: 50.0      # t-SNE  
+  perplexity: 50.0      # t-SNE
   min_dist: 0.05        # UMAP
   n_iter: 1000          # t-SNE
 
@@ -413,7 +413,7 @@ preprocessing:
   categorical_encoding_strategy: "adaptive"
   numeric_scaling: "standard"
   handle_missing: "adaptive"
-  
+
 scaling:
   method: "minmax"
   feature_range: [-1.0, 1.0]
@@ -528,5 +528,5 @@ row2vec data.csv --verbose --log-level DEBUG --log-file debug.log --output embed
 ## Next Steps
 
 - 📖 [API Reference](api_reference.md) - Complete function documentation
-- 🏠 [Examples](titanic_example.md) - Return to interactive examples  
+- 🏠 [Examples](titanic_example.md) - Return to interactive examples
 - ⚙️ [Advanced Features](advanced_features.md) - Neural architecture search and more

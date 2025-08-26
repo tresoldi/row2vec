@@ -31,7 +31,7 @@ This directory contains example scripts demonstrating various features of the Ro
 - **`auto_dimension_examples.py`** - Automatic dimension selection
   - Multiple methods for optimal dimension selection
   - Performance-based evaluation
-  
+
 - **`architecture_search_examples.py`** - Neural architecture search
   - Automatic network architecture optimization
   - Grid and random search methods

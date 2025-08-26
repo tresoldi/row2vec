@@ -1,4 +1,4 @@
-# Target-based Learning Configuration  
+# Target-based Learning Configuration
 # Optimized for supervised embedding learning
 
 embedding_dim: 20
@@ -12,7 +12,7 @@ neural:
   max_epochs: 75       # Supervised learning often converges faster
   batch_size: 128      # Larger batches for stable gradients
   dropout_rate: 0.1    # Lower dropout since we have labels
-  hidden_units: 128    
+  hidden_units: 128
   early_stopping: true
 
 # Use minmax scaling to normalize embeddings

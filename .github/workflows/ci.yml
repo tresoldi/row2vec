@@ -75,20 +75,20 @@ jobs:
         echo "🔍 Running quality checks..."
         MYPY_ERRORS=$(mypy row2vec --show-error-codes 2>&1 | grep -E "error:|note:" | wc -l || echo 0)
         RUFF_ERRORS=$(ruff check . --quiet --exit-zero | wc -l)
-        
+
         echo "📊 Quality Metrics:"
         echo "   MyPy errors: $MYPY_ERRORS"
         echo "   Ruff violations: $RUFF_ERRORS"
-        
+
         # Quality gates - adjust thresholds as needed
         if [ "$MYPY_ERRORS" -gt 150 ]; then
           echo "❌ Too many MyPy errors ($MYPY_ERRORS > 150)"
           exit 1
         fi
-        
+
         if [ "$RUFF_ERRORS" -gt 5000 ]; then
           echo "❌ Too many Ruff violations ($RUFF_ERRORS > 5000)"
           exit 1
         fi
-        
+
         echo "✅ Quality gates passed!"

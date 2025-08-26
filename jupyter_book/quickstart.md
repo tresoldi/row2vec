@@ -210,7 +210,7 @@ import os
 # Create temporary directory for demo
 with tempfile.TemporaryDirectory() as tmpdir:
     model_path = os.path.join(tmpdir, "my_model")
-    
+
     # Train and save model
     embeddings, script_path, binary_path = train_and_save_model(
         df,
@@ -220,16 +220,16 @@ with tempfile.TemporaryDirectory() as tmpdir:
         max_epochs=10,
         verbose=False
     )
-    
+
     print(f"Model saved to: {script_path}")
-    
+
     # Load and use model
     model = load_model(script_path)
-    
+
     # Generate embeddings for new data
     new_data = generate_synthetic_data(num_records=50, seed=999)
     new_embeddings = model.predict(new_data)
-    
+
     print(f"\nNew embeddings shape: {new_embeddings.shape}")
     print("Model successfully loaded and used!")
 ```

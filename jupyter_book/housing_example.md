@@ -145,7 +145,7 @@ house_embeddings_2d = learn_embedding(
 # Create price categories for coloring
 price_quartiles = df_subset['MEDV'].quantile([0.25, 0.5, 0.75])
 price_categories = pd.cut(
-    df_subset['MEDV'], 
+    df_subset['MEDV'],
     bins=[0, price_quartiles[0.25], price_quartiles[0.5], price_quartiles[0.75], float('inf')],
     labels=['Low', 'Medium-Low', 'Medium-High', 'High']
 )
@@ -196,8 +196,8 @@ Create zone categories based on accessibility to radial highways:
 
 # Create accessibility zones based on RAD (radial highway access)
 df_subset['AccessZone'] = pd.cut(
-    df_subset['RAD'], 
-    bins=[0, 5, 10, 25], 
+    df_subset['RAD'],
+    bins=[0, 5, 10, 25],
     labels=['Low', 'Medium', 'High']
 )
 
@@ -243,8 +243,8 @@ zone_avg_values = [zone_prices.loc[z, 'Avg_Value'] for z in zones]
 
 plt.figure(figsize=(10, 8))
 scatter = plt.scatter(
-    zone_embeddings.iloc[:, 0], 
-    zone_embeddings.iloc[:, 1], 
+    zone_embeddings.iloc[:, 0],
+    zone_embeddings.iloc[:, 1],
     c=zone_avg_values,
     cmap='viridis',
     s=200,
@@ -283,8 +283,8 @@ Create age categories based on property age:
 
 # Create age categories based on AGE (proportion of owner-occupied units built prior to 1940)
 df_subset['AgeCategory'] = pd.cut(
-    df_subset['AGE'], 
-    bins=[0, 30, 70, 100], 
+    df_subset['AGE'],
+    bins=[0, 30, 70, 100],
     labels=['New', 'Medium', 'Old']
 )
 
@@ -292,14 +292,14 @@ df_subset['AgeCategory'] = pd.cut(
 age_embeddings = learn_embedding(
     df_subset,
     mode="target",
-    reference_column="AgeCategory", 
+    reference_column="AgeCategory",
     embedding_dim=2,
     max_epochs=30,
     verbose=False,
     seed=42
 )
 
-# Set proper index with category names  
+# Set proper index with category names
 age_embeddings.index = ['New', 'Medium', 'Old']
 
 print("Age category embeddings:")
@@ -417,7 +417,7 @@ y_sample = y.loc[df_sample.index]
 comparison_results = {}
 for name, params in methods.items():
     print(f"Training {name}...")
-    
+
     # Generate embeddings
     emb = learn_embedding(
         df_sample,
@@ -426,19 +426,19 @@ for name, params in methods.items():
         seed=42,
         **params
     )
-    
+
     # Train and evaluate
     X_train_comp, X_test_comp, y_train_comp, y_test_comp = train_test_split(
         emb, y_sample, test_size=0.2, random_state=42
     )
-    
+
     rf_comp = RandomForestRegressor(n_estimators=50, random_state=42)
     rf_comp.fit(X_train_comp, y_train_comp)
     y_pred_comp = rf_comp.predict(X_test_comp)
-    
+
     r2_comp = r2_score(y_test_comp, y_pred_comp)
     rmse_comp = np.sqrt(mean_squared_error(y_test_comp, y_pred_comp))
-    
+
     comparison_results[name] = {"r2": r2_comp, "rmse": rmse_comp}
 
 print(f"\nMethod comparison (sample of {sample_size} houses):")
@@ -459,7 +459,7 @@ import os
 # Create production model
 with tempfile.TemporaryDirectory() as tmpdir:
     model_path = os.path.join(tmpdir, "housing_model")
-    
+
     embeddings_final, script_path, binary_path = train_and_save_model(
         df_features,
         base_path=model_path,
@@ -473,17 +473,17 @@ with tempfile.TemporaryDirectory() as tmpdir:
         verbose=False,
         seed=42
     )
-    
+
     print(f"Housing model saved: {os.path.basename(script_path)}")
-    
+
     # Demonstrate model loading and usage
     from row2vec import load_model
     model = load_model(script_path)
-    
+
     # Test on new data
     test_houses = df_features.sample(n=50, random_state=999)
     test_embeddings = model.predict(test_houses)
-    
+
     print(f"\nModel applied to {len(test_houses)} test houses")
     print(f"Generated embeddings shape: {test_embeddings.shape}")
     print(f"Training metadata:")

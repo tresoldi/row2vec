@@ -205,16 +205,16 @@ plt.scatter(occupation_2d[:, 0], occupation_2d[:, 1], s=100, alpha=0.7)
 # Label each point
 for i, occupation in enumerate(occupations):
     plt.annotate(
-        occupation, 
+        occupation,
         (occupation_2d[i, 0], occupation_2d[i, 1]),
-        xytext=(5, 5), 
+        xytext=(5, 5),
         textcoords='offset points',
         fontsize=8,
         alpha=0.8
     )
 
 plt.xlabel('PCA Component 1')
-plt.ylabel('PCA Component 2') 
+plt.ylabel('PCA Component 2')
 plt.title('Occupation Embeddings Visualization (2D Projection)')
 plt.grid(True, alpha=0.3)
 plt.tight_layout()
@@ -232,7 +232,7 @@ print("Notice how similar occupations cluster together!")
 # df_sample already contains workclass column, so we can use it directly
 workclass_embeddings = learn_embedding(
     df_sample,
-    mode="target", 
+    mode="target",
     reference_column="workclass",
     embedding_dim=2,
     max_epochs=30,
@@ -252,7 +252,7 @@ if 'workclass_embeddings' not in locals():
     print("ERROR: workclass_embeddings not found, recreating...")
     workclass_embeddings = learn_embedding(
         df_sample,
-        mode="target", 
+        mode="target",
         reference_column="workclass",
         embedding_dim=2,
         max_epochs=30,
@@ -302,15 +302,15 @@ results = {}
 for name, params in methods.items():
     print(f"Running {name}...")
     start = time.time()
-    
+
     emb = learn_embedding(
-        small_sample, 
-        embedding_dim=2, 
-        verbose=False, 
+        small_sample,
+        embedding_dim=2,
+        verbose=False,
         seed=42,
         **params
     )
-    
+
     elapsed = time.time() - start
     results[name] = {
         "time": elapsed,
@@ -405,16 +405,16 @@ import tempfile
 import os
 
 with tempfile.TemporaryDirectory() as tmpdir:
-    model_path = os.path.join(tmpdir, "adult_model") 
-    
+    model_path = os.path.join(tmpdir, "adult_model")
+
     # Train production model on larger dataset
     production_sample = df_features.sample(n=10000, random_state=42)
-    
+
     embeddings_prod, script_path, binary_path = train_and_save_model(
         production_sample,
         base_path=model_path,
         embedding_dim=15,
-        mode="unsupervised", 
+        mode="unsupervised",
         max_epochs=50,
         batch_size=256,
         dropout_rate=0.25,
@@ -423,18 +423,18 @@ with tempfile.TemporaryDirectory() as tmpdir:
         verbose=False,
         seed=42
     )
-    
+
     print(f"Production model saved: {os.path.basename(script_path)}")
     print(f"Final embeddings shape: {embeddings_prod.shape}")
-    
+
     # Load and test
     from row2vec import load_model
     model = load_model(script_path)
-    
+
     # Test on new data
     test_data = df_features.sample(n=100, random_state=999)
     test_embeddings = model.predict(test_data)
-    
+
     print(f"\nModel successfully applied to new data:")
     print(f"Test embeddings shape: {test_embeddings.shape}")
     print(f"Model training time: {model.metadata.training_time:.2f} seconds")

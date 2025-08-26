@@ -106,8 +106,8 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):  # type: ignore[misc]
         mode: str = "unsupervised",
         reference_column: str | None = None,
         config: EmbeddingConfig | None = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         self.embedding_dim = embedding_dim
         self.mode = mode
         self.reference_column = reference_column
@@ -245,7 +245,9 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):  # type: ignore[misc]
 
         return embeddings.values
 
-    def fit_transform(self, X: Any, y: Any = None, **fit_params: Any) -> np.ndarray[Any, Any]:
+    def fit_transform(
+        self, X: Any, y: Any = None, **fit_params: Any
+    ) -> np.ndarray[Any, Any]:
         """
         Fit the transformer and transform the data.
 

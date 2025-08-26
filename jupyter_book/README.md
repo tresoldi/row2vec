@@ -87,7 +87,7 @@ make publish
 
 Key configuration in `_config.yml`:
 - Execution settings (currently disabled for pre-executed notebooks)
-- MyST extensions for advanced markdown features  
+- MyST extensions for advanced markdown features
 - Sphinx configuration for API documentation
 - Repository and launch button settings
 
