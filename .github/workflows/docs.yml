@@ -1,0 +1,133 @@
+name: Build and Deploy Documentation
+
+# Trigger on commits to main branch and manual dispatch
+on:
+  push:
+    branches: [main]
+    paths:
+      # Only build docs when relevant files change
+      - 'jupyter_book/**'
+      - 'row2vec/**/*.py'  # API changes affect docs
+      - 'README.md'
+      - 'ROADMAP.md'
+      - 'examples/**'
+      - '.github/workflows/docs.yml'
+
+  # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: 'Force build even if no changes detected'
+        required: false
+        default: 'false'
+        type: boolean
+      deploy_method:
+        description: 'Deployment method'
+        required: false
+        default: 'artifact'
+        type: choice
+        options:
+          - 'artifact'
+          - 'pages'
+
+# Permissions for repository access and artifact upload
+permissions:
+  contents: read
+  actions: write
+
+# Only allow one docs build at a time
+concurrency:
+  group: "docs-build"
+  cancel-in-progress: false
+
+jobs:
+  # Build documentation
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-id: ${{ steps.upload-artifact.outputs.artifact-id }}
+
+    steps:
+    - name: 📚 Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for better change detection
+
+    - name: 🐍 Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: 📦 Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-docs-${{ hashFiles('jupyter_book/requirements.txt', 'requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-docs-
+          ${{ runner.os }}-pip-
+
+    - name: 🔧 Install documentation dependencies
+      run: |
+        python -m pip install --upgrade pip
+        # Install row2vec package (needed for API docs)
+        pip install -e .
+        # Install documentation requirements
+        pip install -r jupyter_book/requirements.txt
+
+    - name: 🏗️ Build documentation
+      working-directory: jupyter_book
+      run: |
+        echo "Building Row2Vec documentation with Jupyter Book..."
+        echo "================================================="
+
+        # Clean previous builds
+        rm -rf _build/
+
+        # Build documentation with proper base URL for evotext.github.io/row2vec
+        jupyter-book build . --verbose
+
+        # Create .nojekyll file to prevent GitHub Pages from processing with Jekyll
+        touch _build/html/.nojekyll
+
+        # Verify build output
+        if [ ! -f "_build/html/index.html" ]; then
+          echo "❌ Documentation build failed - no index.html found"
+          exit 1
+        fi
+
+        echo "✅ Documentation built successfully!"
+        echo "📊 Build statistics:"
+        find _build/html -name "*.html" | wc -l | xargs echo "  HTML files:"
+        du -sh _build/html | cut -f1 | xargs echo "  Total size:"
+
+    - name: 📋 Upload documentation artifacts
+      id: upload-artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: row2vec-docs-${{ github.sha }}
+        path: jupyter_book/_build/html/
+        retention-days: 30  # Keep artifacts for 30 days
+        compression-level: 6  # Good balance of speed and compression
+
+    - name: 📝 Create build summary
+      run: |
+        echo "## 📚 Row2Vec Documentation Build" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "🎯 **Target URL:** \`https://evotext.github.io/row2vec/\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📊 **Build Details:**" >> $GITHUB_STEP_SUMMARY
+        echo "- **Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Artifact ID:** \`${{ steps.upload-artifact.outputs.artifact-id }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [ -d "jupyter_book/_build/html" ]; then
+          echo "- **Pages built:** $(find jupyter_book/_build/html -name "*.html" | wc -l)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total size:** $(du -sh jupyter_book/_build/html | cut -f1)" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🚀 Next Steps for evotext.github.io Integration:" >> $GITHUB_STEP_SUMMARY
+        echo "1. Download the artifacts from this build" >> $GITHUB_STEP_SUMMARY
+        echo "2. Extract to the \`row2vec/\` directory in evotext.github.io repository" >> $GITHUB_STEP_SUMMARY
+        echo "3. Commit and push to deploy at https://evotext.github.io/row2vec/" >> $GITHUB_STEP_SUMMARY

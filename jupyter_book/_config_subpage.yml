@@ -1,18 +1,20 @@
-# Book settings
+# Configuration for serving as evotext.github.io/row2vec subpage
+# This extends the main config with subpage-specific settings
+
 title: Row2Vec Documentation
 author: Tiago Tresoldi
 copyright: "2025"
-logo: ""  # Add logo path if available
+logo: ""
 
 # Execute notebooks during build
 execute:
-  execute_notebooks: "off"  # Don't execute notebooks, use existing outputs
-  timeout: 120  # Reduced timeout for faster builds
-  stderr_output: "remove"  # Remove stderr output (warnings, logs)
-  allow_errors: true  # Allow errors for demo notebooks with missing data
+  execute_notebooks: "off"
+  timeout: 120
+  stderr_output: "remove"
+  allow_errors: true
   run_in_temp: false
 
-# MyST settings for advanced markdown features
+# MyST settings
 parse:
   myst_enable_extensions:
     - colon_fence
@@ -26,25 +28,25 @@ parse:
     - substitution
     - tasklist
 
-# MyST-NB configuration for clean output
-nb_execution_show_tb: false  # Don't show tracebacks
+# MyST-NB configuration
+nb_execution_show_tb: false
 nb_execution_timeout: 600
-nb_merge_streams: true  # Merge stdout/stderr
+nb_merge_streams: true
 nb_execution_excludepatterns: []
-nb_output_stderr: "remove-warn"  # Remove warning-level stderr
+nb_output_stderr: "remove-warn"
 nb_remove_code_outputs: false
 
-# HTML output settings
+# HTML output settings for subpage deployment
 html:
   use_issues_button: true
   use_repository_button: true
   use_edit_page_button: true
   home_page_in_navbar: true
-  baseurl: "https://evotext.github.io/row2vec/"  # Served as evotext organization subpage
-  favicon: ""  # Add favicon if available
+  baseurl: "https://evotext.github.io/row2vec/"
+  favicon: ""
   navbar_number_sections: false
   navigation_with_keys: true
-  # Additional footer for organization context
+  # Additional configuration for subpage deployment
   extra_footer: |
     <div class="bd-footer-info">
       <p>Part of the <a href="https://evotext.github.io/">EvoText</a> project ecosystem</p>
@@ -52,11 +54,11 @@ html:
 
 # Repository information
 repository:
-  url: https://github.com/evotext/row2vec  # evotext organization repository
+  url: https://github.com/evotext/row2vec
   path_to_book: jupyter_book
   branch: main
 
-# Launch buttons for interactive notebooks
+# Launch buttons
 launch_buttons:
   notebook_interface: "classic"
   binderhub_url: "https://mybinder.org"
@@ -79,9 +81,7 @@ sphinx:
     napoleon_include_init_with_doc: false
     add_module_names: false
     autosummary_generate: true
-    # Ensure consistent output directory
     html_theme_options:
       navigation_depth: 3
       show_toc_level: 2
-    # Build output directory configuration
     master_doc: 'intro'
