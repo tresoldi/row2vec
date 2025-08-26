@@ -29,7 +29,7 @@ make build
 # Quick development build
 make dev
 
-# Build and show local serving options  
+# Build and show local serving options
 make serve
 ```
 

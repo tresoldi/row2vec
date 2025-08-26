@@ -878,8 +878,10 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):  # type: ignore[misc]
             elif df[col].var() == 0:
                 importance = 0.0
             else:
+                # Type ignore: MyPy cannot infer that df[col] is numeric here
                 importance = min(  # type: ignore[type-var]
-                    1.0, df[col].var() / (df[col].var() + df[col].mean() ** 2)  # type: ignore[operator,call-overload]
+                    1.0,
+                    df[col].var() / (df[col].var() + df[col].mean() ** 2),  # type: ignore[operator,call-overload]
                 )
 
             feature_importances[col] = importance

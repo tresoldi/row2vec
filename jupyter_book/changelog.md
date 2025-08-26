@@ -80,7 +80,7 @@
 
 - **Core Implementation**: Main embedding functionality with neural networks
 - **Advanced Features**: Neural Architecture Search, imputation, serialization
-- **Documentation**: Comprehensive Jupyter Book documentation  
+- **Documentation**: Comprehensive Jupyter Book documentation
 - **Production Readiness**: Testing, CI/CD, packaging
 
 ## Breaking Changes

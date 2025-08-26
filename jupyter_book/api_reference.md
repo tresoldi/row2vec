@@ -334,7 +334,7 @@ Row2Vec defines custom exceptions for better error handling:
 # Common exceptions you might encounter
 from row2vec.exceptions import (
     Row2VecError,           # Base exception
-    ConfigurationError,     # Invalid configuration 
+    ConfigurationError,     # Invalid configuration
     DataValidationError,    # Data validation failed
     ModelError,             # Model-related errors
     SerializationError      # Save/load errors
@@ -353,7 +353,7 @@ For large datasets:
 ### Speed Optimization
 
 - Use PCA mode for fastest results
-- Reduce `max_epochs` for quick prototyping  
+- Reduce `max_epochs` for quick prototyping
 - Use larger `batch_size` with sufficient memory
 - Enable `early_stopping` to avoid overtraining
 

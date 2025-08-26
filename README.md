@@ -19,7 +19,7 @@
 - **Pattern-Aware Analysis**: Detects problematic missing patterns with configurable strategies
 - **Automated Feature Engineering**: Handles scaling, encoding, and preprocessing seamlessly
 
-### 🚀 Advanced Features  
+### 🚀 Advanced Features
 - **Neural Architecture Search (NAS)**: Automatically discovers optimal network architectures
 - **Multi-layer Networks**: Support for deep architectures with dropout and regularization
 - **Model Serialization**: Save and load models with full preprocessing pipelines
@@ -58,7 +58,7 @@ print(embeddings.head())
 # Learn categorical embeddings
 country_embeddings = learn_embedding(
     df,
-    mode="target", 
+    mode="target",
     reference_column="Country",
     embedding_dim=3
 )
@@ -75,7 +75,7 @@ tsne_embeddings = learn_embedding(df, mode="tsne", embedding_dim=2)
 # Quick embeddings
 row2vec annotate --input data.csv --output embeddings.csv --mode unsupervised --dim 5
 
-# Train and save model  
+# Train and save model
 row2vec train --input data.csv --output model.py --mode unsupervised --dim 10 --epochs 50
 
 # Use saved model
@@ -101,7 +101,7 @@ config = ArchitectureSearchConfig(
 )
 
 base_config = EmbeddingConfig(
-    mode="unsupervised", 
+    mode="unsupervised",
     embedding_dim=8,
     neural=NeuralConfig(max_epochs=50)
 )
@@ -113,7 +113,7 @@ print(f"Best architecture: {best_arch}")
 # Train with optimal settings
 optimal_embeddings = learn_embedding(
     df,
-    mode="unsupervised", 
+    mode="unsupervised",
     embedding_dim=8,
     hidden_units=best_arch.get('hidden_units', [128]),
     max_epochs=100
@@ -142,7 +142,7 @@ df_clean = imputer.fit_transform(df)
 ## Documentation
 
 - **[Installation Guide](https://evotext.github.io/row2vec/installation.html)**: Detailed setup instructions
-- **[Quick Start Tutorial](https://evotext.github.io/row2vec/quickstart.html)**: Get up and running in 5 minutes  
+- **[Quick Start Tutorial](https://evotext.github.io/row2vec/quickstart.html)**: Get up and running in 5 minutes
 - **[API Reference](https://evotext.github.io/row2vec/api_reference.html)**: Complete function documentation
 - **[Example Gallery](https://evotext.github.io/row2vec/)**: Real-world use cases and tutorials
 - **[Advanced Features](https://evotext.github.io/row2vec/advanced_features.html)**: Neural architecture search, imputation strategies
@@ -179,9 +179,9 @@ This library was originally developed as part of the **"Cultural Evolution of Te
 
 ## Authors
 
-**Tiago Tresoldi**  
-*Affiliate Researcher, Department of Linguistics and Philology*  
-*Uppsala University*  
+**Tiago Tresoldi**
+*Affiliate Researcher, Department of Linguistics and Philology*
+*Uppsala University*
 *GitHub: [@tresoldi](https://github.com/tresoldi)*
 
 ## License

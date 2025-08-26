@@ -11,7 +11,7 @@ This document outlines the long-term development vision for Row2Vec. Progress is
 # Learn embeddings for multiple categorical columns simultaneously
 embeddings = learn_embedding(
     df,
-    mode="multi_target", 
+    mode="multi_target",
     reference_columns=["Country", "Product", "Category"],
     embedding_dim=8
 )
@@ -30,7 +30,7 @@ embeddings = learn_embedding(
 ```
 
 #### Variational Autoencoders (VAE)
-- Probabilistic embeddings with uncertainty quantification  
+- Probabilistic embeddings with uncertainty quantification
 - Generation capabilities for synthetic data creation
 - Better handling of outliers and anomalies
 
@@ -66,7 +66,7 @@ embeddings = learn_embedding(
 #### `row2vec.viz` Module
 ```python
 from row2vec.viz import (
-    plot_embeddings_2d, 
+    plot_embeddings_2d,
     plot_embeddings_3d,
     embedding_similarity_heatmap,
     cluster_visualization,
@@ -75,7 +75,7 @@ from row2vec.viz import (
 ```
 
 #### `row2vec.analysis` Module
-```python  
+```python
 from row2vec.analysis import (
     evaluate_embedding_quality,
     find_optimal_dimensions,
@@ -191,7 +191,7 @@ Please see our [Contributing Guide](CONTRIBUTING.md) for how to get started.
 This roadmap evolves based on:
 
 - **Community feedback**: Issues, discussions, and feature requests
-- **Research developments**: New techniques and methodologies  
+- **Research developments**: New techniques and methodologies
 - **Industry needs**: Real-world application requirements
 - **Maintainer capacity**: Available development resources
 

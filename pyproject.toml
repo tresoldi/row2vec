@@ -107,7 +107,7 @@ include = [
 [tool.hatch.envs.default]
 dependencies = [
     "sphinx",
-    "sphinx-rtd-theme", 
+    "sphinx-rtd-theme",
     "matplotlib",
     "scikit-learn",
     "pandas",
@@ -122,7 +122,7 @@ build-docs = [
 ]
 build-docs-clean = [
     "rm -rf docs/build/*",
-    "update-docs-examples", 
+    "update-docs-examples",
     "python -m sphinx -b html docs/source docs/build"
 ]
 
@@ -184,7 +184,7 @@ ignore = [
     "T201",    # print statements (acceptable in examples)
     "PERF203", # try-except in loops (acceptable for examples)
     "PLR0915", # too many statements (acceptable in examples)
-    "S603",    # subprocess calls (acceptable in examples) 
+    "S603",    # subprocess calls (acceptable in examples)
     "E501",    # line too long (will fix gradually)
     "PLC0415", # imports not at top level (acceptable in examples)
     "F401",    # unused imports (acceptable in examples)
@@ -220,6 +220,7 @@ ignore = [
     "S301",    # pickle usage
     "PTH100",  # os.path.abspath
     "COM812",  # trailing comma (conflicts with formatter)
+    "ISC001",  # single line implicit string concatenation (conflicts with formatter)
 ]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
@@ -318,7 +319,7 @@ markers = [
 ]
 filterwarnings = [
     "ignore::UserWarning",
-    "ignore::DeprecationWarning", 
+    "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
     "ignore::numba.core.errors.NumbaWarning",
     "ignore::numba.core.errors.NumbaDeprecationWarning",

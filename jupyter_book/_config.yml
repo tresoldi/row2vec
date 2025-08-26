@@ -78,5 +78,5 @@ sphinx:
     html_theme_options:
       navigation_depth: 3
       show_toc_level: 2
-    # Build output directory configuration  
+    # Build output directory configuration
     master_doc: 'intro'

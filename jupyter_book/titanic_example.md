@@ -216,7 +216,7 @@ else:
 # Learn embeddings for passenger classes
 pclass_embeddings = learn_embedding(
     df,
-    mode="target", 
+    mode="target",
     reference_column="Pclass",
     embedding_dim=3,
     max_epochs=30,
@@ -235,7 +235,7 @@ print("\nPairwise distances between classes:")
 if len(pclass_embeddings) >= 2:
     for i, j in itertools.combinations(range(len(pclass_embeddings)), 2):
         dist = np.linalg.norm(
-            pclass_embeddings.iloc[i].values - 
+            pclass_embeddings.iloc[i].values -
             pclass_embeddings.iloc[j].values
         )
         print(f"  Category {i} <-> Category {j}: {dist:.3f}")
@@ -258,7 +258,7 @@ pca_embeddings = learn_embedding(
     verbose=False
 )
 
-# t-SNE  
+# t-SNE
 tsne_embeddings = learn_embedding(
     df_features,
     mode="tsne",
@@ -299,7 +299,7 @@ for ax, (name, emb) in zip(axes, methods):
     ax.set_xlabel('Dimension 0')
     ax.set_ylabel('Dimension 1')
     ax.set_title(f'{name} Embeddings')
-    
+
 plt.colorbar(scatter, ax=axes, label='Survived', fraction=0.02)
 plt.tight_layout()
 plt.show()
@@ -353,7 +353,7 @@ import os
 # Create a production-ready model
 with tempfile.TemporaryDirectory() as tmpdir:
     model_path = os.path.join(tmpdir, "titanic_model")
-    
+
     embeddings_final, script_path, binary_path = train_and_save_model(
         df_features,
         base_path=model_path,
@@ -366,18 +366,18 @@ with tempfile.TemporaryDirectory() as tmpdir:
         verbose=False,
         seed=42
     )
-    
+
     print(f"Model saved to: {os.path.basename(script_path)}")
-    
+
     # Show model can be loaded and used
     from row2vec import load_model
-    
+
     model = load_model(script_path)
     print(f"\nModel metadata:")
     print(f"  Mode: {model.metadata.mode}")
     print(f"  Embedding dimensions: {model.metadata.embedding_dim}")
     print(f"  Training epochs: {model.metadata.epochs_trained}")
-    
+
     # Handle case where final_loss might be None
     if model.metadata.final_loss is not None:
         print(f"  Final loss: {model.metadata.final_loss:.4f}")

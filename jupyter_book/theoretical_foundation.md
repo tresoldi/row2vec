@@ -7,7 +7,7 @@ This section provides the academic foundation underlying Row2Vec's approach to t
 The challenge of learning effective representations for tabular data has gained significant attention in the machine learning community. Unlike image or text data, which have natural spatial or sequential structure, tabular data presents unique challenges:
 
 - **Heterogeneous feature types** (numerical, categorical, ordinal)
-- **Irregular missing value patterns**  
+- **Irregular missing value patterns**
 - **High-dimensional categorical variables**
 - **Complex inter-feature dependencies**
 - **Lack of inherent spatial or temporal structure**
@@ -26,7 +26,7 @@ where $\mathbf{x}_j$ represents the $j$-th feature vector.
 
 We partition the feature space into disjoint subsets:
 - $\mathcal{F}_{\text{num}}$: Numerical features
-- $\mathcal{F}_{\text{cat}}$: Categorical features  
+- $\mathcal{F}_{\text{cat}}$: Categorical features
 - $\mathcal{F}_{\text{ord}}$: Ordinal features
 
 Our goal is to learn a mapping $f: \mathbb{R}^d \rightarrow \mathbb{R}^k$ where $k \ll d$, such that:
@@ -118,7 +118,7 @@ where $\rho$ is the posterior over model parameters and $\pi$ is the prior.
 Row2Vec has been validated across multiple domains:
 
 - **E-commerce**: Customer segmentation with 15% improvement in marketing ROI
-- **Finance**: Credit risk assessment with 8% reduction in false positives  
+- **Finance**: Credit risk assessment with 8% reduction in false positives
 - **Healthcare**: Patient stratification with 12% improvement in treatment outcomes
 - **Manufacturing**: Predictive maintenance with 20% reduction in unplanned downtime
 
