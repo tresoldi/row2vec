@@ -90,6 +90,16 @@ jobs:
         # Create .nojekyll file to prevent GitHub Pages from processing with Jekyll
         touch _build/html/.nojekyll
 
+        # Fix CSS imports for subpath deployment
+        echo "🔧 Fixing CSS imports for subpath deployment..."
+
+        # Fix theme.css to use absolute paths
+        sed -i 's|@import "../basic.css";|@import "/row2vec/_static/basic.css";|g' _build/html/_static/styles/theme.css
+
+        # Fix any other relative CSS imports
+        find _build/html/_static -name "*.css" -exec sed -i 's|url(\.\./|url(/row2vec/_static/|g' {} \;
+        find _build/html/_static -name "*.css" -exec sed -i 's|@import "\.\./|@import "/row2vec/_static/|g' {} \;
+
         # Verify build output
         if [ ! -f "_build/html/index.html" ]; then
           echo "❌ Documentation build failed - no index.html found"
