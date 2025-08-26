@@ -47,8 +47,8 @@ class Row2VecModelMetadata:
         epochs_trained: int | None = None,
         training_time: float | None = None,
         # Data information
-        original_columns: list | None = None,
-        preprocessed_feature_names: list | None = None,
+        original_columns: list[str] | None = None,
+        preprocessed_feature_names: list[str] | None = None,
         data_shape: tuple[int, int] | None = None,
         data_types: dict[str, str] | None = None,
         # Schema validation
@@ -255,7 +255,7 @@ class Row2VecModel:
 
             # Apply the classical ML model - check if it's a sklearn estimator
             if hasattr(self.model, "transform"):
-                embeddings = self.model.transform(X_processed)  # type: ignore
+                embeddings = self.model.transform(X_processed)
             else:
                 raise ValueError(
                     f"Classical ML model for {self.metadata.mode} doesn't support transform"
@@ -290,8 +290,8 @@ class Row2VecModel:
 
                     # Create encoder from the trained model
                     encoder = KerasModel(
-                        inputs=self.model.input,  # type: ignore
-                        outputs=self.model.get_layer("embedding").output,  # type: ignore
+                        inputs=self.model.input,
+                        outputs=self.model.get_layer("embedding").output,
                     )
                     embeddings = encoder.predict(X_processed, verbose=0)
                 except Exception as e:

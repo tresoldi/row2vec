@@ -28,8 +28,8 @@ class PipelineBuilder:
 
     def __init__(self, config: EmbeddingConfig | None = None):
         self.config = config or EmbeddingConfig()
-        self.analysis_report_ = {}
-        self.pipeline_description_ = {}
+        self.analysis_report_: dict[str, Any] = {}
+        self.pipeline_description_: dict[str, Any] = {}
 
     def build_preprocessing_pipeline(
         self,
@@ -308,7 +308,7 @@ class PipelineBuilder:
     ) -> dict[str, Any]:
         """Create human-readable description of the constructed pipeline."""
 
-        description = {
+        description: dict[str, Any] = {
             "dataset_summary": {
                 "shape": analysis["dataset_shape"],
                 "missing_percentage": f"{analysis['missing_percentage']:.1f}%",
