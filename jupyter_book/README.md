@@ -1,23 +1,32 @@
 # Row2Vec Documentation
 
-This directory contains the Jupyter Book documentation for Row2Vec.
+This directory contains the source files for Row2Vec's documentation, built using [Jupyter Book](https://jupyterbook.org/).
 
-## Quick Start
+## 🌐 Live Documentation
 
-1. **Install dependencies:**
-   ```bash
-   make install
-   ```
+The documentation is deployed at: **https://evotext.github.io/row2vec/**
 
-2. **Build documentation:**
-   ```bash
-   make build
-   ```
+## 🏗️ Building Documentation
 
-3. **View locally:**
-   ```bash
-   make serve
-   ```
+### Prerequisites
+
+```bash
+pip install -r requirements.txt
+pip install -e ..  # Install row2vec package
+```
+
+### Local Build
+
+```bash
+# Quick build for development
+./build_docs.sh
+
+# Manual build
+jupyter-book build .
+
+# Clean build (removes cache)
+jupyter-book build . --all
+```
 
 ## Documentation Structure
 
