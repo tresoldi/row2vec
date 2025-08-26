@@ -17,10 +17,14 @@ kernelspec:
 ## Requirements
 
 Row2Vec requires Python 3.10 or higher and depends on:
-- pandas >= 1.3.0
+- pandas >= 1.5.3
 - scikit-learn >= 1.0.0
-- tensorflow >= 2.9.0
+- tensorflow >= 2.8.0
 - numpy >= 1.21.0
+- umap-learn >= 0.5.0
+- click >= 8.0.0
+- rich >= 12.0.0
+- pyyaml >= 6.0.0
 
 ## Install from PyPI
 
@@ -58,14 +62,16 @@ This includes:
 
 ## Optional Dependencies
 
-### For UMAP support:
+Row2Vec now includes all major dependencies by default. Optional extras:
+
+### For development work:
 ```bash
-pip install umap-learn
+pip install "row2vec[dev]"
 ```
 
-### For CLI enhancements:
+### For documentation building:
 ```bash
-pip install click rich
+pip install "row2vec[docs]"
 ```
 
 ### For data format support:
