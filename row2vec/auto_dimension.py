@@ -71,8 +71,8 @@ class AutoDimensionSelector:
         self.logger = get_logger(__name__)
 
         # Results storage
-        self.selection_results_ = {}
-        self.dimension_scores_ = {}
+        self.selection_results_: dict[str, Any] = {}
+        self.dimension_scores_: dict[int, float] = {}
 
     def select_dimension(
         self,

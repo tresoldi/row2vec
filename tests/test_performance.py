@@ -119,9 +119,9 @@ class TestPerformanceBenchmarks:
         successful_methods = [
             name for name, result in results.items() if result.get("success", False)
         ]
-        assert len(successful_methods) >= 2, (
-            f"Expected at least 2 methods to succeed, got {successful_methods}"
-        )
+        assert (
+            len(successful_methods) >= 2
+        ), f"Expected at least 2 methods to succeed, got {successful_methods}"
 
     @pytest.mark.parametrize("n_samples", [100, 500, 1000, 2000])
     def test_scalability_benchmark(self, n_samples):
@@ -203,9 +203,9 @@ class TestPerformanceBenchmarks:
 
         # PCA should generally be faster for small datasets
         if len(df) < 1000:
-            assert pca_time < neural_time, (
-                "PCA should be faster than neural methods for small datasets"
-            )
+            assert (
+                pca_time < neural_time
+            ), "PCA should be faster than neural methods for small datasets"
 
     def test_parameter_sensitivity_benchmark(self):
         """Test performance sensitivity to hyperparameters."""

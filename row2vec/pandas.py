@@ -323,7 +323,7 @@ class Row2VecAccessor:
     def compare_methods(
         self,
         dim: int = 5,
-        methods: list | None = None,
+        methods: list[str] | None = None,
     ) -> dict[str, pd.DataFrame]:
         """
         Compare multiple embedding methods on the same data.
