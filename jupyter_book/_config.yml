@@ -6,8 +6,8 @@ logo: ""  # Add logo path if available
 
 # Execute notebooks during build
 execute:
-  execute_notebooks: "off"  # Don't execute notebooks, use existing outputs
-  timeout: 120  # Reduced timeout for faster builds
+  execute_notebooks: "cache"  # Cache execution for faster rebuilds
+  timeout: 300  # Longer timeout for model training
   stderr_output: "remove"  # Remove stderr output (warnings, logs)
   allow_errors: true  # Allow errors for demo notebooks with missing data
   run_in_temp: false
