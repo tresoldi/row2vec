@@ -1,0 +1,31 @@
+# Contrastive Learning Configuration
+# Optimized for contrastive embedding learning
+
+embedding_dim: 50
+mode: contrastive
+seed: 1305
+verbose: true
+
+# Optimized neural configuration for contrastive learning
+neural:
+  max_epochs: 100      # More epochs for contrastive learning
+  batch_size: 32       # Smaller batches work better for triplet loss
+  dropout_rate: 0.3    # Higher dropout for regularization
+  hidden_units: 256    # Larger hidden units for better representations
+  early_stopping: true
+
+# Contrastive learning configuration
+contrastive:
+  loss_type: triplet
+  auto_pairs: cluster  # Automatically generate pairs using clustering
+  margin: 2.0          # Larger margin for better separation
+  negative_samples: 10 # More negative samples per positive pair
+
+# Use standard scaling for embeddings
+scaling:
+  method: standard
+
+# Detailed logging
+logging:
+  level: INFO
+  enabled: true
