@@ -1,0 +1,16 @@
+# Jupyter Book build artifacts
+_build/
+.jupyter_cache/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Temporary files
+*.tmp
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
