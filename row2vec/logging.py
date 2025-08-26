@@ -9,7 +9,7 @@ import logging
 import sys
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional, Tuple, List
 
 import pandas as pd
 import psutil
@@ -30,7 +30,7 @@ class Row2VecLogger:
         log_file: str | Path | None = None,
         include_performance: bool = True,
         include_memory: bool = True,
-    ):
+    ) -> None:
         """
         Initialize Row2Vec logger.
 
@@ -91,9 +91,9 @@ class Row2VecLogger:
         self.include_memory = include_memory
 
         # Training state tracking
-        self.training_start_time: float | None = None
-        self.epoch_start_time: float | None = None
-        self.initial_memory: float | None = None
+        self.training_start_time: Optional[float] = None
+        self.epoch_start_time: Optional[float] = None
+        self.initial_memory: Optional[float] = None
 
     def _should_log(self, level: int) -> bool:
         """
@@ -104,7 +104,7 @@ class Row2VecLogger:
         """
         return self.logger.isEnabledFor(level)
 
-    def start_training(self, **kwargs) -> None:
+    def start_training(self, **kwargs: Any) -> None:
         """Log training start with configuration details."""
         self.training_start_time = time.time()
 
@@ -195,7 +195,7 @@ class Row2VecLogger:
                     f"(+{memory_delta:.2f} MB from start)",
                 )
 
-    def log_data_preprocessing(self, df_shape: tuple, processing_steps: list) -> None:
+    def log_data_preprocessing(self, df_shape: Tuple[int, int], processing_steps: List[str]) -> None:
         """Log data preprocessing information."""
         if self._should_log(logging.INFO):
             self.logger.info(f"🔄 Preprocessing data: shape {df_shape}")
@@ -205,8 +205,8 @@ class Row2VecLogger:
 
     def log_preprocessing_result(
         self,
-        original_shape: tuple,
-        processed_shape: tuple,
+        original_shape: Tuple[int, int],
+        processed_shape: Tuple[int, int],
         processing_time: float,
     ) -> None:
         """Log preprocessing completion."""
@@ -276,7 +276,7 @@ class Row2VecLogger:
         """Get current memory usage in MB."""
         try:
             process = psutil.Process()
-            return process.memory_info().rss / 1024 / 1024  # Convert to MB
+            return float(process.memory_info().rss / 1024 / 1024)  # Convert to MB
         except Exception:
             return 0.0
 
@@ -289,28 +289,28 @@ class TrainingProgressCallback:
     during model training.
     """
 
-    def __init__(self, logger: Row2VecLogger):
+    def __init__(self, logger: Row2VecLogger) -> None:
         """Initialize callback with logger instance."""
         self.logger = logger
-        self.epoch_start_time = None
+        self.epoch_start_time: Optional[float] = None
 
-    def set_model(self, model):
+    def set_model(self, model: Any) -> None:
         """Set the model (required by Keras)."""
         self.model = model
 
-    def set_params(self, params):
+    def set_params(self, params: Any) -> None:
         """Set training parameters (required by Keras)."""
         self.params = params
 
-    def on_train_begin(self, logs=None):
+    def on_train_begin(self, logs: Any = None) -> None:
         """Called at the beginning of training."""
         self.logger.logger.debug("🔄 Keras training started")
 
-    def on_epoch_begin(self, epoch, logs=None):
+    def on_epoch_begin(self, epoch: int, logs: Any = None) -> None:
         """Called at the beginning of each epoch."""
         self.epoch_start_time = time.time()
 
-    def on_epoch_end(self, epoch, logs=None):
+    def on_epoch_end(self, epoch: int, logs: Any = None) -> None:
         """Called at the end of each epoch."""
         if logs is None:
             logs = {}
@@ -331,7 +331,7 @@ class TrainingProgressCallback:
             additional_metrics=additional_metrics if additional_metrics else None,
         )
 
-    def on_train_end(self, logs=None):
+    def on_train_end(self, logs: Any = None) -> None:
         """Called at the end of training."""
         self.logger.logger.debug("✅ Keras training completed")
 
@@ -341,7 +341,7 @@ def get_logger(
     name: str = "row2vec",
     level: str = "INFO",
     log_file: str | Path | None = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> Row2VecLogger:
     """
     Create a Row2Vec logger with standard configuration.

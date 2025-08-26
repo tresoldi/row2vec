@@ -8,12 +8,19 @@ simplicity for beginners and flexibility for advanced users.
 
 import warnings
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any, Optional
 
 import pandas as pd
-from sklearn.base import BaseEstimator
 from sklearn.impute import KNNImputer, SimpleImputer
 from sklearn.pipeline import Pipeline
+
+if TYPE_CHECKING:
+    from sklearn.base import BaseEstimator
+else:
+    try:
+        from sklearn.base import BaseEstimator
+    except ImportError:
+        BaseEstimator = object
 
 # Enable experimental features
 try:
@@ -98,7 +105,7 @@ class ImputationConfig:
     categorical_fill_value: str = "Missing"
     """Fill value when using 'constant' strategy for categorical data."""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate configuration parameters."""
         # Validate strategies
         valid_numeric = {"adaptive", "mean", "median", "knn", "iterative"}
@@ -123,7 +130,7 @@ class ImputationConfig:
 class MissingPatternAnalyzer:
     """Analyzes missing data patterns to inform imputation strategy selection."""
 
-    def __init__(self, config: ImputationConfig):
+    def __init__(self, config: ImputationConfig) -> None:
         self.config = config
 
     def analyze(self, df: pd.DataFrame) -> dict[str, Any]:
@@ -169,7 +176,7 @@ class MissingPatternAnalyzer:
         """Recommend imputation strategy for a specific column."""
         is_numeric = pd.api.types.is_numeric_dtype(dtype)
 
-        recommendation = {
+        recommendation: dict[str, Any] = {
             "missing_percentage": missing_pct,
             "is_numeric": is_numeric,
             "suggested_strategy": None,
@@ -221,15 +228,15 @@ class AdaptiveImputer(BaseEstimator):
     imputation strategies based on data characteristics.
     """
 
-    def __init__(self, config: ImputationConfig):
+    def __init__(self, config: ImputationConfig) -> None:
         self.config = config
         self.analyzer = MissingPatternAnalyzer(config)
-        self.analysis_report_ = None
-        self.imputation_pipelines_ = None
-        self.feature_names_in_ = None
-        self.missing_indicators_ = None
+        self.analysis_report_: Optional[dict[str, Any]] = None
+        self.imputation_pipelines_: Optional[dict[str, Any]] = None
+        self.feature_names_in_: Optional[list[str]] = None
+        self.missing_indicators_: Optional[dict[str, Any]] = None
 
-    def fit(self, X: pd.DataFrame, y=None):
+    def fit(self, X: pd.DataFrame, y: Any = None) -> 'AdaptiveImputer':
         """
         Fit the adaptive imputer to the data.
         
@@ -295,7 +302,7 @@ class AdaptiveImputer(BaseEstimator):
 
         return result
 
-    def fit_transform(self, X: pd.DataFrame, y=None, **fit_params) -> pd.DataFrame:
+    def fit_transform(self, X: pd.DataFrame, y: Any = None, **fit_params: Any) -> pd.DataFrame:
         """Fit the imputer and transform the data in one step."""
         return self.fit(X, y).transform(X)
 
@@ -311,7 +318,7 @@ class AdaptiveImputer(BaseEstimator):
 
     def _create_imputation_pipelines(self, X: pd.DataFrame) -> dict[str, Pipeline | None]:
         """Create column-specific imputation pipelines."""
-        pipelines = {}
+        pipelines: dict[str, Pipeline | None] = {}
 
         for col in X.columns:
             if not X[col].isnull().any():
@@ -327,7 +334,7 @@ class AdaptiveImputer(BaseEstimator):
     def _get_column_strategy(self, column: str, series: pd.Series) -> str:
         """Determine the imputation strategy for a specific column."""
         if self.analysis_report_ and column in self.analysis_report_["recommendations"]:
-            return self.analysis_report_["recommendations"][column]["suggested_strategy"]
+            return str(self.analysis_report_["recommendations"][column]["suggested_strategy"])
 
         # Fallback to simple rules if no analysis available
         is_numeric = pd.api.types.is_numeric_dtype(series.dtype)
@@ -376,7 +383,7 @@ class AdaptiveImputer(BaseEstimator):
 
         return Pipeline([("imputer", imputer)])
 
-    def _warn_about_high_missingness(self):
+    def _warn_about_high_missingness(self) -> None:
         """Warn users about potentially problematic missing data patterns."""
         if not self.analysis_report_:
             return
@@ -430,7 +437,7 @@ class AdaptiveImputer(BaseEstimator):
         return report
 
 
-def create_imputation_pipeline(config: ImputationConfig = None) -> AdaptiveImputer:
+def create_imputation_pipeline(config: Optional[ImputationConfig] = None) -> AdaptiveImputer:
     """
     Create an adaptive imputation pipeline with intelligent defaults.
     

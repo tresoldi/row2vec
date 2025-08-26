@@ -8,16 +8,25 @@ simplicity for beginners and full control for advanced users.
 
 import warnings
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
+from numpy.typing import NDArray
 import pandas as pd
-from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.metrics import mutual_info_score
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder, OrdinalEncoder
 from tensorflow import keras
 from tensorflow.keras import layers
+
+if TYPE_CHECKING:
+    from sklearn.base import BaseEstimator, TransformerMixin
+else:
+    try:
+        from sklearn.base import BaseEstimator, TransformerMixin
+    except ImportError:
+        BaseEstimator = object
+        TransformerMixin = object
 
 
 @dataclass
@@ -178,7 +187,7 @@ class CategoricalAnalyzer:
             return 0.0
 
         probabilities = value_counts / value_counts.sum()
-        return -np.sum(probabilities * np.log2(probabilities + 1e-10))
+        return float(-np.sum(probabilities * np.log2(probabilities + 1e-10)))
 
     def _recommend_strategy(
         self,
@@ -222,7 +231,7 @@ class CategoricalAnalyzer:
         """Calculate optimal embedding dimension for entity embeddings."""
         # Rule of thumb: embedding_dim = sqrt(cardinality) * ratio
         dim = int(np.sqrt(cardinality) * self.config.embedding_dim_ratio)
-        return np.clip(dim, self.config.min_embedding_dim, self.config.max_embedding_dim)
+        return int(np.clip(dim, self.config.min_embedding_dim, self.config.max_embedding_dim))
 
     def _explain_recommendation(self, cardinality: int, correlation: float, strategy: str) -> str:
         """Provide human-readable explanation for strategy recommendation."""
@@ -238,17 +247,17 @@ class CategoricalAnalyzer:
 class EntityEmbeddingTrainer:
     """Trains entity embeddings for high-cardinality categorical features."""
 
-    def __init__(self, config: CategoricalEncodingConfig):
+    def __init__(self, config: CategoricalEncodingConfig) -> None:
         self.config = config
-        self.models_ = {}
-        self.label_encoders_ = {}
+        self.models_: dict[str, Any] = {}
+        self.label_encoders_: dict[str, LabelEncoder] = {}
 
     def fit_column_embedding(
         self,
         series: pd.Series,
         target: pd.Series | None = None,
         embedding_dim: int = 10,
-    ) -> np.ndarray:
+    ) -> NDArray[Any]:
         """
         Train entity embeddings for a categorical column.
         
@@ -295,11 +304,11 @@ class EntityEmbeddingTrainer:
 
     def _train_supervised_embedding(
         self,
-        categories: np.ndarray,
+        categories: NDArray[Any],
         target: pd.Series,
         cardinality: int,
         embedding_dim: int,
-    ) -> np.ndarray:
+    ) -> NDArray[Any]:
         """Train supervised entity embeddings using target variable."""
 
         # Determine task type
@@ -374,10 +383,10 @@ class EntityEmbeddingTrainer:
 
     def _train_unsupervised_embedding(
         self,
-        categories: np.ndarray,
+        categories: NDArray[Any],
         cardinality: int,
         embedding_dim: int,
-    ) -> np.ndarray:
+    ) -> NDArray[Any]:
         """Train unsupervised entity embeddings using autoencoder approach."""
 
         # Create one-hot representation for autoencoder
@@ -431,10 +440,10 @@ class EntityEmbeddingTrainer:
 class TargetEncoder:
     """Implements Bayesian target encoding with cross-validation."""
 
-    def __init__(self, config: CategoricalEncodingConfig):
+    def __init__(self, config: CategoricalEncodingConfig) -> None:
         self.config = config
-        self.encodings_ = {}
-        self.global_mean_ = None
+        self.encodings_: dict[Any, float] = {}
+        self.global_mean_: Optional[float] = None
 
     def fit_transform(
         self,
@@ -468,13 +477,13 @@ class TargetEncoder:
         target_clean = target[valid_mask]
 
         # Calculate global mean
-        self.global_mean_ = target_clean.mean()
+        self.global_mean_ = float(target_clean.mean())
 
         # Use cross-validation to prevent overfitting
         kf = KFold(n_splits=self.config.target_cv_folds, shuffle=True,
                    random_state=self.config.random_state)
 
-        encoded_values = np.full(len(series_clean), self.global_mean_)
+        encoded_values = np.full(len(series_clean), self.global_mean_ or 0.0)
 
         for train_idx, val_idx in kf.split(series_clean):
             # Fit on train fold
@@ -492,7 +501,7 @@ class TargetEncoder:
 
                 # Bayesian smoothing formula
                 smoothed_mean = (
-                    (cat_count * cat_mean + self.config.target_smoothing * self.global_mean_) /
+                    (cat_count * cat_mean + self.config.target_smoothing * (self.global_mean_ or 0.0)) /
                     (cat_count + self.config.target_smoothing)
                 )
                 smoothed_means[category] = smoothed_mean
@@ -504,7 +513,7 @@ class TargetEncoder:
                 if category in smoothed_means:
                     encoded_values[val_global_idx] = smoothed_means[category]
                 else:
-                    encoded_values[val_global_idx] = self.global_mean_
+                    encoded_values[val_global_idx] = self.global_mean_ or 0.0
 
         # Store final encodings for transform
         final_stats = target_clean.groupby(series_clean).agg(["mean", "count"])
@@ -514,7 +523,7 @@ class TargetEncoder:
             cat_count = final_stats.loc[category, "count"]
 
             smoothed_mean = (
-                (cat_count * cat_mean + self.config.target_smoothing * self.global_mean_) /
+                (cat_count * cat_mean + self.config.target_smoothing * (self.global_mean_ or 0.0)) /
                 (cat_count + self.config.target_smoothing)
             )
             self.encodings_[category] = smoothed_mean
@@ -551,17 +560,17 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
     advanced users.
     """
 
-    def __init__(self, config: CategoricalEncodingConfig | None = None):
+    def __init__(self, config: CategoricalEncodingConfig | None = None) -> None:
         self.config = config or CategoricalEncodingConfig()
         self.analyzer_ = CategoricalAnalyzer(self.config)
-        self.column_strategies_ = {}
-        self.fitted_encoders_ = {}
-        self.entity_embeddings_ = {}
-        self.feature_names_in_ = None
-        self.feature_names_out_ = None
-        self.analysis_report_ = {}
+        self.column_strategies_: dict[str, str] = {}
+        self.fitted_encoders_: dict[str, Any] = {}
+        self.entity_embeddings_: dict[str, Any] = {}
+        self.feature_names_in_: Optional[list[str]] = None
+        self.feature_names_out_: Optional[list[str]] = None
+        self.analysis_report_: dict[str, Any] = {}
 
-    def fit(self, X: pd.DataFrame, y: pd.Series | None = None):
+    def fit(self, X: pd.DataFrame, y: pd.Series | None = None) -> 'CategoricalEncoder':
         """
         Fit the categorical encoder on training data.
         
@@ -656,7 +665,7 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
         target: pd.Series | None,
         strategy: str,
         analysis: dict[str, Any],
-    ):
+    ) -> None:
         """Fit encoder for a specific column based on strategy."""
 
         if strategy == "drop":
@@ -669,14 +678,14 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
                 sparse_output=False,  # Return dense arrays
             )
             # Fit on reshaped data
-            encoder.fit(series.values.reshape(-1, 1))
+            encoder.fit(np.asarray(series.values).reshape(-1, 1))
             self.fitted_encoders_[col] = encoder
 
         elif strategy == "target":
             if target is None:
                 warnings.warn(f"Target encoding requested for {col} but no target provided. Using ordinal encoding.")
                 encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)
-                encoder.fit(series.values.reshape(-1, 1))
+                encoder.fit(np.asarray(series.values).reshape(-1, 1))
                 self.fitted_encoders_[col] = encoder
             else:
                 encoder = TargetEncoder(self.config)
@@ -707,7 +716,7 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
         else:
             raise ValueError(f"Unknown encoding strategy: {strategy}")
 
-    def _transform_column(self, col: str, series: pd.Series, strategy: str):
+    def _transform_column(self, col: str, series: pd.Series, strategy: str) -> Any:
         """Transform a specific column using its fitted encoder."""
 
         if strategy == "drop":
@@ -715,7 +724,7 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
 
         if strategy == "onehot":
             encoder = self.fitted_encoders_[col]
-            encoded = encoder.transform(series.values.reshape(-1, 1))
+            encoded = encoder.transform(np.asarray(series.values).reshape(-1, 1))
 
             # Create column names
             if hasattr(encoder, "get_feature_names_out"):
@@ -730,7 +739,7 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
             if isinstance(encoder, TargetEncoder):
                 return encoder.transform(series)
             # Fallback ordinal encoder
-            encoded = encoder.transform(series.values.reshape(-1, 1))
+            encoded = encoder.transform(np.asarray(series.values).reshape(-1, 1))
             return pd.Series(encoded.flatten(), index=series.index, name=col)
 
         if strategy == "entity":
@@ -776,12 +785,12 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
 
         if strategy == "ordinal":
             encoder = self.fitted_encoders_[col]
-            encoded = encoder.transform(series.values.reshape(-1, 1))
+            encoded = encoder.transform(np.asarray(series.values).reshape(-1, 1))
             return pd.Series(encoded.flatten(), index=series.index, name=col)
 
         raise ValueError(f"Unknown encoding strategy: {strategy}")
 
-    def _calculate_output_features(self, X: pd.DataFrame):
+    def _calculate_output_features(self, X: pd.DataFrame) -> None:
         """Calculate output feature names after encoding."""
         feature_names = []
 
