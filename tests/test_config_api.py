@@ -55,7 +55,7 @@ class TestConfigObjects:
     def test_neural_config_validation(self):
         """Test neural config validation."""
         # Valid config should not raise
-        config = NeuralConfig(max_epochs=50, batch_size=32, dropout_rate=0.2)
+        NeuralConfig(max_epochs=50, batch_size=32, dropout_rate=0.2)
 
         # Invalid configs should raise
         with pytest.raises(ValueError, match="max_epochs must be positive"):
@@ -70,7 +70,7 @@ class TestConfigObjects:
     def test_contrastive_config_validation(self):
         """Test contrastive config validation."""
         # Valid config
-        config = ContrastiveConfig(loss_type="triplet", auto_pairs="cluster")
+        ContrastiveConfig(loss_type="triplet", auto_pairs="cluster")
 
         # Invalid loss type
         with pytest.raises(ValueError, match="loss_type must be"):
@@ -198,7 +198,7 @@ class TestAPICompatibility:
 
     def test_config_vs_legacy_equivalence(self):
         """Test that config-based and legacy APIs produce equivalent results."""
-        df = generate_synthetic_data(100, seed=42)  # Fixed seed for reproducibility
+        df = generate_synthetic_data(100, seed=1305)  # Fixed seed for reproducibility
 
         # Legacy API call
         legacy_embeddings = learn_embedding(

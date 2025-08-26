@@ -34,7 +34,7 @@ class TestInputValidation:
         """Test that non-integer embedding_dim raises TypeError."""
         df = generate_synthetic_data(10)
         with pytest.raises(TypeError, match="embedding_dim must be an integer"):
-            learn_embedding(df, embedding_dim=5.5)  # type: ignore
+            learn_embedding(df, embedding_dim=5.5)  # type: ignore[arg-type]
 
     def test_negative_embedding_dimension_raises_error(self):
         """Test that negative embedding_dim raises ValueError."""
@@ -66,7 +66,7 @@ class TestInputValidation:
         """Test that non-string reference_column raises TypeError."""
         df = generate_synthetic_data(10)
         with pytest.raises(TypeError, match="reference_column must be a string"):
-            learn_embedding(df, embedding_dim=2, mode="target", reference_column=123)  # type: ignore
+            learn_embedding(df, embedding_dim=2, mode="target", reference_column=123)  # type: ignore[arg-type]
 
     def test_target_mode_with_nonexistent_reference_column_raises_error(self):
         """Test that non-existent reference_column raises ValueError."""
@@ -162,7 +162,7 @@ class TestInputValidation:
         with pytest.raises(TypeError, match="scale_range must be a tuple or list"):
             learn_embedding(
                 df, embedding_dim=2, scale_range="invalid", max_epochs=1, batch_size=10,
-            )  # type: ignore
+            )  # type: ignore[arg-type]
 
     def test_invalid_scale_range_length_raises_error(self):
         """Test that scale_range with wrong length raises TypeError."""
@@ -172,7 +172,7 @@ class TestInputValidation:
         ):
             learn_embedding(
                 df, embedding_dim=2, scale_range=(0, 1, 2), max_epochs=1, batch_size=10,
-            )  # type: ignore
+            )  # type: ignore[arg-type]
 
     def test_invalid_scale_range_values_raises_error(self):
         """Test that scale_range with low >= high raises ValueError."""
@@ -217,32 +217,26 @@ class TestInputValidation:
     def test_wrong_dataframe_type_raises_error(self):
         """Test that non-DataFrame input raises TypeError."""
         with pytest.raises(TypeError, match="Expected pandas DataFrame"):
-            learn_embedding([1, 2, 3, 4, 5], max_epochs=1, batch_size=5)  # type: ignore
+            learn_embedding([1, 2, 3, 4, 5], max_epochs=1, batch_size=5)  # type: ignore[arg-type]
 
 
 class TestScalingValidation:
     """Test suite for scaling validation."""
 
     def test_constant_column_minmax_scaling_error(self):
-        """Test that constant columns raise appropriate error during minmax scaling."""
+        """Test that constant columns are handled appropriately."""
         df = pd.DataFrame(
             {
                 "varying": [1, 2, 3, 4, 5],
                 "constant": [5, 5, 5, 5, 5],  # Constant column
             },
         )
-        # This should work since our preprocessing handles constant columns differently
-        # But let's test if we can trigger the error by creating a situation where
-        # the embeddings themselves are constant
-        try:
-            result = learn_embedding(
-                df, embedding_dim=1, scale_method="minmax", max_epochs=1, batch_size=5,
-            )
-            # If it doesn't raise an error, that's actually fine - the preprocessing handled it
-            assert result.shape == (5, 1)
-        except ValueError as e:
-            # If it does raise an error about constant columns, that's also acceptable
-            assert "constant column" in str(e) or "MinMax scaling undefined" in str(e)
+        # The preprocessing should handle constant columns appropriately
+        result = learn_embedding(
+            df, embedding_dim=1, scale_method="minmax", max_epochs=1, batch_size=5,
+        )
+        # Should work since preprocessing handles constant columns
+        assert result.shape == (5, 1)
 
 
 class TestValidInputs:
@@ -290,7 +284,7 @@ class TestValidInputs:
     def test_large_embedding_dimension_warning(self):
         """Test that very large embedding dimensions are handled."""
         df = pd.DataFrame({"A": range(10), "B": range(10, 20)})
-        # This should work but might not be optimal - batch_size needs to be set appropriately
+        # Should work but might not be optimal - needs appropriate batch_size
         with pytest.raises(
             ValueError,
             match="embedding_dim .* cannot be larger than the number of features",

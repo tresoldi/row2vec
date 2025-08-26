@@ -13,7 +13,7 @@ from row2vec.cli import cmd_train, create_parser
 def test_cli_parser():
     """Test that the CLI parser is created successfully."""
     try:
-        parser = create_parser()
+        create_parser()
         print("✓ CLI parser created successfully")
         return True
     except Exception as e:

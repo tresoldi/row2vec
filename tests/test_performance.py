@@ -39,7 +39,7 @@ class PerformanceBenchmark:
 
         # Get final memory
         final_memory = process.memory_info().rss / 1024 / 1024  # MB
-        
+
         # Calculate memory difference, ensuring it's not negative
         # (negative values can occur due to garbage collection)
         memory_diff = final_memory - initial_memory
@@ -234,7 +234,7 @@ class TestPerformanceBenchmarks:
             pass
 
         # Test t-SNE perplexity sensitivity (smaller test for speed)
-        df_small = df.sample(100, random_state=42)
+        df_small = df.sample(100, random_state=1305)
         perplexity_values = [5, 15, 25]
         perplexity_results = {}
 

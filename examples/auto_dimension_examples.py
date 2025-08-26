@@ -5,6 +5,8 @@ This example demonstrates how to use Row2Vec's automatic dimension selection
 to find optimal embedding dimensions for different types of datasets.
 """
 
+import traceback
+
 import numpy as np
 import pandas as pd
 
@@ -24,7 +26,7 @@ def basic_auto_selection_example():
     print("=" * 60)
 
     # Generate synthetic data
-    df = generate_synthetic_data(500, seed=42)
+    df = generate_synthetic_data(500, seed=1305)
     print(f"Dataset shape: {df.shape}")
 
     # Automatic dimension selection with default settings
@@ -37,7 +39,10 @@ def basic_auto_selection_example():
     print(f"\n✅ Recommended embedding dimension: {optimal_dim}")
     print("📊 Method scores:")
     for method, result in metadata["method_results"].items():
-        print(f"   {method}: dim={result['recommended_dim']}, score={result['score']:.3f}")
+        print(
+            f"   {method}: dim={result['recommended_dim']}, "
+            f"score={result['score']:.3f}",
+        )
 
     return optimal_dim, metadata
 
@@ -92,7 +97,7 @@ def comparison_example():
     print("=" * 60)
 
     # Generate test dataset
-    df = generate_synthetic_data(300, seed=42)
+    df = generate_synthetic_data(300, seed=1305)
 
     # Test different manual dimensions
     manual_dims = [2, 4, 8, 16]
@@ -183,7 +188,7 @@ def integration_example():
     print("=" * 60)
 
     # Generate dataset
-    df = generate_synthetic_data(400, seed=42)
+    df = generate_synthetic_data(400, seed=1305)
 
     # Step 1: Auto-select dimension
     print("Step 1: Automatic dimension selection...")
@@ -249,7 +254,6 @@ def main():
 
     except Exception as e:
         print(f"\n❌ Error in examples: {e}")
-        import traceback
         traceback.print_exc()
 
 

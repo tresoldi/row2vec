@@ -5,6 +5,8 @@ This script tests the basic functionality of the categorical encoding
 system without requiring TensorFlow or heavy dependencies.
 """
 
+import sys
+
 import numpy as np
 import pandas as pd
 
@@ -14,7 +16,7 @@ try:
     print("✅ Configuration system loaded successfully")
 except ImportError as e:
     print(f"❌ Configuration import failed: {e}")
-    exit(1)
+    sys.exit(1)
 
 # Test pipeline builder
 try:
@@ -22,7 +24,7 @@ try:
     print("✅ Pipeline builder loaded successfully")
 except ImportError as e:
     print(f"❌ Pipeline builder import failed: {e}")
-    exit(1)
+    sys.exit(1)
 
 # Test categorical analyzer (without TensorFlow-dependent parts)
 try:

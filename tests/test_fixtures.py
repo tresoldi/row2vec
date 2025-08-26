@@ -48,19 +48,19 @@ class TestDataManager:
 @pytest.fixture(scope="session")
 def small_synthetic_data():
     """Small synthetic dataset for quick tests."""
-    return generate_synthetic_data(num_records=50, seed=42)
+    return generate_synthetic_data(num_records=50, seed=1305)
 
 
 @pytest.fixture(scope="session")
 def medium_synthetic_data():
     """Medium synthetic dataset for thorough tests."""
-    return generate_synthetic_data(num_records=200, seed=42)
+    return generate_synthetic_data(num_records=200, seed=1305)
 
 
 @pytest.fixture(scope="session")
 def large_synthetic_data():
     """Large synthetic dataset for performance tests."""
-    return generate_synthetic_data(num_records=1000, seed=42)
+    return generate_synthetic_data(num_records=1000, seed=1305)
 
 
 @pytest.fixture(scope="session")
@@ -161,7 +161,7 @@ def real_data_samples():
                 .dropna()
                 .sample(
                     n=min(150, len(titanic_clean)),
-                    random_state=42,
+                    random_state=1305,
                 )
             )
             samples["titanic"] = titanic_sample
@@ -181,7 +181,7 @@ def real_data_samples():
             .dropna()
             .sample(
                 n=min(150, len(housing_full)),
-                random_state=42,
+                random_state=1305,
             )
         )
         samples["housing"] = housing_sample
@@ -363,7 +363,7 @@ class TestRegressionFixtures:
             mode="unsupervised",
             embedding_dim=embedding_dim,
             max_epochs=2,
-            seed=42,
+            seed=1305,
             verbose=False,
             enable_logging=False,
             batch_size=batch_size,

@@ -53,7 +53,7 @@ def main():
 
         # Generate sample data
         print("\n📊 Generating sample data...")
-        df = generate_synthetic_data(500, seed=42)
+        df = generate_synthetic_data(500, seed=1305)
 
         # Save as different formats
         csv_file = temp_path / "sample_data.csv"

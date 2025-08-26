@@ -433,7 +433,7 @@ class ArchitectureSearcher:
         try:
             if len(embeddings) > 10:  # Need enough samples for clustering
                 n_clusters = min(8, max(2, len(embeddings) // 20))
-                kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+                kmeans = KMeans(n_clusters=n_clusters, random_state=1305, n_init=10)
                 cluster_labels = kmeans.fit_predict(embeddings)
 
                 if len(np.unique(cluster_labels)) > 1:

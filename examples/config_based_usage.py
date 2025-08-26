@@ -33,7 +33,7 @@ def main():
     print("=" * 50)
 
     # Generate sample data
-    df = generate_synthetic_data(200, seed=42)
+    df = generate_synthetic_data(200, seed=1305)
     print(f"📊 Generated dataset: {df.shape}")
     print(f"   Columns: {list(df.columns)}")
     print()
@@ -50,7 +50,7 @@ def main():
     config = EmbeddingConfig(
         embedding_dim=8,  # Reduced to be smaller than features
         mode="unsupervised",
-        seed=42,
+        seed=1305,
         neural=NeuralConfig(
             max_epochs=30,
             batch_size=32,
@@ -76,7 +76,7 @@ def main():
         df,
         embedding_dim=8,
         mode="pca",
-        seed=42,
+        seed=1305,
     )
     print(f"   Embeddings shape: {embeddings.shape}")
     print("   Method: PCA with quick overrides")

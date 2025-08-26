@@ -364,7 +364,7 @@ class AdaptiveImputer(BaseEstimator):
             elif strategy == "iterative":
                 # Use global import check
                 if ITERATIVE_IMPUTER_AVAILABLE:
-                    imputer = IterativeImputer(random_state=42)
+                    imputer = IterativeImputer(random_state=1305)
                 else:
                     warnings.warn(
                         "IterativeImputer not available, falling back to KNN imputation",
