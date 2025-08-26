@@ -37,9 +37,13 @@ class PerformanceBenchmark:
         result = func(*args, **kwargs)
         execution_time = time.time() - start_time
 
-        # Get peak memory (approximate)
+        # Get final memory
         final_memory = process.memory_info().rss / 1024 / 1024  # MB
-        peak_memory = final_memory - initial_memory
+        
+        # Calculate memory difference, ensuring it's not negative
+        # (negative values can occur due to garbage collection)
+        memory_diff = final_memory - initial_memory
+        peak_memory = max(0.0, memory_diff)  # Ensure non-negative
 
         return execution_time, peak_memory, result
 
