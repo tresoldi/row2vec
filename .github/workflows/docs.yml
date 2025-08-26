@@ -110,11 +110,46 @@ jobs:
         retention-days: 30  # Keep artifacts for 30 days
         compression-level: 6  # Good balance of speed and compression
 
+    - name: 🚀 Deploy to evotext.github.io
+      env:
+        DEPLOY_TOKEN: ${{ secrets.EVOTEXT_DEPLOY_TOKEN }}
+        GITHUB_USERNAME: ${{ github.actor }}
+      run: |
+        echo "🚀 Deploying documentation to evotext.github.io/row2vec..."
+
+        # Configure git
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+        # Clone evotext.github.io repository
+        git clone https://x-access-token:${DEPLOY_TOKEN}@github.com/evotext/evotext.github.io.git /tmp/evotext-site
+        cd /tmp/evotext-site
+
+        # Switch to master branch (evotext.github.io uses master)
+        git checkout master
+
+        # Remove existing row2vec directory if it exists
+        rm -rf row2vec/
+
+        # Copy new documentation
+        cp -r $GITHUB_WORKSPACE/jupyter_book/_build/html/ row2vec/
+
+        # Check if there are any changes
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "📝 Changes detected, committing and pushing..."
+          git add row2vec/
+          git commit -m "Update Row2Vec documentation (auto-deploy from ${{ github.sha }})"
+          git push origin master
+          echo "✅ Documentation deployed successfully!"
+        else
+          echo "ℹ️ No changes detected, skipping deployment."
+        fi
+
     - name: 📝 Create build summary
       run: |
-        echo "## 📚 Row2Vec Documentation Build" >> $GITHUB_STEP_SUMMARY
+        echo "## 📚 Row2Vec Documentation Build & Deploy" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "🎯 **Target URL:** \`https://evotext.github.io/row2vec/\`" >> $GITHUB_STEP_SUMMARY
+        echo "🎯 **Live URL:** https://evotext.github.io/row2vec/" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "📊 **Build Details:**" >> $GITHUB_STEP_SUMMARY
         echo "- **Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
@@ -127,7 +162,4 @@ jobs:
           echo "- **Total size:** $(du -sh jupyter_book/_build/html | cut -f1)" >> $GITHUB_STEP_SUMMARY
         fi
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 🚀 Next Steps for evotext.github.io Integration:" >> $GITHUB_STEP_SUMMARY
-        echo "1. Download the artifacts from this build" >> $GITHUB_STEP_SUMMARY
-        echo "2. Extract to the \`row2vec/\` directory in evotext.github.io repository" >> $GITHUB_STEP_SUMMARY
-        echo "3. Commit and push to deploy at https://evotext.github.io/row2vec/" >> $GITHUB_STEP_SUMMARY
+        echo "✅ **Status:** Documentation automatically deployed to evotext.github.io" >> $GITHUB_STEP_SUMMARY
