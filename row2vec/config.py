@@ -3,25 +3,25 @@ Configuration classes for Row2Vec embedding methods.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, Tuple, Union, List, Dict, Any
-import yaml
 from pathlib import Path
+from typing import Any
+
+import yaml
 
 # Import categorical encoding configuration
-from .categorical_encoding import CategoricalEncodingConfig
 
 
 @dataclass
 class NeuralConfig:
     """Configuration for neural network-based embedding methods."""
-    
+
     max_epochs: int = 50
     batch_size: int = 64
     dropout_rate: float = 0.2
-    hidden_units: Union[int, List[int]] = 128
+    hidden_units: int | list[int] = 128
     activation: str = "relu"
     early_stopping: bool = True
-    
+
     def __post_init__(self):
         """Minimal validation for neural config."""
         if self.max_epochs <= 0:
@@ -30,7 +30,7 @@ class NeuralConfig:
             raise ValueError("batch_size must be positive")
         if not 0 <= self.dropout_rate <= 1:
             raise ValueError("dropout_rate must be between 0 and 1")
-        
+
         # Validate hidden_units
         if isinstance(self.hidden_units, int):
             if self.hidden_units <= 0:
@@ -40,7 +40,7 @@ class NeuralConfig:
                 raise ValueError("All hidden_units must be positive")
         else:
             raise ValueError("hidden_units must be int or List[int]")
-        
+
         # Validate activation
         valid_activations = ["relu", "elu", "swish", "tanh", "sigmoid", "leaky_relu"]
         if self.activation not in valid_activations:
@@ -50,15 +50,15 @@ class NeuralConfig:
 @dataclass
 class ClassicalConfig:
     """Configuration for classical ML dimensionality reduction methods."""
-    
+
     # UMAP parameters
     n_neighbors: int = 15
     min_dist: float = 0.1
-    
+
     # t-SNE parameters
     perplexity: float = 30.0
     n_iter: int = 1000
-    
+
     def __post_init__(self):
         """Minimal validation for classical config."""
         if self.n_neighbors <= 0:
@@ -74,14 +74,14 @@ class ClassicalConfig:
 @dataclass
 class ContrastiveConfig:
     """Configuration for contrastive learning."""
-    
+
     loss_type: str = "triplet"
-    similar_pairs: Optional[List[Tuple[int, int]]] = None
-    dissimilar_pairs: Optional[List[Tuple[int, int]]] = None
-    auto_pairs: Optional[str] = None  # "cluster", "neighbors", "categorical", "random"
+    similar_pairs: list[tuple[int, int]] | None = None
+    dissimilar_pairs: list[tuple[int, int]] | None = None
+    auto_pairs: str | None = None  # "cluster", "neighbors", "categorical", "random"
     margin: float = 1.0
     negative_samples: int = 5
-    
+
     def __post_init__(self):
         """Minimal validation for contrastive config."""
         if self.loss_type not in ["triplet", "contrastive"]:
@@ -97,10 +97,10 @@ class ContrastiveConfig:
 @dataclass
 class ScalingConfig:
     """Configuration for embedding scaling/normalization."""
-    
-    method: Optional[str] = None  # "none", "minmax", "standard", "l2", "tanh"
-    range: Optional[Tuple[float, float]] = None
-    
+
+    method: str | None = None  # "none", "minmax", "standard", "l2", "tanh"
+    range: tuple[float, float] | None = None
+
     def __post_init__(self):
         """Minimal validation for scaling config."""
         if self.method is not None and self.method not in ["none", "minmax", "standard", "l2", "tanh"]:
@@ -115,39 +115,39 @@ class ScalingConfig:
 @dataclass
 class LoggingConfig:
     """Configuration for logging and output."""
-    
+
     level: str = "INFO"
-    file: Optional[str] = None
+    file: str | None = None
     enabled: bool = True
-    
+
     def __post_init__(self):
         """Minimal validation for logging config."""
         if self.level not in ["DEBUG", "INFO", "WARNING", "ERROR"]:
             raise ValueError("level must be one of: DEBUG, INFO, WARNING, ERROR")
 
 
-@dataclass 
+@dataclass
 class PreprocessingConfig:
     """Configuration for data preprocessing including categorical encoding."""
-    
+
     # Missing value handling
     handle_missing: str = "auto"  # "auto", "drop", "impute", "custom"
-    
-    # Scaling configuration 
+
+    # Scaling configuration
     numeric_scaling: str = "standard"  # "standard", "minmax", "robust", "none"
-    
+
     # Categorical encoding (will be imported from categorical_encoding module)
     categorical_encoding_strategy: str = "adaptive"
     categorical_onehot_threshold: int = 20
     categorical_target_threshold: int = 100
     categorical_entity_threshold: int = 1000
-    
+
     def __post_init__(self):
         """Minimal validation for preprocessing config."""
         valid_missing = ["auto", "drop", "impute", "custom"]
         if self.handle_missing not in valid_missing:
             raise ValueError(f"handle_missing must be one of: {valid_missing}")
-        
+
         valid_scaling = ["standard", "minmax", "robust", "none"]
         if self.numeric_scaling not in valid_scaling:
             raise ValueError(f"numeric_scaling must be one of: {valid_scaling}")
@@ -156,14 +156,14 @@ class PreprocessingConfig:
 @dataclass
 class EmbeddingConfig:
     """Complete configuration for embedding learning."""
-    
+
     # Core parameters
     embedding_dim: int = 10
     mode: str = "unsupervised"
-    reference_column: Optional[str] = None
+    reference_column: str | None = None
     seed: int = 1305
     verbose: bool = False
-    
+
     # Sub-configurations
     neural: NeuralConfig = field(default_factory=NeuralConfig)
     classical: ClassicalConfig = field(default_factory=ClassicalConfig)
@@ -171,21 +171,21 @@ class EmbeddingConfig:
     scaling: ScalingConfig = field(default_factory=ScalingConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     preprocessing: PreprocessingConfig = field(default_factory=PreprocessingConfig)
-    
+
     def __post_init__(self):
         """Minimal validation for main config."""
         if self.embedding_dim <= 0:
             raise ValueError("embedding_dim must be positive")
-        
+
         valid_modes = ["unsupervised", "target", "pca", "tsne", "umap", "contrastive"]
         if self.mode not in valid_modes:
             raise ValueError(f"mode must be one of: {valid_modes}")
-        
+
         if self.mode == "target" and self.reference_column is None:
             raise ValueError("reference_column is required when mode='target'")
-    
+
     @classmethod
-    def from_dict(cls, config_dict: Dict[str, Any]) -> "EmbeddingConfig":
+    def from_dict(cls, config_dict: dict[str, Any]) -> "EmbeddingConfig":
         """Create config from dictionary (e.g., from YAML)."""
         # Extract sub-configs
         neural_dict = config_dict.pop("neural", {})
@@ -194,7 +194,7 @@ class EmbeddingConfig:
         scaling_dict = config_dict.pop("scaling", {})
         logging_dict = config_dict.pop("logging", {})
         preprocessing_dict = config_dict.pop("preprocessing", {})
-        
+
         return cls(
             neural=NeuralConfig(**neural_dict),
             classical=ClassicalConfig(**classical_dict),
@@ -202,17 +202,17 @@ class EmbeddingConfig:
             scaling=ScalingConfig(**scaling_dict),
             logging=LoggingConfig(**logging_dict),
             preprocessing=PreprocessingConfig(**preprocessing_dict),
-            **config_dict
+            **config_dict,
         )
-    
+
     @classmethod
-    def from_yaml(cls, yaml_path: Union[str, Path]) -> "EmbeddingConfig":
+    def from_yaml(cls, yaml_path: str | Path) -> "EmbeddingConfig":
         """Create config from YAML file."""
-        with open(yaml_path, 'r') as f:
+        with open(yaml_path) as f:
             config_dict = yaml.safe_load(f)
         return cls.from_dict(config_dict)
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert config to dictionary."""
         result = {
             "embedding_dim": self.embedding_dim,
@@ -221,7 +221,7 @@ class EmbeddingConfig:
             "seed": self.seed,
             "verbose": self.verbose,
         }
-        
+
         # Add sub-configs as nested dictionaries
         result["neural"] = {
             "max_epochs": self.neural.max_epochs,
@@ -230,14 +230,14 @@ class EmbeddingConfig:
             "hidden_units": self.neural.hidden_units,
             "early_stopping": self.neural.early_stopping,
         }
-        
+
         result["classical"] = {
             "n_neighbors": self.classical.n_neighbors,
             "min_dist": self.classical.min_dist,
             "perplexity": self.classical.perplexity,
             "n_iter": self.classical.n_iter,
         }
-        
+
         result["contrastive"] = {
             "loss_type": self.contrastive.loss_type,
             "similar_pairs": self.contrastive.similar_pairs,
@@ -246,18 +246,18 @@ class EmbeddingConfig:
             "margin": self.contrastive.margin,
             "negative_samples": self.contrastive.negative_samples,
         }
-        
+
         result["scaling"] = {
             "method": self.scaling.method,
             "range": self.scaling.range,
         }
-        
+
         result["logging"] = {
             "level": self.logging.level,
             "file": self.logging.file,
             "enabled": self.logging.enabled,
         }
-        
+
         result["preprocessing"] = {
             "handle_missing": self.preprocessing.handle_missing,
             "numeric_scaling": self.preprocessing.numeric_scaling,
@@ -266,12 +266,12 @@ class EmbeddingConfig:
             "categorical_target_threshold": self.preprocessing.categorical_target_threshold,
             "categorical_entity_threshold": self.preprocessing.categorical_entity_threshold,
         }
-        
+
         return result
-    
-    def to_yaml(self, yaml_path: Union[str, Path]) -> None:
+
+    def to_yaml(self, yaml_path: str | Path) -> None:
         """Save config to YAML file."""
-        with open(yaml_path, 'w') as f:
+        with open(yaml_path, "w") as f:
             yaml.dump(self.to_dict(), f, default_flow_style=False, sort_keys=False)
 
 
@@ -286,7 +286,7 @@ def create_config_for_mode(mode: str, **overrides) -> EmbeddingConfig:
         base_config.reference_column = None
     else:
         base_config = EmbeddingConfig(mode=mode)
-        
+
         # Mode-specific optimizations
         if mode == "contrastive":
             base_config.neural.max_epochs = 100  # Contrastive learning often needs more epochs
@@ -295,7 +295,7 @@ def create_config_for_mode(mode: str, **overrides) -> EmbeddingConfig:
         elif mode in ["pca", "tsne", "umap"]:
             # Classical methods don't use neural config, but we keep it for consistency
             pass
-    
+
     # Apply any overrides
     if overrides:
         config_dict = base_config.to_dict()
@@ -310,5 +310,5 @@ def create_config_for_mode(mode: str, **overrides) -> EmbeddingConfig:
             base_config.reference_column = None
         else:
             base_config = EmbeddingConfig.from_dict(config_dict)
-    
+
     return base_config

@@ -42,19 +42,19 @@ class Row2VecLogger:
             include_memory: Whether to include memory usage tracking
         """
         self.logger = logging.getLogger(name)
-        
+
         # Respect the current logging configuration level if it's already set
         # Only set level if it's not already configured or if it's more permissive
         current_level = self.logger.getEffectiveLevel()
         desired_level = getattr(logging, level.upper())
-        
+
         if current_level > desired_level:
             self.logger.setLevel(desired_level)
 
         # Only add handlers if logger doesn't already have them AND the parent loggers don't have handlers
         # This allows external logging configuration to take precedence
         should_add_handler = not self.logger.handlers
-        
+
         # Also check if parent loggers have handlers (indicating external configuration)
         parent = self.logger.parent
         while parent and should_add_handler:
@@ -62,7 +62,7 @@ class Row2VecLogger:
                 should_add_handler = False
                 break
             parent = parent.parent
-        
+
         # Only add our own handler if no existing handlers are found in the hierarchy
         if should_add_handler:
             # Configure formatter
