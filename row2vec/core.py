@@ -34,7 +34,7 @@ from .pipeline_builder import build_adaptive_pipeline
 from .utils import create_dataframe_schema
 
 
-class Row2VecTrainingCallback(Callback):
+class Row2VecTrainingCallback(Callback):  # type: ignore[misc]
     """Keras callback for Row2Vec training progress logging."""
 
     def __init__(self, logger: Row2VecLogger):

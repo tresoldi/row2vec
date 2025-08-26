@@ -298,7 +298,7 @@ class EntityEmbeddingTrainer:
         cardinality = len(label_encoder.classes_)
 
         # Store for later use
-        column_name = series.name or "unknown"
+        column_name = str(series.name) if series.name is not None else "unknown"
         self.label_encoders_[column_name] = label_encoder
 
         # Build embedding model
@@ -573,7 +573,7 @@ class TargetEncoder:
         return series.map(self.encodings_).fillna(self.global_mean_)
 
 
-class CategoricalEncoder(BaseEstimator, TransformerMixin):
+class CategoricalEncoder(BaseEstimator, TransformerMixin):  # type: ignore[misc]
     """
     Intelligent categorical encoder with adaptive strategy selection.
 
@@ -746,7 +746,7 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
             encoder = OrdinalEncoder(
                 handle_unknown="use_encoded_value", unknown_value=-1
             )
-            encoder.fit(series.values.reshape(-1, 1))
+            encoder.fit(np.asarray(series.values).reshape(-1, 1))
             self.fitted_encoders_[col] = encoder
 
         else:
@@ -878,8 +878,8 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
             elif df[col].var() == 0:
                 importance = 0.0
             else:
-                importance = min(
-                    1.0, df[col].var() / (df[col].var() + df[col].mean() ** 2)
+                importance = min(  # type: ignore[type-var]
+                    1.0, df[col].var() / (df[col].var() + df[col].mean() ** 2)  # type: ignore[operator,call-overload]
                 )
 
             feature_importances[col] = importance

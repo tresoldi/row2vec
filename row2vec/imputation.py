@@ -243,7 +243,7 @@ class MissingPatternAnalyzer:
         return recommendation
 
 
-class AdaptiveImputer(BaseEstimator):
+class AdaptiveImputer(BaseEstimator):  # type: ignore[misc]
     """
     Adaptive imputer that automatically selects and applies appropriate
     imputation strategies based on data characteristics.
