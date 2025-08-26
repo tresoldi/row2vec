@@ -22,7 +22,7 @@ class NeuralConfig:
     activation: str = "relu"
     early_stopping: bool = True
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Minimal validation for neural config."""
         if self.max_epochs <= 0:
             raise ValueError("max_epochs must be positive")
@@ -59,7 +59,7 @@ class ClassicalConfig:
     perplexity: float = 30.0
     n_iter: int = 1000
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Minimal validation for classical config."""
         if self.n_neighbors <= 0:
             raise ValueError("n_neighbors must be positive")
@@ -82,7 +82,7 @@ class ContrastiveConfig:
     margin: float = 1.0
     negative_samples: int = 5
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Minimal validation for contrastive config."""
         if self.loss_type not in ["triplet", "contrastive"]:
             raise ValueError("loss_type must be 'triplet' or 'contrastive'")
@@ -101,7 +101,7 @@ class ScalingConfig:
     method: str | None = None  # "none", "minmax", "standard", "l2", "tanh"
     range: tuple[float, float] | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Minimal validation for scaling config."""
         if self.method is not None and self.method not in ["none", "minmax", "standard", "l2", "tanh"]:
             raise ValueError("method must be one of: none, minmax, standard, l2, tanh")
@@ -120,7 +120,7 @@ class LoggingConfig:
     file: str | None = None
     enabled: bool = True
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Minimal validation for logging config."""
         if self.level not in ["DEBUG", "INFO", "WARNING", "ERROR"]:
             raise ValueError("level must be one of: DEBUG, INFO, WARNING, ERROR")
@@ -142,7 +142,7 @@ class PreprocessingConfig:
     categorical_target_threshold: int = 100
     categorical_entity_threshold: int = 1000
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Minimal validation for preprocessing config."""
         valid_missing = ["auto", "drop", "impute", "custom"]
         if self.handle_missing not in valid_missing:
@@ -172,7 +172,7 @@ class EmbeddingConfig:
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     preprocessing: PreprocessingConfig = field(default_factory=PreprocessingConfig)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Minimal validation for main config."""
         if self.embedding_dim <= 0:
             raise ValueError("embedding_dim must be positive")
@@ -275,7 +275,7 @@ class EmbeddingConfig:
             yaml.dump(self.to_dict(), f, default_flow_style=False, sort_keys=False)
 
 
-def create_config_for_mode(mode: str, **overrides) -> EmbeddingConfig:
+def create_config_for_mode(mode: str, **overrides: Any) -> EmbeddingConfig:
     """Create a pre-configured EmbeddingConfig for common use cases."""
     # Handle target mode specially since it requires reference_column
     if mode == "target":

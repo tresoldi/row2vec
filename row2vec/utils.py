@@ -68,7 +68,7 @@ def create_dataframe_schema(df: pd.DataFrame) -> dict[str, Any]:
         if len(unique_values) <= 50:  # Only store if reasonable number of categories
             categorical_info[col] = list(unique_values)
         else:
-            categorical_info[col] = f"Too many categories: {len(unique_values)}"
+            categorical_info[col] = [f"Too many categories: {len(unique_values)}"]
 
     if categorical_info:
         schema["categorical_info"] = categorical_info

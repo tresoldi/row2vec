@@ -4,7 +4,7 @@ Row2Vec: Core functionality
 
 import random
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import numpy.typing as npt
@@ -16,7 +16,15 @@ from sklearn.compose import ColumnTransformer
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, normalize
-from tensorflow.keras.callbacks import Callback, EarlyStopping
+
+if TYPE_CHECKING:
+    from tensorflow.keras.callbacks import Callback, EarlyStopping
+else:
+    try:
+        from tensorflow.keras.callbacks import Callback, EarlyStopping
+    except ImportError:
+        Callback = object
+        EarlyStopping = object
 from tensorflow.keras.layers import Dense, Dropout, Input
 from tensorflow.keras.models import Model
 
@@ -33,7 +41,7 @@ class Row2VecTrainingCallback(Callback):
         super().__init__()
         self.logger = logger
 
-    def on_epoch_end(self, epoch, logs=None):
+    def on_epoch_end(self, epoch: int, logs: Any = None) -> None:
         """Called at the end of each epoch."""
         if logs is None:
             logs = {}
