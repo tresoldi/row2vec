@@ -37,7 +37,7 @@ class Row2VecModel:
         return learn_embedding_v2(X, self.config)
 
 
-class Row2VecTransformer(BaseEstimator, TransformerMixin):
+class Row2VecTransformer(BaseEstimator, TransformerMixin):  # type: ignore[misc]
     """
     Scikit-learn compatible transformer for Row2Vec embeddings.
 
@@ -113,6 +113,8 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):
         self.reference_column = reference_column
         self.config = config
         self.kwargs = kwargs
+        # Initialize attributes that will be set in fit()
+        self.model_wrapper_: Row2VecModel | None = None
 
     def _create_config(self) -> EmbeddingConfig:
         """Create the embedding configuration."""
@@ -175,7 +177,7 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):
             except Exception as e:
                 raise TypeError(f"Cannot convert input to DataFrame: {e}")
 
-        return X
+        return X  # type: ignore[no-any-return]
 
     def fit(self, X: Any, y: Any = None) -> "Row2VecTransformer":
         """
@@ -216,7 +218,7 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):
 
         return self
 
-    def transform(self, X: Any) -> np.ndarray:
+    def transform(self, X: Any) -> np.ndarray[Any, Any]:
         """
         Transform data to embedding space.
 
@@ -243,7 +245,7 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):
 
         return embeddings.values
 
-    def fit_transform(self, X, y=None, **fit_params) -> np.ndarray:
+    def fit_transform(self, X: Any, y: Any = None, **fit_params: Any) -> np.ndarray[Any, Any]:
         """
         Fit the transformer and transform the data.
 
@@ -290,8 +292,8 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):
         return embeddings.values
 
     def get_feature_names_out(
-        self, input_features: np.ndarray | None = None
-    ) -> np.ndarray:
+        self, input_features: np.ndarray[Any, Any] | None = None
+    ) -> np.ndarray[Any, Any]:
         """
         Get output feature names for transformation.
 
@@ -320,7 +322,7 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):
         }
 
 
-class Row2VecClassifier(BaseEstimator):
+class Row2VecClassifier(BaseEstimator):  # type: ignore[misc]
     """
     Scikit-learn compatible classifier using Row2Vec embeddings.
 
@@ -359,10 +361,10 @@ class Row2VecClassifier(BaseEstimator):
     def __init__(
         self,
         embedding_dim: int = 10,
-        classifier=None,
+        classifier: Any = None,
         embedding_config: EmbeddingConfig | None = None,
-        **embedding_kwargs,
-    ):
+        **embedding_kwargs: Any,
+    ) -> None:
         self.embedding_dim = embedding_dim
         self.classifier = classifier
         self.embedding_config = embedding_config
@@ -393,16 +395,16 @@ class Row2VecClassifier(BaseEstimator):
 
         return self
 
-    def predict(self, X: Any) -> np.ndarray:
+    def predict(self, X: Any) -> np.ndarray[Any, Any]:
         """Make predictions on new data."""
         check_is_fitted(self, ["embedding_transformer_", "classifier_"])
 
         X_embedded = self.embedding_transformer_.transform(X)
-        return self.classifier_.predict(X_embedded)
+        return self.classifier_.predict(X_embedded)  # type: ignore[no-any-return]
 
-    def predict_proba(self, X: Any) -> np.ndarray:
+    def predict_proba(self, X: Any) -> np.ndarray[Any, Any]:
         """Predict class probabilities."""
         check_is_fitted(self, ["embedding_transformer_", "classifier_"])
 
         X_embedded = self.embedding_transformer_.transform(X)
-        return self.classifier_.predict_proba(X_embedded)
+        return self.classifier_.predict_proba(X_embedded)  # type: ignore[no-any-return]

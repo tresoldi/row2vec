@@ -5,6 +5,8 @@ This module provides a pandas accessor that allows direct embedding
 generation from DataFrames using the `.row2vec` accessor.
 """
 
+from typing import Any
+
 import pandas as pd
 
 from .api import learn_embedding_v2
@@ -37,7 +39,7 @@ class Row2VecAccessor:
     >>> embeddings = df.row2vec.classical(method="pca", dim=5)
     """
 
-    def __init__(self, pandas_obj):
+    def __init__(self, pandas_obj: pd.DataFrame) -> None:
         self._obj = pandas_obj
 
     def embed(
@@ -45,7 +47,7 @@ class Row2VecAccessor:
         dim: int = 10,
         mode: str = "unsupervised",
         config: EmbeddingConfig | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> pd.DataFrame:
         """
         Generate embeddings for the DataFrame.
@@ -97,7 +99,7 @@ class Row2VecAccessor:
         batch_size: int = 64,
         dropout_rate: float = 0.2,
         hidden_units: int = 128,
-        **kwargs,
+        **kwargs: Any,
     ) -> pd.DataFrame:
         """
         Generate unsupervised embeddings using autoencoder.
@@ -141,7 +143,7 @@ class Row2VecAccessor:
         dim: int = 10,
         max_epochs: int = 50,
         batch_size: int = 64,
-        **kwargs,
+        **kwargs: Any,
     ) -> pd.DataFrame:
         """
         Generate supervised embeddings using target column.

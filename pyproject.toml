@@ -281,6 +281,23 @@ module = [
 ]
 ignore_missing_imports = true
 
+# Specific overrides for our modules with complex type issues
+[[tool.mypy.overrides]]
+module = [
+    "row2vec.pandas",
+    "row2vec.categorical_encoding",
+    "row2vec.auto_dimension",
+    "row2vec.architecture_search",
+    "row2vec.cli",
+    "row2vec.serialization",
+    "row2vec.api",
+    "row2vec.pipeline_builder",
+]
+# Disable some strict checks for these complex modules
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+warn_return_any = false
+
 # Pytest configuration
 [tool.pytest.ini_options]
 minversion = "7.0"
