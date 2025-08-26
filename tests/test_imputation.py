@@ -170,19 +170,19 @@ def test_sklearn_compatibility():
         # Test fit/transform separately
         print("1. Testing separate fit/transform...")
         imputer.fit(df)
-        df_transformed = imputer.transform(df)
+        imputer.transform(df)
         print("✓ Separate fit/transform successful")
 
         # Test fit_transform
         print("2. Testing fit_transform...")
         imputer2 = AdaptiveImputer(ImputationConfig())
-        df_fit_transform = imputer2.fit_transform(df)
+        imputer2.fit_transform(df)
         print("✓ fit_transform successful")
 
         # Test with new data
         print("3. Testing transform on new data...")
         df_new = create_test_data()  # New data with same structure
-        df_new_transformed = imputer.transform(df_new)
+        imputer.transform(df_new)
         print("✓ Transform on new data successful")
 
         # Test feature names

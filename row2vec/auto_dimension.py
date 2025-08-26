@@ -248,7 +248,7 @@ class AutoDimensionSelector:
             # Use subset if data is large
             sample_size = min(1000, numeric_df.shape[0])
             if sample_size < numeric_df.shape[0]:
-                sample_data = numeric_df.sample(n=sample_size, random_state=42)
+                sample_data = numeric_df.sample(n=sample_size, random_state=1305)
             else:
                 sample_data = numeric_df
 
@@ -263,7 +263,7 @@ class AutoDimensionSelector:
                     lle = LocallyLinearEmbedding(
                         n_components=dim,
                         n_neighbors=min(10, sample_data.shape[0] - 1),
-                        random_state=42,
+                        random_state=1305,
                     )
                     lle.fit(sample_data)
                     errors.append(lle.reconstruction_error_)
@@ -342,7 +342,7 @@ class AutoDimensionSelector:
                     embeddings = learn_embedding_v2(X, test_config)
 
                     # Evaluate with simple classifier
-                    clf = LogisticRegression(random_state=42, max_iter=100)
+                    clf = LogisticRegression(random_state=1305, max_iter=100)
                     cv_scores = cross_val_score(clf, embeddings, y, cv=3, scoring="accuracy")
                     scores.append(cv_scores.mean())
 
@@ -388,7 +388,7 @@ class AutoDimensionSelector:
 
                     # Perform clustering
                     n_clusters = min(max(2, int(np.sqrt(len(embeddings)))), 10)
-                    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=3)
+                    kmeans = KMeans(n_clusters=n_clusters, random_state=1305, n_init=3)
                     cluster_labels = kmeans.fit_predict(embeddings)
 
                     # Calculate silhouette score

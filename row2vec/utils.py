@@ -21,7 +21,7 @@ def generate_synthetic_data(num_records: int, seed: int = 1305) -> pd.DataFrame:
         pd.DataFrame: A synthetic DataFrame with mixed data types.
     """
     random.seed(seed)
-    np.random.seed(seed)
+    rng = np.random.default_rng(seed)
 
     countries: list[str] = ["USA", "Canada", "Mexico", "Brazil", "Italy"]
     products: list[str] = ["A", "B", "C", "D"]
@@ -33,10 +33,10 @@ def generate_synthetic_data(num_records: int, seed: int = 1305) -> pd.DataFrame:
 
         sales: float
         if country in ["USA", "Canada"]:
-            sales = np.random.normal(100, 10)
+            sales = rng.normal(100, 10)
         else:
-            sales = np.random.choice(
-                [np.random.normal(500, 50), np.random.normal(20, 5)],
+            sales = rng.choice(
+                [rng.normal(500, 50), rng.normal(20, 5)],
             )
 
         data.append({"Country": country, "Product": product, "Sales": max(0, sales)})

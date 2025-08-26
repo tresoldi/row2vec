@@ -116,7 +116,7 @@ class TestRealDatasetIntegration:
 
         # Convert Survived to categorical for embedding
         df["Survived"] = df["Survived"].astype(str)
-        df_sample = df.sample(n=min(200, len(df)), random_state=42)
+        df_sample = df.sample(n=min(200, len(df)), random_state=1305)
 
         embeddings = learn_embedding(
             df_sample,
@@ -144,7 +144,7 @@ class TestRealDatasetIntegration:
 
         selected_cols = list(numeric_cols) + categorical_cols
         df = housing_data[selected_cols].dropna()
-        df_sample = df.sample(n=min(150, len(df)), random_state=42)
+        df_sample = df.sample(n=min(150, len(df)), random_state=1305)
 
         # Test PCA
         pca_emb = learn_embedding(
@@ -195,7 +195,7 @@ class TestRealDatasetIntegration:
             pytest.skip("Insufficient columns in adult dataset")
 
         df = adult_data[available_cols].dropna()
-        df_sample = df.sample(n=min(200, len(df)), random_state=42)
+        df_sample = df.sample(n=min(200, len(df)), random_state=1305)
 
         embeddings = learn_embedding(
             df_sample,

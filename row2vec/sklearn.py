@@ -367,7 +367,7 @@ class Row2VecClassifier(BaseEstimator):
 
         # Set up classifier
         if self.classifier is None:
-            self.classifier_ = LogisticRegression(random_state=42)
+            self.classifier_ = LogisticRegression(random_state=1305)
         else:
             self.classifier_ = self.classifier
 

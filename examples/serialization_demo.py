@@ -25,7 +25,7 @@ def main():
 
     # Generate sample data
     print("\n1. Generating sample data...")
-    data = generate_synthetic_data(200, seed=42)
+    data = generate_synthetic_data(200, seed=1305)
     print(f"   Dataset shape: {data.shape}")
     print(f"   Columns: {list(data.columns)}")
     print(f"   Unique countries: {data['Country'].nunique()}")

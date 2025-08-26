@@ -47,7 +47,7 @@ def create_sample_data():
     )
     target = (target > 0.5).astype(int)
 
-    df = pd.DataFrame({
+    return pd.DataFrame({
         "color": colors,
         "city": cities,
         "product_id": product_ids,
@@ -56,7 +56,6 @@ def create_sample_data():
         "target": target,
     })
 
-    return df
 
 
 def example_adaptive_encoding():
@@ -182,7 +181,7 @@ def example_custom_configuration():
     df = create_sample_data()
 
     # Create custom configuration
-    categorical_config = CategoricalEncodingConfig(
+    CategoricalEncodingConfig(
         encoding_strategy="adaptive",
         onehot_threshold=10,
         target_threshold=30,

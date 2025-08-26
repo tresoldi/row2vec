@@ -16,6 +16,7 @@ from row2vec import (
     save_model,
     train_and_save_model,
 )
+from row2vec.serialization import Row2VecModelMetadata
 
 
 class TestModelSerialization:
@@ -24,7 +25,7 @@ class TestModelSerialization:
     @pytest.fixture
     def sample_data(self):
         """Generate sample data for testing."""
-        return generate_synthetic_data(100, seed=42)
+        return generate_synthetic_data(100, seed=1305)
 
     @pytest.fixture
     def temp_dir(self):
@@ -112,7 +113,6 @@ class TestModelSerialization:
         )
 
         # Create Row2Vec model
-        from row2vec.serialization import Row2VecModelMetadata
         row2vec_model = Row2VecModel(
             model=model,
             preprocessor=preprocessor,
@@ -158,7 +158,6 @@ class TestModelSerialization:
         )
 
         # Create Row2Vec model
-        from row2vec.serialization import Row2VecModelMetadata
         row2vec_model = Row2VecModel(
             model=model,
             preprocessor=preprocessor,
@@ -256,7 +255,6 @@ class TestModelSerialization:
             enable_logging=False,
         )
 
-        from row2vec.serialization import Row2VecModelMetadata
         row2vec_model = Row2VecModel(
             model=model,
             preprocessor=preprocessor,

@@ -14,7 +14,7 @@ def pandas_integration_examples():
     print("=" * 50)
 
     # Generate sample data
-    df = generate_synthetic_data(200, seed=42)
+    df = generate_synthetic_data(200, seed=1305)
     print(f"📊 Generated data shape: {df.shape}")
 
     # Example 1: Basic embedding with PCA
@@ -67,7 +67,7 @@ def sklearn_integration_examples():
         return None
 
     # Generate sample data
-    df = generate_synthetic_data(200, seed=42)
+    df = generate_synthetic_data(200, seed=1305)
     print(f"📊 Generated data shape: {df.shape}")
 
     # Example 1: Basic transformer usage
@@ -111,7 +111,7 @@ def sklearn_integration_examples():
         pipeline = Pipeline([
             ("scale", StandardScaler()),
             ("embed", Row2VecTransformer(embedding_dim=4, mode="pca")),
-            ("cluster", KMeans(n_clusters=3, random_state=42)),
+            ("cluster", KMeans(n_clusters=3, random_state=1305)),
         ])
 
         cluster_labels = pipeline.fit_predict(numeric_df.values)
@@ -144,7 +144,7 @@ def sklearn_integration_examples():
         from sklearn.model_selection import train_test_split
 
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.3, random_state=42,
+            X, y, test_size=0.3, random_state=1305,
         )
 
         classifier = Row2VecClassifier(
@@ -174,7 +174,7 @@ def advanced_integration_examples():
     print("=" * 50)
 
     # Generate data
-    df = generate_synthetic_data(150, seed=42)
+    df = generate_synthetic_data(150, seed=1305)
 
     # Example 1: Consistency check
     print("\n1️⃣ Consistency between pandas and sklearn interfaces:")
@@ -252,10 +252,10 @@ def main():
 
     try:
         # Pandas examples
-        pandas_result = pandas_integration_examples()
+        pandas_integration_examples()
 
         # Sklearn examples
-        sklearn_result = sklearn_integration_examples()
+        sklearn_integration_examples()
 
         # Advanced examples
         advanced_integration_examples()

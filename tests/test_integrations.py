@@ -8,20 +8,20 @@ import pandas as pd
 import pytest
 
 import row2vec
-from row2vec.utils import generate_synthetic_data
 from row2vec.config import EmbeddingConfig
+from row2vec.utils import generate_synthetic_data
 
 
 @pytest.fixture
 def sample_data():
     """Generate sample data for testing."""
-    return generate_synthetic_data(100, seed=42)
+    return generate_synthetic_data(100, seed=1305)
 
 
 @pytest.fixture
 def sample_data_with_target():
     """Generate sample data with target column."""
-    df = generate_synthetic_data(100, seed=42)
+    df = generate_synthetic_data(100, seed=1305)
     df["category"] = np.random.choice(["A", "B", "C"], 100)
     return df
 
@@ -129,7 +129,7 @@ class TestSklearnIntegration:
         pipeline = Pipeline([
             ("embed", Row2VecTransformer(embedding_dim=5, mode="pca")),
             ("scale", StandardScaler()),
-            ("cluster", KMeans(n_clusters=3, random_state=42)),
+            ("cluster", KMeans(n_clusters=3, random_state=1305)),
         ])
 
         # Fit pipeline
@@ -150,13 +150,13 @@ class TestSklearnIntegration:
         y = sample_data_with_target["category"]
 
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.3, random_state=42,
+            X, y, test_size=0.3, random_state=1305,
         )
 
         # Test classifier (use PCA to avoid batch size issues)
         clf = Row2VecClassifier(
-            embedding_dim=8, 
-            embedding_config=EmbeddingConfig(mode='pca'),
+            embedding_dim=8,
+            embedding_config=EmbeddingConfig(mode="pca"),
         )
         clf.fit(X_train, y_train)
 
@@ -248,7 +248,7 @@ class TestPandasIntegration:
         assert "pca" in results
         assert "tsne" in results
 
-        for method, embeddings in results.items():
+        for embeddings in results.values():
             assert isinstance(embeddings, pd.DataFrame)
             assert embeddings.shape == (100, 3)
 
@@ -318,7 +318,7 @@ class TestIntegrationCompatibility:
 
 def test_integrations_manually():
     """Manual test function for integration testing."""
-    sample_data = generate_synthetic_data(50, seed=42)
+    sample_data = generate_synthetic_data(50, seed=1305)
 
     print("Testing pandas integration...")
     try:

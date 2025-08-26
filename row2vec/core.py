@@ -270,7 +270,7 @@ def _validate_inputs(
         raise ValueError(f"batch_size must be a positive integer, got {batch_size}")
 
     # Only validate batch_size for neural methods that actually use it
-    if mode in ['unsupervised', 'target', 'contrastive'] and batch_size > df.shape[0]:
+    if mode in ["unsupervised", "target", "contrastive"] and batch_size > df.shape[0]:
         raise ValueError(
             f"batch_size ({batch_size}) cannot be larger than dataset size ({df.shape[0]})",
         )

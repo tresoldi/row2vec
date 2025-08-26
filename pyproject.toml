@@ -177,8 +177,12 @@ ignore = [
     "PLR0913", # too-many-arguments
     "PLR2004", # magic-value-comparison
     "TRY003",  # raise-vanilla-args
+    "TRY004",  # prefer-type-error
     "EM101",   # raw-string-in-exception
     "EM102",   # f-string-in-exception
+    "NPY002",  # legacy numpy random (will fix in future PR)
+    "T201",    # print statements (acceptable in examples)
+    "PERF203", # try-except in loops (acceptable for examples)
 ]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.

@@ -5,6 +5,8 @@ This example demonstrates how to use Row2Vec's automatic neural architecture sea
 to find optimal network configurations for embedding generation.
 """
 
+import traceback
+
 import numpy as np
 import pandas as pd
 
@@ -24,15 +26,15 @@ def basic_architecture_search_example():
     print("=" * 60)
 
     # Generate synthetic data
-    df = generate_synthetic_data(400, seed=42)
+    df = generate_synthetic_data(400, seed=1305)
     # Add more features for architecture search testing
-    np.random.seed(42)
+    rng = np.random.default_rng(1305)
     additional_features = pd.DataFrame({
-        "feature4": np.random.normal(0, 1, len(df)),
-        "feature5": np.random.uniform(-1, 1, len(df)),
-        "feature6": np.random.exponential(1, len(df)),
-        "feature7": np.random.gamma(2, 2, len(df)),
-        "feature8": np.random.beta(2, 5, len(df)),
+        "feature4": rng.normal(0, 1, len(df)),
+        "feature5": rng.uniform(-1, 1, len(df)),
+        "feature6": rng.exponential(1, len(df)),
+        "feature7": rng.gamma(2, 2, len(df)),
+        "feature8": rng.beta(2, 5, len(df)),
     })
     df = pd.concat([df, additional_features], axis=1)
     print(f"Dataset shape: {df.shape}")
@@ -63,15 +65,15 @@ def advanced_architecture_search_example():
     print("=" * 60)
 
     # Generate larger, more complex dataset
-    np.random.seed(42)
+    rng = np.random.default_rng(1305)
     df = pd.DataFrame({
-        "feature1": np.random.normal(0, 1, 600),
-        "feature2": np.random.exponential(1, 600),
-        "feature3": np.random.uniform(-2, 2, 600),
-        "feature4": np.random.gamma(2, 2, 600),
-        "feature5": np.random.beta(2, 5, 600),
-        "feature6": np.random.lognormal(0, 1, 600),
-        "category": np.random.choice(["A", "B", "C", "D"], 600),
+        "feature1": rng.normal(0, 1, 600),
+        "feature2": rng.exponential(1, 600),
+        "feature3": rng.uniform(-2, 2, 600),
+        "feature4": rng.gamma(2, 2, 600),
+        "feature5": rng.beta(2, 5, 600),
+        "feature6": rng.lognormal(0, 1, 600),
+        "category": rng.choice(["A", "B", "C", "D"], 600),
     })
 
     # Remove category for embedding (keep for evaluation)
@@ -123,12 +125,12 @@ def direct_search_example():
     print("=" * 60)
 
     # Generate dataset
-    df = generate_synthetic_data(300, seed=42)
+    df = generate_synthetic_data(300, seed=1305)
     # Add more features for testing
-    np.random.seed(42)
+    rng = np.random.default_rng(1305)
     additional_features = pd.DataFrame({
-        "feature4": np.random.normal(0, 1, len(df)),
-        "feature5": np.random.uniform(-1, 1, len(df)),
+        "feature4": rng.normal(0, 1, len(df)),
+        "feature5": rng.uniform(-1, 1, len(df)),
     })
     df = pd.concat([df, additional_features], axis=1)
     print(f"Dataset shape: {df.shape}")
@@ -172,7 +174,10 @@ def direct_search_example():
     print(f"   Activation: {best_architecture['activation']}")
 
     if summary["improvement_over_baseline"] > 0:
-        print(f"\n📈 Improvement over baseline: {summary['improvement_over_baseline']:.2%}")
+        print(
+            f"\n📈 Improvement over baseline: "
+            f"{summary['improvement_over_baseline']:.2%}",
+        )
 
     # Show search history
     if len(search_result.search_history) > 0:
@@ -215,10 +220,10 @@ def grid_search_example():
     print("=" * 60)
 
     # Smaller dataset for grid search (it's more expensive)
-    df = generate_synthetic_data(200, seed=42)
+    df = generate_synthetic_data(200, seed=1305)
     # Add one more feature for testing
-    np.random.seed(42)
-    df["feature4"] = np.random.normal(0, 1, len(df))
+    rng = np.random.default_rng(1305)
+    df["feature4"] = rng.normal(0, 1, len(df))
     print(f"Dataset shape: {df.shape}")
 
     # Grid search configuration
@@ -253,13 +258,13 @@ def comparison_example():
     print("=" * 60)
 
     # Generate test dataset
-    df = generate_synthetic_data(350, seed=42)
+    df = generate_synthetic_data(350, seed=1305)
     # Add more features for comparison testing
-    np.random.seed(42)
+    rng = np.random.default_rng(1305)
     additional_features = pd.DataFrame({
-        "feature4": np.random.normal(0, 1, len(df)),
-        "feature5": np.random.uniform(-1, 1, len(df)),
-        "feature6": np.random.exponential(1, len(df)),
+        "feature4": rng.normal(0, 1, len(df)),
+        "feature5": rng.uniform(-1, 1, len(df)),
+        "feature6": rng.exponential(1, len(df)),
     })
     df = pd.concat([df, additional_features], axis=1)
     print(f"Dataset shape: {df.shape}")
@@ -335,7 +340,7 @@ def main():
         best_arch, search_result, final_embeddings = direct_search_example()
 
         # Grid search
-        grid_best_arch = grid_search_example()
+        grid_search_example()
 
         # Comparison
         comparison_example()
@@ -349,7 +354,6 @@ def main():
 
     except Exception as e:
         print(f"\n❌ Error in examples: {e}")
-        import traceback
         traceback.print_exc()
 
 
