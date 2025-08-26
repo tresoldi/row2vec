@@ -134,10 +134,13 @@ jobs:
         # Copy new documentation
         cp -r $GITHUB_WORKSPACE/jupyter_book/_build/html/ row2vec/
 
+        # Ensure .nojekyll exists in root to prevent Jekyll processing
+        touch .nojekyll
+
         # Check if there are any changes
         if [ -n "$(git status --porcelain)" ]; then
           echo "📝 Changes detected, committing and pushing..."
-          git add row2vec/
+          git add row2vec/ .nojekyll
           git commit -m "Update Row2Vec documentation (auto-deploy from ${{ github.sha }})"
           git push origin master
           echo "✅ Documentation deployed successfully!"

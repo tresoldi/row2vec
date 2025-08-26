@@ -40,7 +40,7 @@ html:
   use_repository_button: true
   use_edit_page_button: true
   home_page_in_navbar: true
-  baseurl: "https://evotext.github.io/row2vec/"  # Served as evotext organization subpage
+  baseurl: "/row2vec/"  # Served as evotext organization subpage
   favicon: ""  # Add favicon if available
   navbar_number_sections: false
   navigation_with_keys: true
