@@ -84,7 +84,7 @@ def learn_embedding_v2(
         best_architecture, search_result = search_architecture(df, config, architecture_search_config)
 
         # Update config with best architecture
-        config.neural.hidden_units = best_architecture["layer_widths"]
+        config.neural.hidden_units = best_architecture["hidden_units"]
         config.neural.dropout_rate = best_architecture["dropout_rate"]
         config.neural.activation = best_architecture["activation"]
 
@@ -134,6 +134,11 @@ def _apply_config_overrides(config: EmbeddingConfig, overrides: dict[str, Any]) 
     # Convert config to dict, apply overrides, and convert back
     config_dict = config.to_dict()
 
+    # Neural method parameters that need special handling
+    neural_params = {
+        "max_epochs", "batch_size", "dropout_rate", "hidden_units", "early_stopping",
+    }
+
     # Classical method parameters that need special handling
     classical_params = {
         "n_neighbors", "perplexity", "min_dist", "n_iter",
@@ -155,6 +160,11 @@ def _apply_config_overrides(config: EmbeddingConfig, overrides: dict[str, Any]) 
                     current[part] = {}
                 current = current[part]
             current[parts[-1]] = value
+        elif key in neural_params:
+            # Handle neural parameters
+            if "neural" not in config_dict:
+                config_dict["neural"] = {}
+            config_dict["neural"][key] = value
         elif key in classical_params:
             # Handle classical parameters
             if "classical" not in config_dict:
