@@ -75,23 +75,58 @@ except ImportError:
     _SKLEARN_AVAILABLE = False
 
 __all__ = [
-    # Core API
-    "learn_embedding_v2",
-
-    # Configuration
-    "EmbeddingConfig", "NeuralConfig", "ClassicalConfig", "ContrastiveConfig",
-    "ScalingConfig", "LoggingConfig",
-
+    "AdaptiveImputer",
+    "ArchitectureSearchConfig",
+    "ArchitectureSearchResult",
+    "ArchitectureSearcher",
     # Auto-optimization
-    "AutoDimensionSelector", "auto_select_dimension",
-    "ArchitectureSearchConfig", "ArchitectureSearchResult", "ArchitectureSearcher", "search_architecture",
-
+    "AutoDimensionSelector",
+    # Categorical encoding
+    "CategoricalAnalyzer",
+    "CategoricalEncoder",
+    "CategoricalEncodingConfig",
+    "ClassicalConfig",
+    "ContrastiveConfig",
+    # Configuration
+    "EmbeddingConfig",
+    "EntityEmbeddingTrainer",
     # Missing value imputation
-    "ImputationConfig", "MissingPatternAnalyzer", "AdaptiveImputer",
-
+    "ImputationConfig",
+    "LoggingConfig",
+    "MissingPatternAnalyzer",
+    "NeuralConfig",
+    # Pipeline building
+    "PipelineBuilder",
+    "PreprocessingConfig",
+    "Row2VecLogger",
+    # Serialization
+    "Row2VecModel",
+    "Row2VecModelMetadata",
+    "ScalingConfig",
+    "TargetEncoder",
+    "auto_select_dimension",
+    "build_adaptive_pipeline",
+    "create_dataframe_schema",
+    "generate_synthetic_data",
     # Utilities
     "get_logger",
-]# Add sklearn integrations if available
+    "learn_embedding",
+    "learn_embedding_classical",
+    "learn_embedding_contrastive",
+    "learn_embedding_target",
+    "learn_embedding_unsupervised",
+    # Core API
+    "learn_embedding_v2",
+    "learn_embedding_with_model",
+    "learn_embedding_with_model_v2",
+    "load_model",
+    "save_model",
+    "search_architecture",
+    "train_and_save_model",
+    "validate_dataframe_schema",
+]
+
+# Add sklearn integrations if available
 if _SKLEARN_AVAILABLE:
     __all__.extend([
         "Row2VecClassifier",

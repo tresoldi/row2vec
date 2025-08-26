@@ -9,7 +9,7 @@ import logging
 import sys
 import time
 from pathlib import Path
-from typing import Any, Optional, Tuple, List
+from typing import Any
 
 import pandas as pd
 import psutil
@@ -91,14 +91,14 @@ class Row2VecLogger:
         self.include_memory = include_memory
 
         # Training state tracking
-        self.training_start_time: Optional[float] = None
-        self.epoch_start_time: Optional[float] = None
-        self.initial_memory: Optional[float] = None
+        self.training_start_time: float | None = None
+        self.epoch_start_time: float | None = None
+        self.initial_memory: float | None = None
 
     def _should_log(self, level: int) -> bool:
         """
         Check if logging should occur at the given level.
-        
+
         Respects both the logger's level and any parent logger levels.
         This allows external logging configuration to fully suppress output.
         """
@@ -195,7 +195,7 @@ class Row2VecLogger:
                     f"(+{memory_delta:.2f} MB from start)",
                 )
 
-    def log_data_preprocessing(self, df_shape: Tuple[int, int], processing_steps: List[str]) -> None:
+    def log_data_preprocessing(self, df_shape: tuple[int, int], processing_steps: list[str]) -> None:
         """Log data preprocessing information."""
         if self._should_log(logging.INFO):
             self.logger.info(f"🔄 Preprocessing data: shape {df_shape}")
@@ -205,8 +205,8 @@ class Row2VecLogger:
 
     def log_preprocessing_result(
         self,
-        original_shape: Tuple[int, int],
-        processed_shape: Tuple[int, int],
+        original_shape: tuple[int, int],
+        processed_shape: tuple[int, int],
         processing_time: float,
     ) -> None:
         """Log preprocessing completion."""
@@ -292,7 +292,7 @@ class TrainingProgressCallback:
     def __init__(self, logger: Row2VecLogger) -> None:
         """Initialize callback with logger instance."""
         self.logger = logger
-        self.epoch_start_time: Optional[float] = None
+        self.epoch_start_time: float | None = None
 
     def set_model(self, model: Any) -> None:
         """Set the model (required by Keras)."""

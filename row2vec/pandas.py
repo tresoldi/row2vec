@@ -16,22 +16,22 @@ from .config import EmbeddingConfig, create_config_for_mode
 class Row2VecAccessor:
     """
     Pandas DataFrame accessor for Row2Vec embeddings.
-    
+
     This accessor provides convenient methods to generate embeddings
     directly from DataFrames using the .row2vec namespace.
-    
+
     Examples
     --------
     >>> import pandas as pd
     >>> import row2vec  # This registers the accessor
-    >>> 
+    >>>
     >>> # Basic usage
     >>> df = pd.DataFrame(...)
     >>> embeddings = df.row2vec.embed(dim=10)
-    >>> 
+    >>>
     >>> # With specific mode
     >>> embeddings = df.row2vec.embed(dim=15, mode="contrastive")
-    >>> 
+    >>>
     >>> # With full configuration
     >>> embeddings = df.row2vec.unsupervised(dim=10, max_epochs=100)
     >>> embeddings = df.row2vec.contrastive(dim=20, loss_type="triplet")
@@ -50,7 +50,7 @@ class Row2VecAccessor:
     ) -> pd.DataFrame:
         """
         Generate embeddings for the DataFrame.
-        
+
         Parameters
         ----------
         dim : int, default=10
@@ -61,12 +61,12 @@ class Row2VecAccessor:
             Pre-configured EmbeddingConfig object. If provided, other parameters are ignored.
         **kwargs
             Additional parameters for embedding configuration.
-        
+
         Returns
         -------
         embeddings : DataFrame
             DataFrame with embedded representations.
-            
+
         Examples
         --------
         >>> embeddings = df.row2vec.embed(dim=10, mode="unsupervised")
@@ -102,7 +102,7 @@ class Row2VecAccessor:
     ) -> pd.DataFrame:
         """
         Generate unsupervised embeddings using autoencoder.
-        
+
         Parameters
         ----------
         dim : int, default=10
@@ -117,12 +117,12 @@ class Row2VecAccessor:
             Number of hidden units in the autoencoder.
         **kwargs
             Additional parameters passed to the config.
-        
+
         Returns
         -------
         embeddings : DataFrame
             DataFrame with unsupervised embeddings.
-            
+
         Examples
         --------
         >>> embeddings = df.row2vec.unsupervised(dim=10, max_epochs=100)
@@ -146,7 +146,7 @@ class Row2VecAccessor:
     ) -> pd.DataFrame:
         """
         Generate supervised embeddings using target column.
-        
+
         Parameters
         ----------
         target_column : str
@@ -159,12 +159,12 @@ class Row2VecAccessor:
             Training batch size.
         **kwargs
             Additional parameters passed to the config.
-        
+
         Returns
         -------
         embeddings : DataFrame
             DataFrame with supervised embeddings.
-            
+
         Examples
         --------
         >>> embeddings = df.row2vec.supervised("category", dim=15)
@@ -190,7 +190,7 @@ class Row2VecAccessor:
     ) -> pd.DataFrame:
         """
         Generate contrastive embeddings using similarity learning.
-        
+
         Parameters
         ----------
         dim : int, default=10
@@ -209,12 +209,12 @@ class Row2VecAccessor:
             Training batch size.
         **kwargs
             Additional parameters passed to the config.
-        
+
         Returns
         -------
         embeddings : DataFrame
             DataFrame with contrastive embeddings.
-            
+
         Examples
         --------
         >>> embeddings = df.row2vec.contrastive(dim=20, loss_type="triplet")
@@ -238,7 +238,7 @@ class Row2VecAccessor:
     ) -> pd.DataFrame:
         """
         Generate embeddings using classical ML methods.
-        
+
         Parameters
         ----------
         method : str, default="pca"
@@ -249,21 +249,21 @@ class Row2VecAccessor:
             Additional parameters for the specific method:
             - For t-SNE: perplexity, n_iter
             - For UMAP: n_neighbors, min_dist
-        
+
         Returns
         -------
         embeddings : DataFrame
             DataFrame with classical embeddings.
-            
+
         Examples
         --------
         >>> # PCA embeddings
         >>> embeddings = df.row2vec.classical("pca", dim=5)
-        >>> 
+        >>>
         >>> # t-SNE embeddings
         >>> embeddings = df.row2vec.classical("tsne", dim=2, perplexity=30)
-        >>> 
-        >>> # UMAP embeddings  
+        >>>
+        >>> # UMAP embeddings
         >>> embeddings = df.row2vec.classical("umap", dim=3, n_neighbors=15)
         """
         config = create_config_for_mode(method)
@@ -326,19 +326,19 @@ class Row2VecAccessor:
     ) -> dict[str, pd.DataFrame]:
         """
         Compare multiple embedding methods on the same data.
-        
+
         Parameters
         ----------
         dim : int, default=5
             Dimensionality for all methods.
         methods : list, optional
             List of methods to compare. If None, uses ["unsupervised", "pca", "tsne", "umap"].
-        
+
         Returns
         -------
         results : dict
             Dictionary mapping method names to their embedding DataFrames.
-            
+
         Examples
         --------
         >>> results = df.row2vec.compare_methods(dim=3)
@@ -360,8 +360,7 @@ class Row2VecAccessor:
                 else:
                     # Try to use it as a mode directly
                     results[method] = self.embed(dim=dim, mode=method)
-            except Exception as e:
-                print(f"Warning: Method '{method}' failed: {e}")
+            except Exception:
                 continue
 
         return results

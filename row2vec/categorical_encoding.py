@@ -8,11 +8,11 @@ simplicity for beginners and full control for advanced users.
 
 import warnings
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from numpy.typing import NDArray
 import pandas as pd
+from numpy.typing import NDArray
 from sklearn.metrics import mutual_info_score
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder, OrdinalEncoder
@@ -33,7 +33,7 @@ else:
 class CategoricalEncodingConfig:
     """
     Configuration for intelligent categorical encoding strategies.
-    
+
     This class provides comprehensive control over how categorical variables are encoded,
     with intelligent defaults that automatically select optimal strategies based on
     data characteristics while allowing expert users to fine-tune every aspect.
@@ -124,14 +124,14 @@ class CategoricalAnalyzer:
     def analyze_column(self, series: pd.Series, target: pd.Series | None = None) -> dict[str, Any]:
         """
         Analyze a categorical column to recommend encoding strategy.
-        
+
         Parameters
         ----------
         series : pd.Series
             Categorical column to analyze
         target : pd.Series, optional
             Target variable for correlation analysis
-            
+
         Returns
         -------
         Dict[str, Any]
@@ -260,7 +260,7 @@ class EntityEmbeddingTrainer:
     ) -> NDArray[Any]:
         """
         Train entity embeddings for a categorical column.
-        
+
         Parameters
         ----------
         series : pd.Series
@@ -269,7 +269,7 @@ class EntityEmbeddingTrainer:
             Target variable for supervised embedding
         embedding_dim : int
             Dimension of embedding vectors
-            
+
         Returns
         -------
         np.ndarray
@@ -432,9 +432,8 @@ class EntityEmbeddingTrainer:
 
         # Get embeddings for all categories
         all_onehot = np.eye(cardinality)
-        embeddings = encoder.predict(all_onehot, verbose=0)
+        return encoder.predict(all_onehot, verbose=0)
 
-        return embeddings
 
 
 class TargetEncoder:
@@ -443,7 +442,7 @@ class TargetEncoder:
     def __init__(self, config: CategoricalEncodingConfig) -> None:
         self.config = config
         self.encodings_: dict[Any, float] = {}
-        self.global_mean_: Optional[float] = None
+        self.global_mean_: float | None = None
 
     def fit_transform(
         self,
@@ -452,14 +451,14 @@ class TargetEncoder:
     ) -> pd.Series:
         """
         Fit target encoder and transform the series.
-        
+
         Parameters
         ----------
         series : pd.Series
             Categorical column to encode
         target : pd.Series
             Target variable
-            
+
         Returns
         -------
         pd.Series
@@ -547,14 +546,13 @@ class TargetEncoder:
         if not self.encodings_:
             raise ValueError("Encoder must be fitted before transform")
 
-        result = series.map(self.encodings_).fillna(self.global_mean_)
-        return result
+        return series.map(self.encodings_).fillna(self.global_mean_)
 
 
 class CategoricalEncoder(BaseEstimator, TransformerMixin):
     """
     Intelligent categorical encoder with adaptive strategy selection.
-    
+
     This encoder analyzes categorical data characteristics and automatically
     selects optimal encoding strategies while providing full control for
     advanced users.
@@ -566,21 +564,21 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
         self.column_strategies_: dict[str, str] = {}
         self.fitted_encoders_: dict[str, Any] = {}
         self.entity_embeddings_: dict[str, Any] = {}
-        self.feature_names_in_: Optional[list[str]] = None
-        self.feature_names_out_: Optional[list[str]] = None
+        self.feature_names_in_: list[str] | None = None
+        self.feature_names_out_: list[str] | None = None
         self.analysis_report_: dict[str, Any] = {}
 
-    def fit(self, X: pd.DataFrame, y: pd.Series | None = None) -> 'CategoricalEncoder':
+    def fit(self, X: pd.DataFrame, y: pd.Series | None = None) -> "CategoricalEncoder":
         """
         Fit the categorical encoder on training data.
-        
+
         Parameters
         ----------
         X : pd.DataFrame
             Categorical features to encode
         y : pd.Series, optional
             Target variable for supervised encoding strategies
-            
+
         Returns
         -------
         self : CategoricalEncoder
@@ -615,12 +613,12 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """
         Transform categorical data using fitted encoders.
-        
+
         Parameters
         ----------
         X : pd.DataFrame
             Categorical data to transform
-            
+
         Returns
         -------
         pd.DataFrame
@@ -683,7 +681,7 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
 
         elif strategy == "target":
             if target is None:
-                warnings.warn(f"Target encoding requested for {col} but no target provided. Using ordinal encoding.")
+                warnings.warn(f"Target encoding requested for {col} but no target provided. Using ordinal encoding.", stacklevel=2)
                 encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)
                 encoder.fit(np.asarray(series.values).reshape(-1, 1))
                 self.fitted_encoders_[col] = encoder

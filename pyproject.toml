@@ -30,7 +30,7 @@ keywords = [
     "umap",
 ]
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
@@ -64,6 +64,8 @@ dev = [
     "mypy>=1.0.0",
     "ruff>=0.1.0",
     "types-psutil",
+    "types-PyYAML>=6.0.0",
+    "pandas-stubs>=2.0.0",
 ]
 docs = [
     "sphinx>=5.0.0",
@@ -113,15 +115,15 @@ dependencies = [
 ]
 
 [tool.hatch.envs.default.scripts]
-update-docs-examples = "/home/tiagot/.pyenv/versions/env_grape/bin/python scripts/generate_doc_examples.py"
+update-docs-examples = "python scripts/generate_doc_examples.py"
 build-docs = [
     "update-docs-examples",
-    "/home/tiagot/.pyenv/versions/env_grape/bin/python -m sphinx -b html docs/source docs/build"
+    "python -m sphinx -b html docs/source docs/build"
 ]
 build-docs-clean = [
     "rm -rf docs/build/*",
     "update-docs-examples", 
-    "/home/tiagot/.pyenv/versions/env_grape/bin/python -m sphinx -b html docs/source docs/build"
+    "python -m sphinx -b html docs/source docs/build"
 ]
 
 # Ruff configuration - Ultra-fast Python linter and formatter

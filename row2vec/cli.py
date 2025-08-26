@@ -51,10 +51,9 @@ def _load_dataframe(file_path: Path, validate_only: bool = False) -> pd.DataFram
         else:
             raise ValueError(f"Unsupported format: {format_type}")
 
-        print(f"✓ Loaded {len(df)} rows, {len(df.columns)} columns from {file_path}")
 
         if validate_only:
-            print(f"✓ File format validation successful: {format_type.upper()}")
+            pass
 
         return df
 
@@ -75,7 +74,6 @@ def _save_dataframe(df: pd.DataFrame, file_path: Path) -> None:
         elif format_type == "parquet":
             df.to_parquet(file_path, index=False)
 
-        print(f"✓ Saved {len(df)} rows, {len(df.columns)} columns to {file_path}")
 
     except Exception as e:
         raise ValueError(f"Failed to save to {file_path}: {e!s}")
@@ -96,7 +94,7 @@ def _validate_schema_friendly(df: pd.DataFrame, reference_column: str | None = N
             raise ValueError("Dataset has no columns")
 
         if len(df) < 10:
-            print(f"⚠️  Warning: Small dataset ({len(df)} rows). Consider using more data for better embeddings.")
+            pass
 
         # Mode-specific validation
         if reference_column:
@@ -107,13 +105,12 @@ def _validate_schema_friendly(df: pd.DataFrame, reference_column: str | None = N
             if unique_values < 2:
                 raise ValueError(f"Target column '{reference_column}' must have at least 2 unique values, found {unique_values}")
             if unique_values > 1000:
-                print(f"⚠️  Warning: Target column '{reference_column}' has {unique_values} unique values. This may slow training.")
+                pass
 
         # Check for missing data
         missing_cols = df.columns[df.isnull().any()].tolist()
         if missing_cols:
-            missing_info = {col: df[col].isnull().sum() for col in missing_cols}
-            print(f"ℹ️  Missing data detected (will be handled automatically): {missing_info}")
+            {col: df[col].isnull().sum() for col in missing_cols}
 
         # Check data types
         numeric_cols = df.select_dtypes(include=["number"]).columns.tolist()
@@ -122,15 +119,13 @@ def _validate_schema_friendly(df: pd.DataFrame, reference_column: str | None = N
         if reference_column and reference_column in categorical_cols:
             categorical_cols.remove(reference_column)
 
-        print(f"ℹ️  Data summary: {len(numeric_cols)} numeric columns, {len(categorical_cols)} categorical columns")
 
         if len(numeric_cols) == 0 and len(categorical_cols) == 0:
             raise ValueError("Dataset must contain at least one numeric or categorical column for embedding")
 
         return True
 
-    except Exception as e:
-        print(f"❌ Schema validation failed: {e!s}")
+    except Exception:
         return False
 
 
@@ -321,11 +316,7 @@ def cmd_train(args: argparse.Namespace) -> int:
     """Train and save a Row2Vec model."""
     try:
         if not args.quiet:
-            print("🚀 Row2Vec Training Pipeline")
-            print(f"Input: {args.input}")
-            print(f"Model: {args.output}")
-            print(f"Mode: {args.mode}")
-            print("-" * 50)
+            pass
 
         # Load and validate data
         df = _load_dataframe(Path(args.input), args.validate_only)
@@ -339,7 +330,6 @@ def cmd_train(args: argparse.Namespace) -> int:
 
         # Check mode-specific requirements
         if args.mode == "target" and not args.target_col:
-            print("❌ Error: --target-col is required for target mode")
             return 1
 
         # Load contrastive learning pairs if specified
@@ -351,35 +341,29 @@ def cmd_train(args: argparse.Namespace) -> int:
                 try:
                     pairs_df = pd.read_csv(args.similar_pairs_file, header=None)
                     if pairs_df.shape[1] != 2:
-                        print("❌ Error: Similar pairs file must have exactly 2 columns (idx1,idx2)")
                         return 1
                     similar_pairs = [(int(row[0]), int(row[1])) for _, row in pairs_df.iterrows()]
                     if not args.quiet:
-                        print(f"ℹ️  Loaded {len(similar_pairs)} similar pairs from {args.similar_pairs_file}")
-                except Exception as e:
-                    print(f"❌ Error loading similar pairs file: {e}")
+                        pass
+                except Exception:
                     return 1
 
             if args.dissimilar_pairs_file:
                 try:
                     pairs_df = pd.read_csv(args.dissimilar_pairs_file, header=None)
                     if pairs_df.shape[1] != 2:
-                        print("❌ Error: Dissimilar pairs file must have exactly 2 columns (idx1,idx2)")
                         return 1
                     dissimilar_pairs = [(int(row[0]), int(row[1])) for _, row in pairs_df.iterrows()]
                     if not args.quiet:
-                        print(f"ℹ️  Loaded {len(dissimilar_pairs)} dissimilar pairs from {args.dissimilar_pairs_file}")
-                except Exception as e:
-                    print(f"❌ Error loading dissimilar pairs file: {e}")
+                        pass
+                except Exception:
                     return 1
 
             # Validate contrastive learning requirements
             if not similar_pairs and not dissimilar_pairs and not args.auto_pairs:
-                print("❌ Error: For contrastive mode, specify either --auto-pairs or provide --similar-pairs-file/--dissimilar-pairs-file")
                 return 1
 
             if args.auto_pairs == "categorical" and not args.target_col:
-                print("❌ Error: --target-col is required when using --auto-pairs categorical")
                 return 1
 
         # Convert scale range to tuple if provided
@@ -395,7 +379,7 @@ def cmd_train(args: argparse.Namespace) -> int:
                 model_path = model_path.with_suffix(".py")
 
         if not args.quiet:
-            print(f"🔧 Training {args.mode} embedding model...")
+            pass
 
         # Train and save model
         start_time = time.time()
@@ -431,19 +415,14 @@ def cmd_train(args: argparse.Namespace) -> int:
             overwrite=True,  # CLI should overwrite existing files
         )
 
-        training_time = time.time() - start_time
+        time.time() - start_time
 
         if not args.quiet:
-            print(f"✅ Training completed in {training_time:.1f}s")
-            print("📁 Model saved:")
-            print(f"   Script: {script_path}")
-            print(f"   Binary: {binary_path}")
-            print(f"📊 Generated embeddings: {embeddings.shape[0]} rows × {embeddings.shape[1]} dimensions")
+            pass
 
         return 0
 
-    except Exception as e:
-        print(f"❌ Training failed: {e!s}")
+    except Exception:
         return 1
 
 
@@ -451,11 +430,7 @@ def cmd_predict(args: argparse.Namespace) -> int:
     """Make predictions using a saved Row2Vec model."""
     try:
         if not args.quiet:
-            print("🔮 Row2Vec Prediction Pipeline")
-            print(f"Input: {args.input}")
-            print(f"Model: {args.model}")
-            print(f"Output: {args.output}")
-            print("-" * 50)
+            pass
 
         # Load and validate data
         df = _load_dataframe(Path(args.input), args.validate_only)
@@ -470,38 +445,34 @@ def cmd_predict(args: argparse.Namespace) -> int:
         # Load model
         model_path = Path(args.model)
         if not model_path.exists():
-            print(f"❌ Model file not found: {model_path}")
             return 1
 
         if not args.quiet:
-            print(f"📥 Loading model from {model_path}...")
+            pass
 
         model = load_model(str(model_path))
 
         if not args.quiet:
-            metadata = model.metadata.to_dict()
-            print(f"ℹ️  Model info: {metadata['mode']} mode, {metadata['embedding_dim']} dimensions")
+            model.metadata.to_dict()
 
         # Make predictions
         if not args.quiet:
-            print("🔍 Generating embeddings...")
+            pass
 
         start_time = time.time()
         embeddings = model.predict(df)
-        prediction_time = time.time() - start_time
+        time.time() - start_time
 
         # Save results
         output_path = Path(args.output)
         _save_dataframe(embeddings, output_path)
 
         if not args.quiet:
-            print(f"✅ Prediction completed in {prediction_time:.1f}s")
-            print(f"📊 Generated embeddings: {embeddings.shape[0]} rows × {embeddings.shape[1]} dimensions")
+            pass
 
         return 0
 
-    except Exception as e:
-        print(f"❌ Prediction failed: {e!s}")
+    except Exception:
         return 1
 
 
@@ -509,11 +480,7 @@ def cmd_annotate(args: argparse.Namespace) -> int:
     """Generate embeddings directly without saving a model."""
     try:
         if not args.quiet:
-            print("📝 Row2Vec Annotation Pipeline")
-            print(f"Input: {args.input}")
-            print(f"Output: {args.output}")
-            print(f"Mode: {args.mode}")
-            print("-" * 50)
+            pass
 
         # Load and validate data
         df = _load_dataframe(Path(args.input), args.validate_only)
@@ -527,7 +494,6 @@ def cmd_annotate(args: argparse.Namespace) -> int:
 
         # Check mode-specific requirements
         if args.mode == "target" and not args.target_col:
-            print("❌ Error: --target-col is required for target mode")
             return 1
 
         # Load contrastive learning pairs if specified
@@ -539,42 +505,36 @@ def cmd_annotate(args: argparse.Namespace) -> int:
                 try:
                     pairs_df = pd.read_csv(args.similar_pairs_file, header=None)
                     if pairs_df.shape[1] != 2:
-                        print("❌ Error: Similar pairs file must have exactly 2 columns (idx1,idx2)")
                         return 1
                     similar_pairs = [(int(row[0]), int(row[1])) for _, row in pairs_df.iterrows()]
                     if not args.quiet:
-                        print(f"ℹ️  Loaded {len(similar_pairs)} similar pairs from {args.similar_pairs_file}")
-                except Exception as e:
-                    print(f"❌ Error loading similar pairs file: {e}")
+                        pass
+                except Exception:
                     return 1
 
             if args.dissimilar_pairs_file:
                 try:
                     pairs_df = pd.read_csv(args.dissimilar_pairs_file, header=None)
                     if pairs_df.shape[1] != 2:
-                        print("❌ Error: Dissimilar pairs file must have exactly 2 columns (idx1,idx2)")
                         return 1
                     dissimilar_pairs = [(int(row[0]), int(row[1])) for _, row in pairs_df.iterrows()]
                     if not args.quiet:
-                        print(f"ℹ️  Loaded {len(dissimilar_pairs)} dissimilar pairs from {args.dissimilar_pairs_file}")
-                except Exception as e:
-                    print(f"❌ Error loading dissimilar pairs file: {e}")
+                        pass
+                except Exception:
                     return 1
 
             # Validate contrastive learning requirements
             if not similar_pairs and not dissimilar_pairs and not args.auto_pairs:
-                print("❌ Error: For contrastive mode, specify either --auto-pairs or provide --similar-pairs-file/--dissimilar-pairs-file")
                 return 1
 
             if args.auto_pairs == "categorical" and not args.target_col:
-                print("❌ Error: --target-col is required when using --auto-pairs categorical")
                 return 1
 
         # Convert scale range to tuple if provided
         scale_range = tuple(args.scale_range) if args.scale_range else None
 
         if not args.quiet:
-            print(f"🔧 Generating {args.mode} embeddings...")
+            pass
 
         # Generate embeddings
         start_time = time.time()
@@ -608,46 +568,41 @@ def cmd_annotate(args: argparse.Namespace) -> int:
             margin=args.margin,
         )
 
-        embedding_time = time.time() - start_time
+        time.time() - start_time
 
         # Save results
         output_path = Path(args.output)
         _save_dataframe(embeddings, output_path)
 
         if not args.quiet:
-            print(f"✅ Annotation completed in {embedding_time:.1f}s")
-            print(f"📊 Generated embeddings: {embeddings.shape[0]} rows × {embeddings.shape[1]} dimensions")
+            pass
 
         return 0
 
-    except Exception as e:
-        print(f"❌ Annotation failed: {e!s}")
+    except Exception:
         return 1
 
 
 def cmd_search_architecture(args: argparse.Namespace) -> int:
     """Architecture search command: Find optimal neural architecture."""
     if not args.quiet:
-        print("🔍 Row2Vec Neural Architecture Search")
-        print("=" * 50)
+        pass
 
     # Load and validate input data
     input_path = Path(args.input)
     try:
         df = _load_dataframe(input_path)
         if not args.quiet:
-            print(f"✅ Loaded {len(df):,} rows, {len(df.columns)} columns from {input_path}")
+            pass
 
-    except Exception as e:
-        print(f"❌ Failed to load input data: {e}")
+    except Exception:
         return 1
 
     # Import architecture search components
     try:
         from .architecture_search import ArchitectureSearchConfig, search_architecture
         from .config import EmbeddingConfig
-    except ImportError as e:
-        print(f"❌ Failed to import architecture search: {e}")
+    except ImportError:
         return 1
 
     # Create base embedding config
@@ -667,54 +622,39 @@ def cmd_search_architecture(args: argparse.Namespace) -> int:
         )
 
         if not args.quiet:
-            print("🎯 Search configuration:")
-            print(f"   Method: {search_config.method}")
-            print(f"   Max trials: {search_config.max_trials}")
-            print(f"   Max time: {search_config.max_time}s")
-            print(f"   Patience: {search_config.patience}")
+            pass
 
-    except Exception as e:
-        print(f"❌ Failed to create search configuration: {e}")
+    except Exception:
         return 1
 
     # Perform architecture search
     try:
-        start_time = time.time()
+        time.time()
         best_architecture, search_result = search_architecture(
             df=df,
             base_config=base_config,
             search_config=search_config,
             target_column=getattr(args, "target_col", None),
         )
-        end_time = time.time()
+        time.time()
 
         # Display results
         summary = search_result.summary()
 
         if not args.quiet:
-            print("\n🏆 Architecture Search Results")
-            print("=" * 50)
-            print(f"✅ Search completed in {end_time - start_time:.1f} seconds")
-            print(f"📊 Trials completed: {summary['trials_completed']}")
-            print(f"📈 Best score: {summary['best_score']:.4f}")
-            print("🎯 Best architecture:")
-            print(f"   Layers: {best_architecture['n_layers']}")
 
             # Handle both single layer (int) and multi-layer (list) formats
             hidden_units = best_architecture["hidden_units"]
             if isinstance(hidden_units, list):
-                print(f"   Layer widths: {hidden_units}")
+                pass
             else:
-                print(f"   Hidden units: {hidden_units}")
+                pass
 
-            print(f"   Dropout rate: {best_architecture['dropout_rate']:.3f}")
-            print(f"   Activation: {best_architecture['activation']}")
 
             if summary["improvement_over_baseline"] > 0:
-                print(f"📈 Improvement over baseline: {summary['improvement_over_baseline']:.2%}")
+                pass
 
-    except Exception as e:
-        print(f"❌ Architecture search failed: {e}")
+    except Exception:
         return 1
 
     # Save results if output specified
@@ -745,10 +685,9 @@ def cmd_search_architecture(args: argparse.Namespace) -> int:
                     yaml.dump(results_dict, f, default_flow_style=False)
 
             if not args.quiet:
-                print(f"✅ Search results saved to {output_path}")
+                pass
 
-        except Exception as e:
-            print(f"❌ Failed to save results: {e}")
+        except Exception:
             return 1
 
     return 0
@@ -936,7 +875,6 @@ def main() -> int:
 
     # Set up quiet mode
     if args.quiet and args.verbose:
-        print("❌ Error: --quiet and --verbose cannot be used together")
         return 1
 
     # Execute the subcommand
@@ -944,10 +882,9 @@ def main() -> int:
         return args.func(args)
     except KeyboardInterrupt:
         if not args.quiet:
-            print("\n⚠️  Operation cancelled by user")
+            pass
         return 1
-    except Exception as e:
-        print(f"❌ Unexpected error: {e!s}")
+    except Exception:
         return 1
 
 

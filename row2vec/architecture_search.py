@@ -23,7 +23,7 @@ from .config import EmbeddingConfig, NeuralConfig
 class ArchitectureSearchConfig:
     """
     Configuration for automatic neural architecture search.
-    
+
     This class defines the search space, evaluation criteria, and stopping
     conditions for finding optimal neural network architectures.
     """
@@ -107,7 +107,7 @@ class ArchitectureSearchResult:
 class ArchitectureSearcher:
     """
     Main class for performing neural architecture search.
-    
+
     Implements multiple search strategies to find optimal neural network
     architectures for embedding generation tasks.
     """
@@ -131,35 +131,32 @@ class ArchitectureSearcher:
     ) -> ArchitectureSearchResult:
         """
         Perform architecture search on the given dataset.
-        
+
         Args:
             df: Input dataframe for embedding generation
             base_config: Base embedding configuration
             target_column: Optional target column for supervised evaluation
-            
+
         Returns:
             ArchitectureSearchResult containing the best architecture and metadata
         """
         if self.config.verbose:
-            print("🔍 Starting neural architecture search...")
-            print(f"📊 Search space: {self._describe_search_space()}")
+            pass
 
         start_time = time.time()
 
         try:
             if self.config.method == "random":
-                result = self._random_search(df, base_config, target_column)
+                self._random_search(df, base_config, target_column)
             elif self.config.method == "grid":
-                result = self._grid_search(df, base_config, target_column)
+                self._grid_search(df, base_config, target_column)
             else:
                 raise ValueError(f"Unknown search method: {self.config.method}")
 
             total_time = time.time() - start_time
 
             if self.config.verbose:
-                print(f"✅ Architecture search completed in {total_time:.1f}s")
-                print(f"🏆 Best architecture: {result.best_architecture}")
-                print(f"📈 Best score: {result.best_score:.4f}")
+                pass
 
             return ArchitectureSearchResult(
                 best_architecture=self.best_architecture or {},
@@ -169,9 +166,9 @@ class ArchitectureSearcher:
                 trials_completed=len(self.search_history),
             )
 
-        except Exception as e:
+        except Exception:
             if self.config.verbose:
-                print(f"❌ Architecture search failed: {e}")
+                pass
             raise
 
     def _random_search(
@@ -199,7 +196,7 @@ class ArchitectureSearcher:
                 self.best_architecture = architecture
                 self.trials_without_improvement = 0
                 if self.config.verbose:
-                    print(f"🎯 New best architecture (trial {trial + 1}): score={score:.4f}")
+                    pass
             else:
                 self.trials_without_improvement += 1
 
@@ -223,7 +220,7 @@ class ArchitectureSearcher:
         architectures = self._generate_grid_architectures()
 
         if self.config.verbose:
-            print(f"📋 Grid search: {len(architectures)} architectures to evaluate")
+            pass
 
         for trial, architecture in enumerate(architectures):
             # Check stopping criteria
@@ -238,7 +235,7 @@ class ArchitectureSearcher:
                 self.best_score = score
                 self.best_architecture = architecture
                 if self.config.verbose:
-                    print(f"🎯 New best architecture (trial {trial + 1}): score={score:.4f}")
+                    pass
 
         return ArchitectureSearchResult(
             best_architecture=self.best_architecture or {},
@@ -381,13 +378,13 @@ class ArchitectureSearcher:
             self.search_history.append(trial_record)
 
             if self.config.verbose and trial_num % 5 == 0:
-                print(f"   Trial {trial_num + 1}: score={score:.4f}, time={training_time:.1f}s")
+                pass
 
             return score
 
         except Exception as e:
             if self.config.verbose:
-                print(f"   Trial {trial_num + 1}: FAILED - {e}")
+                pass
 
             # Record failed trial
             trial_record = {
@@ -490,13 +487,13 @@ class ArchitectureSearcher:
         # Check patience
         if self.trials_without_improvement >= self.config.patience:
             if self.config.verbose:
-                print(f"🛑 Stopping: no improvement for {self.config.patience} trials")
+                pass
             return True
 
         # Check time limit
         if self.config.max_time and (current_time - time.time()) > self.config.max_time:
             if self.config.verbose:
-                print("🛑 Stopping: time limit reached")
+                pass
             return True
 
         return False
@@ -523,15 +520,15 @@ def search_architecture(
 ) -> tuple[dict[str, Any], ArchitectureSearchResult]:
     """
     Perform automatic neural architecture search.
-    
+
     This is the main entry point for architecture search functionality.
-    
+
     Args:
         df: Input dataframe for embedding generation
         base_config: Base embedding configuration
         search_config: Architecture search configuration (uses defaults if None)
         target_column: Optional target column for supervised evaluation
-        
+
     Returns:
         Tuple of (best_architecture_dict, full_search_result)
     """

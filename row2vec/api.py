@@ -29,25 +29,25 @@ def learn_embedding_v2(
 ) -> pd.DataFrame:
     """
     Modern config-based API for learning embeddings from tabular data.
-    
+
     This is the new recommended API that uses configuration objects instead
     of long parameter lists. It provides better organization, type safety,
     and extensibility.
-    
+
     Args:
         df: Input DataFrame containing the data to embed
         config: Complete embedding configuration. If None, default config is used.
         auto_architecture: Enable automatic neural architecture search for neural modes
         architecture_search_config: Custom architecture search configuration
         **config_overrides: Override specific config values (supports nested keys with dots)
-        
+
     Returns:
         DataFrame containing the learned embeddings
-        
+
     Examples:
         # Basic usage with defaults
         embeddings = learn_embedding_v2(df)
-        
+
         # Using a custom config
         config = EmbeddingConfig(
             mode="contrastive",
@@ -55,13 +55,13 @@ def learn_embedding_v2(
             contrastive=ContrastiveConfig(loss_type="triplet", margin=2.0)
         )
         embeddings = learn_embedding_v2(df, config)
-        
+
         # With automatic architecture search
         embeddings = learn_embedding_v2(df, config, auto_architecture=True)
-        
+
         # Quick overrides without config object
         embeddings = learn_embedding_v2(df, embedding_dim=20, mode="target", reference_column="category")
-        
+
         # Loading from YAML
         config = EmbeddingConfig.from_yaml("my_config.yaml")
         embeddings = learn_embedding_v2(df, config)
@@ -89,9 +89,7 @@ def learn_embedding_v2(
         config.neural.activation = best_architecture["activation"]
 
         if architecture_search_config and architecture_search_config.verbose:
-            summary = search_result.summary()
-            print(f"🏆 Architecture search completed: {summary['trials_completed']} trials in {summary['total_time']:.1f}s")
-            print(f"📈 Best score: {summary['best_score']:.4f}")
+            search_result.summary()
 
     # Convert config to legacy parameters and call the existing function
     legacy_params = _config_to_legacy_params(config)
@@ -106,15 +104,15 @@ def learn_embedding_with_model_v2(
 ) -> tuple[pd.DataFrame, Any | BaseEstimator, ColumnTransformer, dict[str, Any]]:
     """
     Modern config-based API for learning embeddings with model artifacts.
-    
+
     This function returns the embeddings along with the trained model,
     preprocessor, and metadata for serialization purposes.
-    
+
     Args:
         df: Input DataFrame containing the data to embed
         config: Complete embedding configuration. If None, default config is used.
         **config_overrides: Override specific config values
-        
+
     Returns:
         Tuple of (embeddings, model, preprocessor, metadata)
     """

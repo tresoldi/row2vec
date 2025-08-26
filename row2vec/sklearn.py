@@ -34,11 +34,11 @@ class Row2VecModel:
 class Row2VecTransformer(BaseEstimator, TransformerMixin):
     """
     Scikit-learn compatible transformer for Row2Vec embeddings.
-    
+
     This transformer can be used in sklearn pipelines and follows the
     standard fit/transform API. It internally uses Row2Vec's config-based
     API for flexibility and type safety.
-    
+
     Parameters
     ----------
     embedding_dim : int, default=10
@@ -52,7 +52,7 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):
     **kwargs
         Additional parameters passed to the embedding configuration.
         These can include nested parameters like neural__max_epochs=100.
-    
+
     Attributes
     ----------
     config_ : EmbeddingConfig
@@ -63,26 +63,26 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):
         Names of features seen during fit.
     n_features_in_ : int
         Number of features seen during fit.
-    
+
     Examples
     --------
     >>> from row2vec.sklearn import Row2VecTransformer
     >>> import pandas as pd
-    >>> 
+    >>>
     >>> # Simple usage
     >>> transformer = Row2VecTransformer(embedding_dim=5, mode="unsupervised")
     >>> X_embedded = transformer.fit_transform(df)
-    >>> 
+    >>>
     >>> # In a pipeline
     >>> from sklearn.pipeline import Pipeline
     >>> from sklearn.cluster import KMeans
-    >>> 
+    >>>
     >>> pipeline = Pipeline([
     ...     ('embed', Row2VecTransformer(embedding_dim=10)),
     ...     ('cluster', KMeans(n_clusters=3))
     ... ])
     >>> pipeline.fit(df)
-    >>> 
+    >>>
     >>> # With configuration object
     >>> from row2vec.config import EmbeddingConfig, NeuralConfig
     >>> config = EmbeddingConfig(
@@ -172,14 +172,14 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):
     def fit(self, X: Any, y: Any = None) -> "Row2VecTransformer":
         """
         Fit the Row2Vec transformer.
-        
+
         Parameters
         ----------
         X : DataFrame or array-like of shape (n_samples, n_features)
             Training data.
         y : array-like of shape (n_samples,), optional
             Target values (ignored, exists for sklearn compatibility).
-        
+
         Returns
         -------
         self : Row2VecTransformer
@@ -209,12 +209,12 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):
     def transform(self, X: Any) -> np.ndarray:
         """
         Transform data to embedding space.
-        
+
         Parameters
         ----------
         X : DataFrame or array-like of shape (n_samples, n_features)
             Data to transform.
-        
+
         Returns
         -------
         X_embedded : ndarray of shape (n_samples, embedding_dim)
@@ -236,7 +236,7 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):
     def fit_transform(self, X, y=None, **fit_params) -> np.ndarray:
         """
         Fit the transformer and transform the data.
-        
+
         Parameters
         ----------
         X : DataFrame or array-like of shape (n_samples, n_features)
@@ -245,7 +245,7 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):
             Target values (ignored, exists for sklearn compatibility).
         **fit_params : dict
             Additional parameters (ignored, exists for sklearn compatibility).
-        
+
         Returns
         -------
         X_embedded : ndarray of shape (n_samples, embedding_dim)
@@ -280,12 +280,12 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):
     def get_feature_names_out(self, input_features: np.ndarray | None = None) -> np.ndarray:
         """
         Get output feature names for transformation.
-        
+
         Parameters
         ----------
         input_features : array-like of str or None, default=None
             Not used, exists for sklearn compatibility.
-        
+
         Returns
         -------
         feature_names_out : ndarray of shape (embedding_dim,), dtype=str
@@ -309,10 +309,10 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):
 class Row2VecClassifier(BaseEstimator):
     """
     Scikit-learn compatible classifier using Row2Vec embeddings.
-    
+
     This combines Row2Vec embedding generation with a downstream classifier,
     making it easy to use embeddings for classification tasks in sklearn pipelines.
-    
+
     Parameters
     ----------
     embedding_dim : int, default=10
@@ -323,17 +323,17 @@ class Row2VecClassifier(BaseEstimator):
         Configuration for embedding generation.
     **embedding_kwargs
         Additional parameters for embedding configuration.
-    
+
     Examples
     --------
     >>> from row2vec.sklearn import Row2VecClassifier
     >>> from sklearn.ensemble import RandomForestClassifier
-    >>> 
+    >>>
     >>> # With default classifier
     >>> clf = Row2VecClassifier(embedding_dim=15)
     >>> clf.fit(X_train, y_train)
     >>> predictions = clf.predict(X_test)
-    >>> 
+    >>>
     >>> # With custom classifier
     >>> clf = Row2VecClassifier(
     ...     embedding_dim=20,

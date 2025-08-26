@@ -47,10 +47,10 @@ def generate_synthetic_data(num_records: int, seed: int = 1305) -> pd.DataFrame:
 def create_dataframe_schema(df: pd.DataFrame) -> dict[str, Any]:
     """
     Create a schema dictionary from a DataFrame for validation purposes.
-    
+
     Args:
         df: DataFrame to analyze
-        
+
     Returns:
         Dictionary containing schema information
     """
@@ -84,13 +84,13 @@ def validate_dataframe_schema(
 ) -> None:
     """
     Validate DataFrame schema against expected schema.
-    
+
     Args:
         df: DataFrame to validate
         expected_schema: Expected schema dictionary
         allow_extra_columns: Whether to allow extra columns in df
         allow_missing_columns: Whether to allow missing columns in df
-        
+
     Raises:
         ValueError: If schema validation fails
     """
@@ -136,11 +136,11 @@ def validate_dataframe_schema(
 def _are_compatible_dtypes(expected: str, actual: str) -> bool:
     """
     Check if two data types are compatible for schema validation.
-    
+
     Args:
         expected: Expected data type string
         actual: Actual data type string
-        
+
     Returns:
         True if types are compatible
     """
