@@ -99,7 +99,7 @@ def _scale_embeddings(
                             f"MinMax scaling undefined for constant column '{col_name}' "
                             f"(all values are {np.min(col)}). Consider removing this column or using a different scaling method.",
                         ) from e
-            raise e
+            raise
 
     if method == "standard":
         # Use sklearn StandardScaler
@@ -322,7 +322,7 @@ def _validate_inputs(
             )
 
         # Validate margin
-        if not isinstance(margin, (int, float)) or margin <= 0:
+        if not isinstance(margin, int | float) or margin <= 0:
             raise ValueError(f"margin must be a positive number, got {margin}")
 
         # Validate negative_samples
@@ -675,11 +675,11 @@ def _generate_contrastive_pairs(
     return final_similar_pairs, final_dissimilar_pairs
 
 
-def _create_contrastive_loss_function(loss_type: str, margin: float):
+def _create_contrastive_loss_function(loss_type: str, margin: float) -> Any:
     """Create the contrastive loss function."""
 
     if loss_type == "triplet":
-        def triplet_loss(y_true, y_pred):
+        def triplet_loss(y_true: Any, y_pred: Any) -> Any:
             """Triplet loss: minimize distance between anchor-positive, maximize anchor-negative."""
             # y_pred contains [anchor, positive, negative] embeddings
             # Shape: (batch_size, 3 * embedding_dim)
@@ -700,7 +700,7 @@ def _create_contrastive_loss_function(loss_type: str, margin: float):
         return triplet_loss
 
     if loss_type == "contrastive":
-        def contrastive_loss(y_true, y_pred):
+        def contrastive_loss(y_true: Any, y_pred: Any) -> Any:
             """Contrastive loss: minimize distance for similar pairs, maximize for dissimilar."""
             # y_pred contains [anchor, comparison] embeddings
             # Shape should be: (batch_size, 2 * embedding_dim)
@@ -822,7 +822,7 @@ def _create_contrastive_dataset(
     batch_size: int,
     loss_type: str,
     seed: int,
-):
+) -> Any:
     """Create a TensorFlow dataset for contrastive learning."""
     np.random.seed(seed)
 
@@ -842,7 +842,9 @@ def _create_contrastive_dataset(
     # Shuffle
     combined = list(zip(all_pairs, all_labels, strict=False))
     np.random.shuffle(combined)
-    all_pairs, all_labels = zip(*combined, strict=False)
+    unzipped = list(zip(*combined, strict=False))
+    all_pairs = list(unzipped[0])
+    all_labels = list(unzipped[1])
 
     if loss_type == "contrastive":
         # Prepare data for contrastive learning
@@ -860,7 +862,7 @@ def _create_contrastive_dataset(
         labels_array = np.array(labels_data, dtype=np.float32)
 
         # Create dataset by yielding batched data
-        def data_generator():
+        def data_generator() -> Any:
             n_samples = len(input1_array)
             indices = np.arange(n_samples)
 
@@ -878,7 +880,7 @@ def _create_contrastive_dataset(
                     yield ((batch_input1, batch_input2), batch_labels)
 
         # Convert generator to TensorFlow dataset
-        dataset = tf.data.Dataset.from_generator(
+        return tf.data.Dataset.from_generator(
             data_generator,
             output_signature=(
                 (tf.TensorSpec(shape=(None, X_processed.shape[1]), dtype=tf.float32),
@@ -887,7 +889,6 @@ def _create_contrastive_dataset(
             ),
         )
 
-        return dataset
 
     if loss_type == "triplet":
         # Prepare data for triplet learning (anchor, positive, negative)
@@ -896,7 +897,7 @@ def _create_contrastive_dataset(
         negative_data = []
 
         # Convert similar/dissimilar pairs to triplets
-        similar_dict = {}
+        similar_dict: dict[int, list[int]] = {}
         for idx1, idx2 in similar_pairs:
             if idx1 not in similar_dict:
                 similar_dict[idx1] = []
@@ -905,7 +906,7 @@ def _create_contrastive_dataset(
                 similar_dict[idx2] = []
             similar_dict[idx2].append(idx1)
 
-        dissimilar_list = [pair for pair in dissimilar_pairs]
+        dissimilar_list = list(dissimilar_pairs)
 
         # Generate triplets: (anchor, positive, negative)
         for anchor_idx, positives in similar_dict.items():
@@ -942,7 +943,7 @@ def _create_contrastive_dataset(
         negative_array = np.array(negative_data, dtype=np.float32)
 
         # Create dataset by yielding batched data
-        def triplet_data_generator():
+        def triplet_data_generator() -> Any:
             n_samples = len(anchor_array)
             indices = np.arange(n_samples)
 
@@ -963,7 +964,7 @@ def _create_contrastive_dataset(
                     yield ((batch_anchor, batch_positive, batch_negative), batch_labels)
 
         # Convert generator to TensorFlow dataset
-        dataset = tf.data.Dataset.from_generator(
+        return tf.data.Dataset.from_generator(
             triplet_data_generator,
             output_signature=(
                 (tf.TensorSpec(shape=(None, X_processed.shape[1]), dtype=tf.float32),
@@ -973,7 +974,6 @@ def _create_contrastive_dataset(
             ),
         )
 
-        return dataset
 
     raise ValueError(f"Unknown loss type: {loss_type}. Supported types: 'contrastive', 'triplet'")
 
@@ -1014,9 +1014,9 @@ def learn_embedding(
     Learns a low-dimensional embedding from a pandas DataFrame.
 
     Note:
-        Current version supports numeric and categorical features. Textual and temporal 
-        features are not directly supported - please preprocess them yourself using 
-        appropriate tools (e.g., BERT-like embeddings for text, temporal libraries for 
+        Current version supports numeric and categorical features. Textual and temporal
+        features are not directly supported - please preprocess them yourself using
+        appropriate tools (e.g., BERT-like embeddings for text, temporal libraries for
         time series). Support for these feature types is planned for future versions.
 
     Args:
@@ -1029,7 +1029,7 @@ def learn_embedding(
         max_epochs (int): The maximum number of training epochs (neural methods only).
         batch_size (int): The batch size for training (neural methods only).
         dropout_rate (float): The dropout rate for regularization (neural methods only).
-        hidden_units (Union[int, list[int]]): Hidden layer configuration - single int for one layer 
+        hidden_units (Union[int, list[int]]): Hidden layer configuration - single int for one layer
                      or list of ints for multiple layers (neural methods only).
         early_stopping (bool): Whether to use early stopping (neural methods only).
         seed (int): A random seed for reproducibility.
@@ -1044,12 +1044,12 @@ def learn_embedding(
         perplexity (float): Perplexity parameter for t-SNE (default: 30.0).
         min_dist (float): Minimum distance for UMAP (default: 0.1).
         n_iter (int): Number of iterations for t-SNE (default: 1000).
-        similar_pairs (list[tuple[int, int]], optional): List of (row_idx1, row_idx2) pairs 
+        similar_pairs (list[tuple[int, int]], optional): List of (row_idx1, row_idx2) pairs
                      that should have similar embeddings (for contrastive mode).
         dissimilar_pairs (list[tuple[int, int]], optional): List of (row_idx1, row_idx2) pairs
                      that should have dissimilar embeddings (for contrastive mode).
         auto_pairs (str, optional): Strategy for automatic pair generation. Options:
-                     'cluster' (cluster-based), 'neighbors' (k-NN based), 
+                     'cluster' (cluster-based), 'neighbors' (k-NN based),
                      'categorical' (same category values), 'random' (random sampling).
         contrastive_loss (str): Contrastive loss function. Options: 'triplet', 'contrastive'.
         margin (float): Margin parameter for contrastive loss functions (default: 1.0).
@@ -1129,7 +1129,7 @@ def learn_embedding(
     try:  # TensorFlow 2.13+
         from tensorflow.config import experimental as tf_config_exp
 
-        tf_config_exp.enable_op_determinism(True)  # type: ignore[attr-defined]
+        tf_config_exp.enable_op_determinism(True)
     except Exception:
         pass
 
@@ -1198,11 +1198,11 @@ def learn_embedding(
 
     # Ensure X is a dense array for TensorFlow compatibility, especially for autoencoders
     if hasattr(X, "toarray"):
-        X = X.toarray()  # type: ignore[attr-defined]
+        X = X.toarray()
 
     preprocessing_time = time.time() - preprocessing_start_time
     if logger:
-        logger.log_preprocessing_result(df.shape, X.shape, preprocessing_time)
+        logger.log_preprocessing_result(df.shape, (X.shape[0], X.shape[1]), preprocessing_time)
 
         # Performance warnings
         if X.shape[1] > 1000:
@@ -1397,15 +1397,15 @@ def learn_embedding(
             },
         )
 
-    callbacks: list[Callback] = []
+    model_callbacks: list[Callback] = []
     if early_stopping:
-        callbacks.append(
+        model_callbacks.append(
             EarlyStopping(monitor="val_loss", patience=5, restore_best_weights=True),
         )
 
     # Add logging callback if logger is enabled
     if logger:
-        callbacks.append(Row2VecTrainingCallback(logger))
+        model_callbacks.append(Row2VecTrainingCallback(logger))
 
     # === MODEL TRAINING ===
     history = model.fit(
@@ -1415,7 +1415,7 @@ def learn_embedding(
         epochs=max_epochs,
         batch_size=batch_size,
         verbose=int(verbose),
-        callbacks=callbacks,
+        callbacks=model_callbacks,
     )
 
     # Log training completion
@@ -1431,20 +1431,20 @@ def learn_embedding(
     encoder: Model = Model(
         inputs=model.input, outputs=model.get_layer("embedding").output,
     )
-    embedded_values: npt.NDArray[Any] = encoder.predict(X, verbose=0)
-    embedding_df: pd.DataFrame = pd.DataFrame(
-        embedded_values,
+    final_embedded_values: npt.NDArray[Any] = encoder.predict(X, verbose=0)
+    final_embedding_df: pd.DataFrame = pd.DataFrame(
+        final_embedded_values,
         columns=[f"embedding_{i}" for i in range(embedding_dim)],
     )
 
     if mode == "target":
-        embedding_df["category"] = df[reference_column].astype("category").cat.codes
-        grouped: pd.DataFrame = embedding_df.groupby("category").mean()
+        final_embedding_df["category"] = df[reference_column].astype("category").cat.codes
+        grouped: pd.DataFrame = final_embedding_df.groupby("category").mean()
         # Apply scaling after grouping per user preference
         final_embeddings = _scale_embeddings(grouped, scale_method, scale_range)
     else:
         # Apply scaling to row embeddings
-        final_embeddings = _scale_embeddings(embedding_df, scale_method, scale_range)
+        final_embeddings = _scale_embeddings(final_embedding_df, scale_method, scale_range)
 
     # Log final embedding statistics
     if logger:
@@ -1488,13 +1488,13 @@ def learn_embedding_with_model(
 ) -> tuple[pd.DataFrame, tf.keras.Model | BaseEstimator, ColumnTransformer, dict[str, Any]]:
     """
     Extended version of learn_embedding that also returns the model, preprocessor, and training metadata.
-    
+
     This function is designed for use with the serialization system to capture all necessary
     components for saving and loading trained models.
-    
+
     Args:
         Same as learn_embedding function
-        
+
     Returns:
         Tuple of (embeddings, model, preprocessor, metadata)
         - embeddings: DataFrame with learned embeddings
@@ -1503,6 +1503,15 @@ def learn_embedding_with_model(
         - metadata: Dictionary containing training metadata and configuration
     """
     start_time = time.time()
+
+    # Initialize logger
+    logger = None
+    if enable_logging:
+        logger = get_logger(
+            name="row2vec.learn_embedding_with_model",
+            level=log_level,
+            log_file=log_file,
+        )
 
     # Store original DataFrame schema for validation
     original_schema = create_dataframe_schema(df)
@@ -1767,10 +1776,10 @@ def learn_embedding_with_model(
 def _get_feature_names(preprocessor: ColumnTransformer) -> list[str]:
     """
     Extract feature names from a fitted ColumnTransformer.
-    
+
     Args:
         preprocessor: Fitted ColumnTransformer
-        
+
     Returns:
         List of feature names
     """

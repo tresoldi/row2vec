@@ -25,7 +25,7 @@ from .logging import get_logger
 class AutoDimensionSelector:
     """
     Automatically selects optimal embedding dimensions using multiple strategies.
-    
+
     Combines data-driven analysis, performance optimization, and heuristic rules
     to determine the best embedding dimension for a given dataset.
     """
@@ -43,7 +43,7 @@ class AutoDimensionSelector:
     ):
         """
         Initialize automatic dimension selector.
-        
+
         Args:
             methods: List of selection methods to use
             performance_weight: Weight for performance-based selection
@@ -80,25 +80,25 @@ class AutoDimensionSelector:
     ) -> tuple[int, dict[str, Any]]:
         """
         Select optimal embedding dimension for the given data.
-        
+
         Args:
             df: Input dataframe
             config: Base embedding configuration (dimension will be overridden)
             target_column: Optional target for supervised evaluation
             candidate_dims: Specific dimensions to evaluate (auto-generated if None)
-            
+
         Returns:
             Tuple of (optimal_dimension, selection_metadata)
         """
         if self.verbose:
-            print("🎯 Starting automatic dimension selection...")
+            pass
 
         # Generate candidate dimensions if not provided
         if candidate_dims is None:
             candidate_dims = self._generate_candidate_dimensions(df)
 
         if self.verbose:
-            print(f"📊 Evaluating dimensions: {candidate_dims}")
+            pass
 
         # Apply each selection method
         method_results = {}
@@ -106,17 +106,17 @@ class AutoDimensionSelector:
         for method in self.methods:
             try:
                 if self.verbose:
-                    print(f"🔍 Running method: {method}")
+                    pass
 
                 result = self._apply_method(method, df, config, candidate_dims, target_column)
                 method_results[method] = result
 
                 if self.verbose:
-                    print(f"   {method}: recommended dim = {result['recommended_dim']}")
+                    pass
 
-            except Exception as e:
+            except Exception:
                 if self.verbose:
-                    print(f"   {method} failed: {e}")
+                    pass
                 method_results[method] = {"recommended_dim": None, "score": 0.0}
 
         # Combine results using weighted voting
@@ -139,7 +139,7 @@ class AutoDimensionSelector:
         }
 
         if self.verbose:
-            print(f"✅ Selected optimal dimension: {optimal_dim}")
+            pass
 
         return optimal_dim, metadata
 
@@ -158,11 +158,7 @@ class AutoDimensionSelector:
             max_dim = self.max_dimension
         else:
             # Auto-determine max dimension
-            max_dim = min(
-                n_features // 2,  # Don't exceed half the features
-                min(50, n_samples // 10),  # Scale with sample size, cap at 50
-                max(sqrt_features * 2, 10),  # At least 2x sqrt(features) or 10
-            )
+            max_dim = min(n_features // 2, 50, n_samples // 10, max(sqrt_features * 2, 10))
 
         max_dim = max(max_dim, min_dim)
 
@@ -181,7 +177,7 @@ class AutoDimensionSelector:
 
         # Filter and sort
         candidates = [d for d in candidates if min_dim <= d <= max_dim]
-        return sorted(list(set(candidates)))
+        return sorted(set(candidates))
 
     def _apply_method(
         self,
@@ -531,14 +527,14 @@ def auto_select_dimension(
 ) -> tuple[int, dict[str, Any]]:
     """
     Convenience function for automatic dimension selection.
-    
+
     Args:
         df: Input dataframe
         config: Base embedding configuration (uses defaults if None)
         target_column: Optional target column for supervised evaluation
         methods: List of selection methods to use
         **selector_kwargs: Additional arguments for AutoDimensionSelector
-        
+
     Returns:
         Tuple of (optimal_dimension, selection_metadata)
     """

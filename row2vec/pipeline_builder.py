@@ -39,7 +39,7 @@ class PipelineBuilder:
     ) -> tuple[ColumnTransformer, dict[str, Any]]:
         """
         Build intelligent preprocessing pipeline based on data analysis.
-        
+
         Parameters
         ----------
         df : pd.DataFrame
@@ -48,7 +48,7 @@ class PipelineBuilder:
             Target variable for supervised preprocessing
         mode : str
             Embedding mode that influences preprocessing strategy
-            
+
         Returns
         -------
         Tuple[ColumnTransformer, Dict[str, Any]]
@@ -356,11 +356,11 @@ def build_adaptive_pipeline(
 ) -> tuple[ColumnTransformer, dict[str, Any]]:
     """
     Build adaptive preprocessing pipeline for Row2Vec.
-    
+
     This is the main entry point for intelligent pipeline construction.
     It analyzes the dataset and automatically selects optimal preprocessing
     strategies based on data characteristics.
-    
+
     Parameters
     ----------
     df : pd.DataFrame
@@ -371,18 +371,18 @@ def build_adaptive_pipeline(
         Configuration for preprocessing. If None, intelligent defaults are used.
     mode : str
         Embedding mode ("unsupervised", "target", etc.)
-        
+
     Returns
     -------
     Tuple[ColumnTransformer, Dict[str, Any]]
         Preprocessing pipeline and analysis report
-        
+
     Examples
     --------
     Basic usage with automatic configuration:
     >>> pipeline, report = build_adaptive_pipeline(df)
     >>> X_processed = pipeline.fit_transform(df)
-    
+
     With custom configuration:
     >>> config = EmbeddingConfig()
     >>> config.preprocessing.categorical_encoding_strategy = "entity"

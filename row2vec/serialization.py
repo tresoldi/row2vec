@@ -165,7 +165,7 @@ class Row2VecModelMetadata:
 class Row2VecModel:
     """
     Complete Row2Vec model with preprocessing pipeline and metadata.
-    
+
     This class encapsulates the trained model, preprocessing pipeline,
     and all metadata needed for inference.
     """
@@ -183,14 +183,14 @@ class Row2VecModel:
     def validate_input_schema(self, df: pd.DataFrame, strict: bool = True) -> bool:
         """
         Validate input DataFrame schema against expected schema.
-        
+
         Args:
             df: Input DataFrame to validate
             strict: If True, fails on any schema mismatch. If False, warns only.
-            
+
         Returns:
             bool: True if schema is valid
-            
+
         Raises:
             ValueError: If strict=True and schema validation fails
         """
@@ -205,20 +205,19 @@ class Row2VecModel:
         except Exception as e:
             if strict:
                 raise ValueError(f"Schema validation failed: {e!s}")
-            print(f"Warning: Schema validation failed: {e!s}")
             return False
 
     def predict(self, df: pd.DataFrame, validate_schema: bool = True) -> pd.DataFrame:
         """
         Generate embeddings for new data.
-        
+
         Args:
             df: Input DataFrame
             validate_schema: Whether to validate input schema
-            
+
         Returns:
             DataFrame with embeddings
-            
+
         Raises:
             ValueError: If model is not loaded or schema validation fails
         """
@@ -295,15 +294,15 @@ def save_model(
 ) -> tuple[str, str]:
     """
     Save a Row2Vec model using the two-file approach.
-    
+
     Args:
         model: The Row2Vec model to save
         base_path: Base path for saving (without extension)
         overwrite: Whether to overwrite existing files
-        
+
     Returns:
         Tuple of (script_path, binary_path)
-        
+
     Raises:
         FileExistsError: If files exist and overwrite=False
         ValueError: If model is incomplete
@@ -348,13 +347,13 @@ def save_model(
 def load_model(script_path: str | Path) -> Row2VecModel:
     """
     Load a Row2Vec model from the script file.
-    
+
     Args:
         script_path: Path to the Python script file
-        
+
     Returns:
         Loaded Row2Vec model
-        
+
     Raises:
         FileNotFoundError: If script or binary file not found
         ValueError: If loading fails
@@ -383,11 +382,11 @@ def load_model(script_path: str | Path) -> Row2VecModel:
 def _generate_model_script(metadata: Row2VecModelMetadata, binary_filename: str) -> str:
     """
     Generate the Python script for model loading.
-    
+
     Args:
         metadata: Model metadata
         binary_filename: Name of the binary file
-        
+
     Returns:
         Python script content as string
     """
@@ -397,9 +396,9 @@ def _generate_model_script(metadata: Row2VecModelMetadata, binary_filename: str)
         import numpy as np
         if obj is None:
             return None
-        if isinstance(obj, (tuple, list)):
+        if isinstance(obj, tuple | list):
             return list(obj)
-        if isinstance(obj, (np.floating, np.integer)):
+        if isinstance(obj, np.floating | np.integer):
             if np.isnan(obj):
                 return None
             return float(obj)
@@ -410,7 +409,7 @@ def _generate_model_script(metadata: Row2VecModelMetadata, binary_filename: str)
     for key, value in metadata_dict.items():
         if value is None:
             metadata_dict[key] = None  # Keep as Python None
-        elif isinstance(value, (np.floating, np.integer)):
+        elif isinstance(value, np.floating | np.integer):
             if np.isnan(value):
                 metadata_dict[key] = None
             else:
@@ -423,11 +422,11 @@ def _generate_model_script(metadata: Row2VecModelMetadata, binary_filename: str)
     def safe_format(value):
         if value is None:
             return "Not recorded"
-        if isinstance(value, (np.floating, np.integer)) and np.isnan(value):
+        if isinstance(value, np.floating | np.integer) and np.isnan(value):
             return "Not recorded"
         return value
 
-    script_template = f'''"""
+    return f'''"""
 Row2Vec Model: {metadata.mode} mode, {metadata.embedding_dim}D embeddings
 Created: {metadata.created_at}
 Row2Vec Version: {metadata.row2vec_version}
@@ -480,17 +479,17 @@ def get_metadata() -> Dict[str, Any]:
 def load_model() -> Row2VecModel:
     """
     Load the complete Row2Vec model with preprocessor and metadata.
-    
+
     Returns:
         Row2VecModel: Loaded model ready for inference
-        
+
     Raises:
         FileNotFoundError: If binary file not found
         Exception: If loading fails
     """
     # Get the path to the binary file using the script directory
     binary_filename = "{binary_filename}"
-    
+
     # Try to use the script directory if available (passed from load_model function)
     if "__script_dir__" in globals():
         script_dir = Path(globals()["__script_dir__"])
@@ -498,31 +497,31 @@ def load_model() -> Row2VecModel:
     else:
         # Fallback to current working directory
         binary_path = Path(binary_filename)
-    
+
     if not binary_path.exists():
         raise FileNotFoundError(
             f"Binary model file not found: {{binary_path}}\\n"
             f"Expected filename: {{binary_filename}}\\n"
             f"Searched in: {{binary_path.parent if binary_path.parent != binary_path else Path.cwd()}}"
         )
-    
+
     try:
         # Load binary components
         with open(binary_path, "rb") as f:
             binary_data = pickle.load(f)
-        
+
         # Create metadata object
         metadata = Row2VecModelMetadata.from_dict(METADATA)
-        
+
         # Create and return model
         model = Row2VecModel(
             model=binary_data["model"],
             preprocessor=binary_data["preprocessor"],
             metadata=metadata,
         )
-        
+
         return model
-        
+
     except Exception as e:
         raise Exception(f"Failed to load model: {{str(e)}}")
 
@@ -531,7 +530,7 @@ if __name__ == "__main__":
     # Demo usage
     print("Row2Vec Model Information:")
     print("=" * 50)
-    
+
     metadata = get_metadata()
     print(f"Mode: {{metadata['mode']}}")
     print(f"Embedding Dimensions: {{metadata['embedding_dim']}}")
@@ -539,17 +538,16 @@ if __name__ == "__main__":
     print(f"Training Time: {{metadata.get('training_time', 'N/A')}}s")
     print(f"Final Loss: {{metadata.get('final_loss', 'N/A')}}")
     print(f"Epochs Trained: {{metadata.get('epochs_trained', 'N/A')}}")
-    
+
     print("\\nOriginal Columns:")
     for col in metadata.get('original_columns', []):
         print(f"  - {{col}}")
-    
+
     print("\\nTo use this model:")
     print("  model = load_model()")
     print("  embeddings = model.predict(your_dataframe)")
 '''
 
-    return script_template
 
 
 def train_and_save_model(
@@ -588,16 +586,16 @@ def train_and_save_model(
 ) -> tuple[pd.DataFrame, str, str]:
     """
     Train a Row2Vec model and save it using the two-file approach.
-    
+
     This is a convenience function that combines training and saving.
-    
+
     Args:
         df: Input DataFrame for training
         base_path: Base path for saving the model
         **kwargs: All parameters from learn_embedding
         overwrite: Whether to overwrite existing model files
         include_training_history: Whether to include full training history in metadata
-        
+
     Returns:
         Tuple of (embeddings, script_path, binary_path)
     """

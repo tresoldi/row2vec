@@ -8,7 +8,7 @@ simplicity for beginners and flexibility for advanced users.
 
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 from sklearn.impute import KNNImputer, SimpleImputer
@@ -35,7 +35,7 @@ except ImportError:
 class ImputationConfig:
     """
     Configuration for intelligent missing value imputation strategies.
-    
+
     This class provides comprehensive control over how missing values are handled,
     with sensible defaults that work well for most datasets while allowing power
     users to fine-tune every aspect of the imputation process.
@@ -81,11 +81,11 @@ class ImputationConfig:
     # Pattern analysis and preservation
     preserve_missing_patterns: bool = False
     """Whether to preserve missing patterns when they might be informative.
-    
+
     When True, adds binary indicator columns for originally missing values.
-    This is useful when missingness itself carries information (e.g., 
+    This is useful when missingness itself carries information (e.g.,
     customers not providing income information might be systematically different).
-    
+
     Example:
         Original: [1.0, NaN, 3.0] -> After imputation: [1.0, 2.0, 3.0]
         With preservation: adds column [False, True, False] indicating missingness
@@ -136,10 +136,10 @@ class MissingPatternAnalyzer:
     def analyze(self, df: pd.DataFrame) -> dict[str, Any]:
         """
         Analyze missing data patterns in the DataFrame.
-        
+
         Args:
             df: Input DataFrame to analyze
-            
+
         Returns:
             Dict containing analysis results and recommendations
         """
@@ -224,26 +224,26 @@ class MissingPatternAnalyzer:
 
 class AdaptiveImputer(BaseEstimator):
     """
-    Adaptive imputer that automatically selects and applies appropriate 
+    Adaptive imputer that automatically selects and applies appropriate
     imputation strategies based on data characteristics.
     """
 
     def __init__(self, config: ImputationConfig) -> None:
         self.config = config
         self.analyzer = MissingPatternAnalyzer(config)
-        self.analysis_report_: Optional[dict[str, Any]] = None
-        self.imputation_pipelines_: Optional[dict[str, Any]] = None
-        self.feature_names_in_: Optional[list[str]] = None
-        self.missing_indicators_: Optional[dict[str, Any]] = None
+        self.analysis_report_: dict[str, Any] | None = None
+        self.imputation_pipelines_: dict[str, Any] | None = None
+        self.feature_names_in_: list[str] | None = None
+        self.missing_indicators_: dict[str, Any] | None = None
 
-    def fit(self, X: pd.DataFrame, y: Any = None) -> 'AdaptiveImputer':
+    def fit(self, X: pd.DataFrame, y: Any = None) -> "AdaptiveImputer":
         """
         Fit the adaptive imputer to the data.
-        
+
         Args:
             X: Input DataFrame with potential missing values
             y: Ignored, present for API compatibility
-            
+
         Returns:
             self: Fitted imputer
         """
@@ -269,10 +269,10 @@ class AdaptiveImputer(BaseEstimator):
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """
         Transform the data by applying imputation strategies.
-        
+
         Args:
             X: Input DataFrame with potential missing values
-            
+
         Returns:
             DataFrame with missing values imputed
         """
@@ -368,7 +368,7 @@ class AdaptiveImputer(BaseEstimator):
                 else:
                     warnings.warn(
                         "IterativeImputer not available, falling back to KNN imputation",
-                        UserWarning,
+                        UserWarning, stacklevel=2,
                     )
                     imputer = KNNImputer(n_neighbors=self.config.knn_neighbors)
             else:
@@ -376,7 +376,7 @@ class AdaptiveImputer(BaseEstimator):
         # Categorical data
         elif strategy == "mode":
             imputer = SimpleImputer(strategy="most_frequent")
-        elif strategy == "constant" or strategy == "missing_category":
+        elif strategy in {"constant", "missing_category"}:
             imputer = SimpleImputer(strategy="constant", fill_value=self.config.categorical_fill_value)
         else:
             raise ValueError(f"Unknown categorical strategy: {strategy}")
@@ -400,7 +400,7 @@ class AdaptiveImputer(BaseEstimator):
                 f"High missingness detected in columns: {', '.join(missing_info)}. "
                 f"Consider investigating these patterns or setting preserve_missing_patterns=True "
                 f"if missingness is informative.",
-                UserWarning,
+                UserWarning, stacklevel=2,
             )
 
         # Warn about completely missing columns
@@ -408,13 +408,13 @@ class AdaptiveImputer(BaseEstimator):
         if completely_missing:
             warnings.warn(
                 f"Columns with all missing values will be dropped: {completely_missing}",
-                UserWarning,
+                UserWarning, stacklevel=2,
             )
 
     def get_imputation_report(self) -> dict[str, Any]:
         """
         Get detailed report about the imputation process.
-        
+
         Returns:
             Dict containing analysis and imputation details
         """
@@ -437,19 +437,19 @@ class AdaptiveImputer(BaseEstimator):
         return report
 
 
-def create_imputation_pipeline(config: Optional[ImputationConfig] = None) -> AdaptiveImputer:
+def create_imputation_pipeline(config: ImputationConfig | None = None) -> AdaptiveImputer:
     """
     Create an adaptive imputation pipeline with intelligent defaults.
-    
+
     This is the main entry point for users who want simple, automatic
     missing value handling without needing to understand the complexity.
-    
+
     Args:
         config: Optional ImputationConfig. If None, uses conservative defaults.
-        
+
     Returns:
         Configured AdaptiveImputer ready for use
-        
+
     Example:
         >>> imputer = create_imputation_pipeline()
         >>> df_imputed = imputer.fit_transform(df_with_missing)

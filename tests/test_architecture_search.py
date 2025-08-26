@@ -57,7 +57,7 @@ class TestArchitectureSearchResult:
 
     def test_result_creation(self):
         """Test creating search result."""
-        best_arch = {"n_layers": 2, "layer_widths": [128, 64]}
+        best_arch = {"n_layers": 2, "hidden_units": [128, 64]}
         history = [
             {"trial": 0, "score": 0.8},
             {"trial": 1, "score": 0.9},
@@ -78,7 +78,7 @@ class TestArchitectureSearchResult:
 
     def test_summary(self):
         """Test result summary generation."""
-        best_arch = {"n_layers": 2, "layer_widths": [128, 64]}
+        best_arch = {"n_layers": 2, "hidden_units": [128, 64]}
         history = [
             {"trial": 0, "score": 0.8},
             {"trial": 1, "score": 0.9},
@@ -118,7 +118,7 @@ class TestArchitectureSearcher:
     @pytest.fixture
     def base_config(self):
         """Create base embedding config."""
-        return EmbeddingConfig(mode="neural", embedding_dim=5)
+        return EmbeddingConfig(mode="unsupervised", embedding_dim=5)
 
     @pytest.fixture
     def search_config(self):
@@ -147,14 +147,19 @@ class TestArchitectureSearcher:
         architecture = searcher._sample_random_architecture()
 
         assert "n_layers" in architecture
-        assert "layer_widths" in architecture
+        assert "hidden_units" in architecture
         assert "dropout_rate" in architecture
         assert "activation" in architecture
 
         assert search_config.layer_range[0] <= architecture["n_layers"] <= search_config.layer_range[1]
         assert architecture["dropout_rate"] in search_config.dropout_options
         assert architecture["activation"] in search_config.activation_options
-        assert len(architecture["layer_widths"]) == architecture["n_layers"]
+        # Check that hidden_units structure matches n_layers
+        if architecture["n_layers"] == 1:
+            assert isinstance(architecture["hidden_units"], int)
+        else:
+            assert isinstance(architecture["hidden_units"], list)
+            assert len(architecture["hidden_units"]) == architecture["n_layers"]
 
     def test_generate_grid_architectures(self, search_config):
         """Test grid architecture generation."""
@@ -167,7 +172,7 @@ class TestArchitectureSearcher:
 
         for arch in architectures:
             assert "n_layers" in arch
-            assert "layer_widths" in arch
+            assert "hidden_units" in arch
             assert "dropout_rate" in arch
             assert "activation" in arch
 
@@ -181,7 +186,7 @@ class TestArchitectureSearcher:
         searcher = ArchitectureSearcher(search_config)
         architecture = {
             "n_layers": 2,
-            "layer_widths": [128, 64],
+            "hidden_units": [128, 64],
             "dropout_rate": 0.2,
             "activation": "relu",
         }
@@ -273,7 +278,7 @@ class TestSearchArchitectureFunction:
     @pytest.fixture
     def base_config(self):
         """Create base embedding config."""
-        return EmbeddingConfig(mode="neural", embedding_dim=3)
+        return EmbeddingConfig(mode="unsupervised", embedding_dim=3)
 
     @patch("row2vec.architecture_search.learn_embedding_v2")
     def test_search_architecture_default_config(self, mock_learn_embedding, sample_data, base_config):
@@ -287,7 +292,7 @@ class TestSearchArchitectureFunction:
         assert isinstance(best_arch, dict)
         assert isinstance(result, ArchitectureSearchResult)
         assert "n_layers" in best_arch
-        assert "layer_widths" in best_arch
+        assert "hidden_units" in best_arch
         assert "dropout_rate" in best_arch
         assert "activation" in best_arch
 
@@ -332,7 +337,7 @@ class TestIntegrationWithAPI:
 
         # Mock search results
         mock_best_arch = {
-            "layer_widths": [128, 64],
+            "hidden_units": [128, 64],
             "dropout_rate": 0.2,
             "activation": "relu",
         }
@@ -366,7 +371,7 @@ class TestErrorHandling:
     @pytest.fixture
     def base_config(self):
         """Create base embedding config."""
-        return EmbeddingConfig(mode="neural", embedding_dim=2)
+        return EmbeddingConfig(mode="unsupervised", embedding_dim=2)
 
     def test_invalid_search_method(self, sample_data, base_config):
         """Test error handling for invalid search method."""

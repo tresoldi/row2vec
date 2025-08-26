@@ -27,7 +27,7 @@ def test_cli_modes():
 
     # Find the train subcommand
     for action in parser._subparsers._actions:
-        if hasattr(action, "choices"):
+        if hasattr(action, "choices") and action.choices:
             if "train" in action.choices:
                 train_parser = action.choices["train"]
 
@@ -58,7 +58,7 @@ def test_cli_contrastive_args():
 
     # Find the train subcommand
     for action in parser._subparsers._actions:
-        if hasattr(action, "choices"):
+        if hasattr(action, "choices") and action.choices:
             if "train" in action.choices:
                 train_parser = action.choices["train"]
 
