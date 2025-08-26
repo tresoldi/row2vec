@@ -260,7 +260,8 @@ class TestEdgeCases:
                 "tiny_int": np.random.randint(0, 2, 100),
                 "large_float": np.random.uniform(1e6, 1e9, 100),
                 "many_categories": np.random.choice(
-                    [f"cat_{i}" for i in range(20)], 100,
+                    [f"cat_{i}" for i in range(20)],
+                    100,
                 ),
                 "binary_str": np.random.choice(["yes", "no"], 100),
                 "normal_float": np.random.normal(0, 1, 100),

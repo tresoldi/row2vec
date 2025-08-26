@@ -5,7 +5,6 @@ This module provides a pandas accessor that allows direct embedding
 generation from DataFrames using the `.row2vec` accessor.
 """
 
-
 import pandas as pd
 
 from .api import learn_embedding_v2

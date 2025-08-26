@@ -146,9 +146,17 @@ def _are_compatible_dtypes(expected: str, actual: str) -> bool:
     """
     # Numeric type compatibility
     numeric_types = {
-        "int8", "int16", "int32", "int64",
-        "uint8", "uint16", "uint32", "uint64",
-        "float16", "float32", "float64",
+        "int8",
+        "int16",
+        "int32",
+        "int64",
+        "uint8",
+        "uint16",
+        "uint32",
+        "uint64",
+        "float16",
+        "float32",
+        "float64",
     }
 
     # If both are numeric, they're compatible

@@ -86,8 +86,15 @@ class ContrastiveConfig:
         """Minimal validation for contrastive config."""
         if self.loss_type not in ["triplet", "contrastive"]:
             raise ValueError("loss_type must be 'triplet' or 'contrastive'")
-        if self.auto_pairs is not None and self.auto_pairs not in ["cluster", "neighbors", "categorical", "random"]:
-            raise ValueError("auto_pairs must be one of: cluster, neighbors, categorical, random")
+        if self.auto_pairs is not None and self.auto_pairs not in [
+            "cluster",
+            "neighbors",
+            "categorical",
+            "random",
+        ]:
+            raise ValueError(
+                "auto_pairs must be one of: cluster, neighbors, categorical, random"
+            )
         if self.margin < 0:
             raise ValueError("margin must be non-negative")
         if self.negative_samples <= 0:
@@ -103,7 +110,13 @@ class ScalingConfig:
 
     def __post_init__(self) -> None:
         """Minimal validation for scaling config."""
-        if self.method is not None and self.method not in ["none", "minmax", "standard", "l2", "tanh"]:
+        if self.method is not None and self.method not in [
+            "none",
+            "minmax",
+            "standard",
+            "l2",
+            "tanh",
+        ]:
             raise ValueError("method must be one of: none, minmax, standard, l2, tanh")
         if self.range is not None:
             if len(self.range) != 2:
@@ -281,7 +294,7 @@ def create_config_for_mode(mode: str, **overrides: Any) -> EmbeddingConfig:
     if mode == "target":
         # Create with dummy reference_column to pass validation
         base_config = EmbeddingConfig(mode=mode, reference_column="__placeholder__")
-        base_config.neural.max_epochs = 75   # Supervised learning often converges faster
+        base_config.neural.max_epochs = 75  # Supervised learning often converges faster
         # Clear the placeholder - user will need to set proper reference_column
         base_config.reference_column = None
     else:
@@ -289,8 +302,10 @@ def create_config_for_mode(mode: str, **overrides: Any) -> EmbeddingConfig:
 
         # Mode-specific optimizations
         if mode == "contrastive":
-            base_config.neural.max_epochs = 100  # Contrastive learning often needs more epochs
-            base_config.neural.batch_size = 32   # Smaller batches for triplet learning
+            base_config.neural.max_epochs = (
+                100  # Contrastive learning often needs more epochs
+            )
+            base_config.neural.batch_size = 32  # Smaller batches for triplet learning
             base_config.contrastive.auto_pairs = "cluster"  # Set default auto_pairs
         elif mode in ["pca", "tsne", "umap"]:
             # Classical methods don't use neural config, but we keep it for consistency

@@ -101,18 +101,22 @@ def sklearn_integration_examples():
         from sklearn.preprocessing import StandardScaler
 
         # Create numeric-only data for sklearn pipeline
-        numeric_df = pd.DataFrame({
-            "feature1": np.random.normal(0, 1, 200),
-            "feature2": np.random.normal(5, 2, 200),
-            "feature3": np.random.exponential(1, 200),
-            "feature4": np.random.uniform(-1, 1, 200),
-        })
+        numeric_df = pd.DataFrame(
+            {
+                "feature1": np.random.normal(0, 1, 200),
+                "feature2": np.random.normal(5, 2, 200),
+                "feature3": np.random.exponential(1, 200),
+                "feature4": np.random.uniform(-1, 1, 200),
+            }
+        )
 
-        pipeline = Pipeline([
-            ("scale", StandardScaler()),
-            ("embed", Row2VecTransformer(embedding_dim=4, mode="pca")),
-            ("cluster", KMeans(n_clusters=3, random_state=1305)),
-        ])
+        pipeline = Pipeline(
+            [
+                ("scale", StandardScaler()),
+                ("embed", Row2VecTransformer(embedding_dim=4, mode="pca")),
+                ("cluster", KMeans(n_clusters=3, random_state=1305)),
+            ]
+        )
 
         cluster_labels = pipeline.fit_predict(numeric_df.values)
         print(f"   Cluster labels shape: {cluster_labels.shape}")
@@ -144,7 +148,10 @@ def sklearn_integration_examples():
         from sklearn.model_selection import train_test_split
 
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.3, random_state=1305,
+            X,
+            y,
+            test_size=0.3,
+            random_state=1305,
         )
 
         classifier = Row2VecClassifier(
@@ -185,6 +192,7 @@ def advanced_integration_examples():
     # Sklearn approach (if available)
     try:
         from row2vec import Row2VecTransformer
+
         sklearn_transformer = Row2VecTransformer(embedding_dim=4, mode="pca")
         sklearn_result = sklearn_transformer.fit_transform(df)
 
@@ -196,7 +204,9 @@ def advanced_integration_examples():
         print(f"   Pandas result shape: {pandas_result.shape}")
         print(f"   Sklearn result shape: {sklearn_result.shape}")
         print(f"   Maximum difference: {max_diff:.2e}")
-        print(f"   Results are {'✅ consistent' if max_diff < 1e-10 else '❌ inconsistent'}")
+        print(
+            f"   Results are {'✅ consistent' if max_diff < 1e-10 else '❌ inconsistent'}"
+        )
 
     except ImportError:
         print("   ⚠️ Sklearn integration not available for comparison")
@@ -205,15 +215,17 @@ def advanced_integration_examples():
     print("\n2️⃣ Hybrid workflow (pandas + sklearn):")
 
     # Step 1: Data preprocessing with pandas (convert to numeric features)
-    df_processed = pd.DataFrame({
-        "sales": df["Sales"],
-        "country_usa": (df["Country"] == "USA").astype(int),
-        "country_canada": (df["Country"] == "Canada").astype(int),
-        "product_a": (df["Product"] == "A").astype(int),
-        "product_b": (df["Product"] == "B").astype(int),
-        "sales_log": np.log1p(df["Sales"]),
-        "sales_squared": df["Sales"] ** 2,
-    })
+    df_processed = pd.DataFrame(
+        {
+            "sales": df["Sales"],
+            "country_usa": (df["Country"] == "USA").astype(int),
+            "country_canada": (df["Country"] == "Canada").astype(int),
+            "product_a": (df["Product"] == "A").astype(int),
+            "product_b": (df["Product"] == "B").astype(int),
+            "sales_log": np.log1p(df["Sales"]),
+            "sales_squared": df["Sales"] ** 2,
+        }
+    )
 
     print(f"   After preprocessing: {df_processed.shape}")
 
@@ -228,15 +240,20 @@ def advanced_integration_examples():
 
         from row2vec import Row2VecTransformer
 
-        production_pipeline = Pipeline([
-            ("standardize", StandardScaler()),
-            ("embed", Row2VecTransformer(
-                embedding_dim=5,  # Smaller than input features (7)
-                mode="unsupervised",
-                neural__max_epochs=10,
-                neural__batch_size=min(32, len(df_processed) // 2),
-            )),
-        ])
+        production_pipeline = Pipeline(
+            [
+                ("standardize", StandardScaler()),
+                (
+                    "embed",
+                    Row2VecTransformer(
+                        embedding_dim=5,  # Smaller than input features (7)
+                        mode="unsupervised",
+                        neural__max_epochs=10,
+                        neural__batch_size=min(32, len(df_processed) // 2),
+                    ),
+                ),
+            ]
+        )
 
         final_embeddings = production_pipeline.fit_transform(df_processed.values)
         print(f"   Final production embeddings: {final_embeddings.shape}")
@@ -265,6 +282,7 @@ def main():
     except Exception as e:
         print(f"\n❌ Error running examples: {e}")
         import traceback
+
         traceback.print_exc()
 
 

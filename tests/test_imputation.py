@@ -32,7 +32,9 @@ def create_test_data():
     df.loc[missing_mask, "numeric_1"] = np.nan
 
     # Correlated missing (high values more likely to be missing)
-    high_value_mask = (df["numeric_2"] > df["numeric_2"].quantile(0.8)) & (np.random.random(n_rows) < 0.3)
+    high_value_mask = (df["numeric_2"] > df["numeric_2"].quantile(0.8)) & (
+        np.random.random(n_rows) < 0.3
+    )
     df.loc[high_value_mask, "numeric_2"] = np.nan
 
     # Categorical missing
@@ -44,6 +46,7 @@ def create_test_data():
     df.loc[z_mask, "binary"] = np.nan
 
     return df
+
 
 def test_missing_pattern_analysis():
     """Test the missing pattern analyzer."""
@@ -77,6 +80,7 @@ def test_missing_pattern_analysis():
         print(f"  {col}: {strategy}")
 
     return df, analysis
+
 
 def test_adaptive_imputation():
     """Test the adaptive imputer with different configurations."""
@@ -123,7 +127,9 @@ def test_adaptive_imputation():
 
     print(f"Remaining missing values: {df_imputed_accurate.isna().sum().sum()}")
     if config_accurate.preserve_missing_patterns:
-        indicator_cols = [col for col in df_imputed_accurate.columns if col.endswith("_was_missing")]
+        indicator_cols = [
+            col for col in df_imputed_accurate.columns if col.endswith("_was_missing")
+        ]
         print(f"Missing pattern indicators created: {len(indicator_cols)}")
     print("✓ Accuracy-optimized imputation completed")
 
@@ -132,12 +138,14 @@ def test_adaptive_imputation():
 
     # Create edge case data with proper length
     n_edge = 100
-    edge_df = pd.DataFrame({
-        "all_missing": [np.nan] * n_edge,
-        "single_value": [1.0] * (n_edge - 1) + [np.nan],
-        "binary_missing": [0, 1, np.nan] * (n_edge // 3) + [0] * (n_edge % 3),
-        "high_cardinality": [f"cat_{i}" for i in range(n_edge - 1)] + [np.nan],
-    })
+    edge_df = pd.DataFrame(
+        {
+            "all_missing": [np.nan] * n_edge,
+            "single_value": [1.0] * (n_edge - 1) + [np.nan],
+            "binary_missing": [0, 1, np.nan] * (n_edge // 3) + [0] * (n_edge % 3),
+            "high_cardinality": [f"cat_{i}" for i in range(n_edge - 1)] + [np.nan],
+        }
+    )
 
     try:
         config_edge = ImputationConfig()
@@ -149,6 +157,7 @@ def test_adaptive_imputation():
         print(f"✗ Edge case handling failed: {e}")
 
     return df_imputed_default, df_imputed_fast, df_imputed_accurate
+
 
 def test_sklearn_compatibility():
     """Test sklearn pipeline compatibility."""
@@ -200,6 +209,7 @@ def test_sklearn_compatibility():
     except Exception as e:
         print(f"✗ sklearn compatibility test failed: {e}")
 
+
 def main():
     """Run all imputation tests."""
     print("Row2Vec Missing Value Imputation System Test")
@@ -221,7 +231,9 @@ def main():
 
         # Show summary statistics
         print("\nSummary Statistics:")
-        print(f"  Default imputation preserved all data structure: {df_default.shape == df.shape}")
+        print(
+            f"  Default imputation preserved all data structure: {df_default.shape == df.shape}"
+        )
         print("  Performance mode completed quickly")
         print("  Accuracy mode created comprehensive imputations")
         print("  Edge cases handled gracefully")
@@ -230,7 +242,9 @@ def main():
     except Exception as e:
         print(f"\n✗ Test failed with error: {e}")
         import traceback
+
         traceback.print_exc()
+
 
 if __name__ == "__main__":
     main()

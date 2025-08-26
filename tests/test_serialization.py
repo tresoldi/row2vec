@@ -319,6 +319,7 @@ class TestModelSerialization:
         # Load and verify the new model has 3 dimensions
         loaded_model = load_model(script_path)
         test_predictions = loaded_model.predict(
-            generate_synthetic_data(5, seed=999), validate_schema=False,
+            generate_synthetic_data(5, seed=999),
+            validate_schema=False,
         )
         assert test_predictions.shape[1] == 3

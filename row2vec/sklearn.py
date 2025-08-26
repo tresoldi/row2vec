@@ -19,7 +19,13 @@ from .config import EmbeddingConfig, create_config_for_mode
 class Row2VecModel:
     """Wrapper for Row2Vec models to provide consistent interface."""
 
-    def __init__(self, model: Any, preprocessor: Any, metadata: dict[str, Any], config: EmbeddingConfig):
+    def __init__(
+        self,
+        model: Any,
+        preprocessor: Any,
+        metadata: dict[str, Any],
+        config: EmbeddingConfig,
+    ):
         self.model = model
         self.preprocessor = preprocessor
         self.metadata = metadata
@@ -163,7 +169,9 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):
                         )
                     X = pd.DataFrame(X, columns=self.feature_names_in_)
                 else:
-                    X = pd.DataFrame(X, columns=[f"feature_{i}" for i in range(X.shape[1])])
+                    X = pd.DataFrame(
+                        X, columns=[f"feature_{i}" for i in range(X.shape[1])]
+                    )
             except Exception as e:
                 raise TypeError(f"Cannot convert input to DataFrame: {e}")
 
@@ -199,7 +207,9 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):
             # Train the model and store it
             result = learn_embedding_with_model_v2(X, self.config_)
             embeddings, model, preprocessor, metadata = result
-            self.model_wrapper_ = Row2VecModel(model, preprocessor, metadata, self.config_)
+            self.model_wrapper_ = Row2VecModel(
+                model, preprocessor, metadata, self.config_
+            )
         else:
             # For classical methods, no model storage needed
             self.model_wrapper_ = None
@@ -268,7 +278,9 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):
             try:
                 result = learn_embedding_with_model_v2(X, self.config_)
                 embeddings_model, model, preprocessor, metadata = result
-                self.model_wrapper_ = Row2VecModel(model, preprocessor, metadata, self.config_)
+                self.model_wrapper_ = Row2VecModel(
+                    model, preprocessor, metadata, self.config_
+                )
             except:
                 # If model creation fails, fall back to no model
                 self.model_wrapper_ = None
@@ -277,7 +289,9 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):
 
         return embeddings.values
 
-    def get_feature_names_out(self, input_features: np.ndarray | None = None) -> np.ndarray:
+    def get_feature_names_out(
+        self, input_features: np.ndarray | None = None
+    ) -> np.ndarray:
         """
         Get output feature names for transformation.
 

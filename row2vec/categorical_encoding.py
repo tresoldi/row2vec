@@ -121,7 +121,9 @@ class CategoricalAnalyzer:
     def __init__(self, config: CategoricalEncodingConfig):
         self.config = config
 
-    def analyze_column(self, series: pd.Series, target: pd.Series | None = None) -> dict[str, Any]:
+    def analyze_column(
+        self, series: pd.Series, target: pd.Series | None = None
+    ) -> dict[str, Any]:
         """
         Analyze a categorical column to recommend encoding strategy.
 
@@ -144,7 +146,9 @@ class CategoricalAnalyzer:
 
         # Distribution analysis
         frequency_entropy = self._calculate_entropy(value_counts)
-        imbalance_ratio = value_counts.iloc[0] / len(series) if len(value_counts) > 0 else 0
+        imbalance_ratio = (
+            value_counts.iloc[0] / len(series) if len(value_counts) > 0 else 0
+        )
 
         # Target correlation analysis
         target_correlation = 0.0
@@ -162,7 +166,10 @@ class CategoricalAnalyzer:
 
         # Strategy recommendation
         recommended_strategy = self._recommend_strategy(
-            cardinality, target_correlation, missing_rate, imbalance_ratio,
+            cardinality,
+            target_correlation,
+            missing_rate,
+            imbalance_ratio,
         )
 
         # Embedding dimension recommendation (for entity embeddings)
@@ -177,7 +184,9 @@ class CategoricalAnalyzer:
             "recommended_strategy": recommended_strategy,
             "embedding_dim": embedding_dim,
             "reasoning": self._explain_recommendation(
-                cardinality, target_correlation, recommended_strategy,
+                cardinality,
+                target_correlation,
+                recommended_strategy,
             ),
         }
 
@@ -231,9 +240,13 @@ class CategoricalAnalyzer:
         """Calculate optimal embedding dimension for entity embeddings."""
         # Rule of thumb: embedding_dim = sqrt(cardinality) * ratio
         dim = int(np.sqrt(cardinality) * self.config.embedding_dim_ratio)
-        return int(np.clip(dim, self.config.min_embedding_dim, self.config.max_embedding_dim))
+        return int(
+            np.clip(dim, self.config.min_embedding_dim, self.config.max_embedding_dim)
+        )
 
-    def _explain_recommendation(self, cardinality: int, correlation: float, strategy: str) -> str:
+    def _explain_recommendation(
+        self, cardinality: int, correlation: float, strategy: str
+    ) -> str:
         """Provide human-readable explanation for strategy recommendation."""
         explanations = {
             "onehot": f"Low cardinality ({cardinality}) and low target correlation ({correlation:.3f}). OneHot is fast and interpretable.",
@@ -292,12 +305,17 @@ class EntityEmbeddingTrainer:
         if target is not None and not target.isna().all():
             # Supervised embedding using target variable
             embeddings = self._train_supervised_embedding(
-                encoded_categories, target[valid_mask], cardinality, embedding_dim,
+                encoded_categories,
+                target[valid_mask],
+                cardinality,
+                embedding_dim,
             )
         else:
             # Unsupervised embedding using autoencoder
             embeddings = self._train_unsupervised_embedding(
-                encoded_categories, cardinality, embedding_dim,
+                encoded_categories,
+                cardinality,
+                embedding_dim,
             )
 
         return embeddings
@@ -358,7 +376,8 @@ class EntityEmbeddingTrainer:
 
         # Train model
         model.fit(
-            categories, y_encoded,
+            categories,
+            y_encoded,
             epochs=self.config.entity_epochs,
             batch_size=self.config.entity_batch_size,
             verbose=0,
@@ -417,7 +436,8 @@ class EntityEmbeddingTrainer:
 
         # Train
         autoencoder.fit(
-            onehot, onehot,
+            onehot,
+            onehot,
             epochs=self.config.entity_epochs,
             batch_size=self.config.entity_batch_size,
             verbose=0,
@@ -433,7 +453,6 @@ class EntityEmbeddingTrainer:
         # Get embeddings for all categories
         all_onehot = np.eye(cardinality)
         return encoder.predict(all_onehot, verbose=0)
-
 
 
 class TargetEncoder:
@@ -479,8 +498,11 @@ class TargetEncoder:
         self.global_mean_ = float(target_clean.mean())
 
         # Use cross-validation to prevent overfitting
-        kf = KFold(n_splits=self.config.target_cv_folds, shuffle=True,
-                   random_state=self.config.random_state)
+        kf = KFold(
+            n_splits=self.config.target_cv_folds,
+            shuffle=True,
+            random_state=self.config.random_state,
+        )
 
         encoded_values = np.full(len(series_clean), self.global_mean_ or 0.0)
 
@@ -500,9 +522,9 @@ class TargetEncoder:
 
                 # Bayesian smoothing formula
                 smoothed_mean = (
-                    (cat_count * cat_mean + self.config.target_smoothing * (self.global_mean_ or 0.0)) /
-                    (cat_count + self.config.target_smoothing)
-                )
+                    cat_count * cat_mean
+                    + self.config.target_smoothing * (self.global_mean_ or 0.0)
+                ) / (cat_count + self.config.target_smoothing)
                 smoothed_means[category] = smoothed_mean
 
             # Apply to validation fold
@@ -522,15 +544,17 @@ class TargetEncoder:
             cat_count = final_stats.loc[category, "count"]
 
             smoothed_mean = (
-                (cat_count * cat_mean + self.config.target_smoothing * (self.global_mean_ or 0.0)) /
-                (cat_count + self.config.target_smoothing)
-            )
+                cat_count * cat_mean
+                + self.config.target_smoothing * (self.global_mean_ or 0.0)
+            ) / (cat_count + self.config.target_smoothing)
             self.encodings_[category] = smoothed_mean
 
         # Add noise to prevent overfitting
         if self.config.target_noise > 0:
             noise = np.random.normal(
-                0, self.config.target_noise, len(encoded_values),
+                0,
+                self.config.target_noise,
+                len(encoded_values),
             )
             encoded_values += noise
 
@@ -593,7 +617,10 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
             self.analysis_report_[col] = analysis
 
             # Determine final strategy
-            if self.config.encoding_strategy == "mixed" and col in self.config.custom_strategies:
+            if (
+                self.config.encoding_strategy == "mixed"
+                and col in self.config.custom_strategies
+            ):
                 strategy = self.config.custom_strategies[col]
             elif self.config.encoding_strategy == "adaptive":
                 strategy = analysis["recommended_strategy"]
@@ -629,7 +656,9 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
 
         # Check feature consistency
         if list(X.columns) != self.feature_names_in_:
-            raise ValueError(f"Feature mismatch. Expected {self.feature_names_in_}, got {list(X.columns)}")
+            raise ValueError(
+                f"Feature mismatch. Expected {self.feature_names_in_}, got {list(X.columns)}"
+            )
 
         encoded_data = {}
 
@@ -681,8 +710,13 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
 
         elif strategy == "target":
             if target is None:
-                warnings.warn(f"Target encoding requested for {col} but no target provided. Using ordinal encoding.", stacklevel=2)
-                encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)
+                warnings.warn(
+                    f"Target encoding requested for {col} but no target provided. Using ordinal encoding.",
+                    stacklevel=2,
+                )
+                encoder = OrdinalEncoder(
+                    handle_unknown="use_encoded_value", unknown_value=-1
+                )
                 encoder.fit(np.asarray(series.values).reshape(-1, 1))
                 self.fitted_encoders_[col] = encoder
             else:
@@ -696,7 +730,9 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
             embedding_dim = analysis.get("embedding_dim", 10)
 
             embeddings = embedding_trainer.fit_column_embedding(
-                series, target, embedding_dim,
+                series,
+                target,
+                embedding_dim,
             )
 
             self.entity_embeddings_[col] = {
@@ -707,7 +743,9 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
             self.fitted_encoders_[col] = "entity"  # Flag for entity embeddings
 
         elif strategy == "ordinal":
-            encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)
+            encoder = OrdinalEncoder(
+                handle_unknown="use_encoded_value", unknown_value=-1
+            )
             encoder.fit(series.values.reshape(-1, 1))
             self.fitted_encoders_[col] = encoder
 
@@ -761,9 +799,13 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
                     known_categories = set(label_encoder.classes_)
                     for i, cat in enumerate(valid_categories):
                         if cat in known_categories:
-                            encoded_series[valid_mask.to_numpy()[valid_mask]][i] = label_encoder.transform([cat])[0]
+                            encoded_series[valid_mask.to_numpy()[valid_mask]][i] = (
+                                label_encoder.transform([cat])[0]
+                            )
                         else:
-                            encoded_series[valid_mask.to_numpy()[valid_mask]][i] = 0  # Default to first category
+                            encoded_series[valid_mask.to_numpy()[valid_mask]][i] = (
+                                0  # Default to first category
+                            )
 
             # Map to embeddings
             result_data = {}
@@ -802,7 +844,9 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
                 if hasattr(encoder, "get_feature_names_out"):
                     feature_names.extend(encoder.get_feature_names_out([col]))
                 else:
-                    feature_names.extend([f"{col}_{cat}" for cat in encoder.categories_[0]])
+                    feature_names.extend(
+                        [f"{col}_{cat}" for cat in encoder.categories_[0]]
+                    )
             elif strategy == "entity":
                 embedding_dim = self.entity_embeddings_[col]["embedding_dim"]
                 feature_names.extend([f"{col}_emb_{i}" for i in range(embedding_dim)])
@@ -825,32 +869,41 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
             if df[col].dtype in ["object", "category"]:
                 # For categorical features, use normalized entropy as importance
                 value_counts = df[col].value_counts(normalize=True)
-                entropy = -np.sum(value_counts * np.log(value_counts + 1e-10))  # Add small epsilon for numerical stability
+                entropy = -np.sum(
+                    value_counts * np.log(value_counts + 1e-10)
+                )  # Add small epsilon for numerical stability
                 max_entropy = np.log(len(df[col].unique()))
                 importance = entropy / max_entropy if max_entropy > 0 else 0.0
             # For numerical features, use normalized variance
             elif df[col].var() == 0:
                 importance = 0.0
             else:
-                importance = min(1.0, df[col].var() / (df[col].var() + df[col].mean()**2))
+                importance = min(
+                    1.0, df[col].var() / (df[col].var() + df[col].mean() ** 2)
+                )
 
             feature_importances[col] = importance
 
         # Filter features based on threshold
         selected_features = [
-            col for col, importance in feature_importances.items()
+            col
+            for col, importance in feature_importances.items()
             if importance >= self.config.feature_importance_threshold
         ]
 
         if len(selected_features) == 0:
             # If no features meet the threshold, keep the top 50% by importance
-            sorted_features = sorted(feature_importances.items(), key=lambda x: x[1], reverse=True)
+            sorted_features = sorted(
+                feature_importances.items(), key=lambda x: x[1], reverse=True
+            )
             n_keep = max(1, len(sorted_features) // 2)
             selected_features = [col for col, _ in sorted_features[:n_keep]]
 
         return df[selected_features]
 
-    def get_feature_names_out(self, input_features: list[str] | None = None) -> list[str]:
+    def get_feature_names_out(
+        self, input_features: list[str] | None = None
+    ) -> list[str]:
         """Get output feature names for transformation."""
         if self.feature_names_out_ is None:
             raise ValueError("Encoder must be fitted before getting feature names")

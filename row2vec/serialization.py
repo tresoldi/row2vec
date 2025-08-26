@@ -107,28 +107,23 @@ class Row2VecModelMetadata:
             "seed": self.seed,
             "scale_method": self.scale_method,
             "scale_range": self.scale_range,
-
             # Classical ML parameters
             "n_neighbors": self.n_neighbors,
             "perplexity": self.perplexity,
             "min_dist": self.min_dist,
             "n_iter": self.n_iter,
-
             # Training results
             "training_history": self.training_history,
             "final_loss": self.final_loss,
             "epochs_trained": self.epochs_trained,
             "training_time": self.training_time,
-
             # Data information
             "original_columns": self.original_columns,
             "preprocessed_feature_names": self.preprocessed_feature_names,
             "data_shape": self.data_shape,
             "data_types": self.data_types,
-
             # Schema validation
             "expected_schema": self.expected_schema,
-
             # Metadata
             "created_at": self.created_at,
             "row2vec_version": self.row2vec_version,
@@ -139,12 +134,30 @@ class Row2VecModelMetadata:
         """Create metadata from dictionary."""
         # Extract only the parameters that the constructor accepts
         constructor_params = {
-            "embedding_dim", "mode", "reference_column", "max_epochs", "batch_size",
-            "dropout_rate", "hidden_units", "early_stopping", "seed", "scale_method",
-            "scale_range", "n_neighbors", "perplexity", "min_dist", "n_iter",
-            "training_history", "final_loss", "epochs_trained", "training_time",
-            "original_columns", "preprocessed_feature_names", "data_shape",
-            "data_types", "expected_schema",
+            "embedding_dim",
+            "mode",
+            "reference_column",
+            "max_epochs",
+            "batch_size",
+            "dropout_rate",
+            "hidden_units",
+            "early_stopping",
+            "seed",
+            "scale_method",
+            "scale_range",
+            "n_neighbors",
+            "perplexity",
+            "min_dist",
+            "n_iter",
+            "training_history",
+            "final_loss",
+            "epochs_trained",
+            "training_time",
+            "original_columns",
+            "preprocessed_feature_names",
+            "data_shape",
+            "data_types",
+            "expected_schema",
         }
 
         # Filter the data to only include constructor parameters
@@ -172,13 +185,17 @@ class Row2VecModel:
 
     def __init__(
         self,
-        model: Any | BaseEstimator | None = None,  # Using Any for Keras models to avoid import issues
+        model: Any
+        | BaseEstimator
+        | None = None,  # Using Any for Keras models to avoid import issues
         preprocessor: ColumnTransformer | None = None,
         metadata: Row2VecModelMetadata | None = None,
     ):
         self.model = model
         self.preprocessor = preprocessor
-        self.metadata = metadata or Row2VecModelMetadata(embedding_dim=10, mode="unsupervised")
+        self.metadata = metadata or Row2VecModelMetadata(
+            embedding_dim=10, mode="unsupervised"
+        )
 
     def validate_input_schema(self, df: pd.DataFrame, strict: bool = True) -> bool:
         """
@@ -240,7 +257,9 @@ class Row2VecModel:
             if hasattr(self.model, "transform"):
                 embeddings = self.model.transform(X_processed)  # type: ignore
             else:
-                raise ValueError(f"Classical ML model for {self.metadata.mode} doesn't support transform")
+                raise ValueError(
+                    f"Classical ML model for {self.metadata.mode} doesn't support transform"
+                )
 
             # Create DataFrame with appropriate column names
             embedding_df = pd.DataFrame(
@@ -254,7 +273,9 @@ class Row2VecModel:
             # Preprocess the data (exclude reference column if target mode)
             if self.metadata.mode == "target" and self.metadata.reference_column:
                 # For target mode prediction, we use all data but ignore the reference column if present
-                input_df = df.drop(columns=[self.metadata.reference_column], errors="ignore")
+                input_df = df.drop(
+                    columns=[self.metadata.reference_column], errors="ignore"
+                )
             else:
                 input_df = df
 
@@ -266,6 +287,7 @@ class Row2VecModel:
                 # Import here to avoid circular imports and typing issues
                 try:
                     from tensorflow.keras.models import Model as KerasModel
+
                     # Create encoder from the trained model
                     encoder = KerasModel(
                         inputs=self.model.input,  # type: ignore
@@ -273,9 +295,13 @@ class Row2VecModel:
                     )
                     embeddings = encoder.predict(X_processed, verbose=0)
                 except Exception as e:
-                    raise ValueError(f"Failed to extract embeddings from neural network model: {e}")
+                    raise ValueError(
+                        f"Failed to extract embeddings from neural network model: {e}"
+                    )
             else:
-                raise ValueError("Neural network model doesn't have expected Keras structure")
+                raise ValueError(
+                    "Neural network model doesn't have expected Keras structure"
+                )
 
             # Create DataFrame
             embedding_df = pd.DataFrame(
@@ -390,10 +416,12 @@ def _generate_model_script(metadata: Row2VecModelMetadata, binary_filename: str)
     Returns:
         Python script content as string
     """
+
     # Convert metadata to JSON for inclusion in script, handling None values
     def json_serializer(obj):
         """Custom JSON serializer to handle None and other Python objects."""
         import numpy as np
+
         if obj is None:
             return None
         if isinstance(obj, tuple | list):
@@ -547,7 +575,6 @@ if __name__ == "__main__":
     print("  model = load_model()")
     print("  embeddings = model.predict(your_dataframe)")
 '''
-
 
 
 def train_and_save_model(

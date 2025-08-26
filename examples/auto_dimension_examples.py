@@ -54,14 +54,16 @@ def advanced_auto_selection_example():
 
     # Generate larger, more complex dataset
     np.random.seed(42)
-    df = pd.DataFrame({
-        "feature1": np.random.normal(0, 1, 1000),
-        "feature2": np.random.exponential(1, 1000),
-        "feature3": np.random.uniform(-1, 1, 1000),
-        "feature4": np.random.gamma(2, 2, 1000),
-        "feature5": np.random.beta(2, 5, 1000),
-        "target": np.random.choice(["A", "B", "C"], 1000),
-    })
+    df = pd.DataFrame(
+        {
+            "feature1": np.random.normal(0, 1, 1000),
+            "feature2": np.random.exponential(1, 1000),
+            "feature3": np.random.uniform(-1, 1, 1000),
+            "feature4": np.random.gamma(2, 2, 1000),
+            "feature5": np.random.beta(2, 5, 1000),
+            "target": np.random.choice(["A", "B", "C"], 1000),
+        }
+    )
 
     print(f"Dataset shape: {df.shape}")
 

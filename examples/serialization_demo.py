@@ -148,7 +148,13 @@ def main():
         metadata_dict = loaded.metadata.to_dict()
 
         print("   📋 Training configuration:")
-        for key in ["mode", "embedding_dim", "reference_column", "max_epochs", "batch_size"]:
+        for key in [
+            "mode",
+            "embedding_dim",
+            "reference_column",
+            "max_epochs",
+            "batch_size",
+        ]:
             print(f"     {key}: {metadata_dict.get(key)}")
 
         print("   📈 Training results:")
@@ -197,6 +203,7 @@ def main():
     print("• Support for all embedding modes")
     print("• Schema validation")
     print("• Easy loading and prediction")
+
 
 if __name__ == "__main__":
     main()

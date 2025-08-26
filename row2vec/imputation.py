@@ -26,6 +26,7 @@ else:
 try:
     from sklearn.experimental import enable_iterative_imputer
     from sklearn.impute import IterativeImputer
+
     ITERATIVE_IMPUTER_AVAILABLE = True
 except ImportError:
     ITERATIVE_IMPUTER_AVAILABLE = False
@@ -114,7 +115,9 @@ class ImputationConfig:
 
         valid_categorical = {"adaptive", "mode", "constant", "missing_category"}
         if self.categorical_strategy not in valid_categorical:
-            raise ValueError(f"categorical_strategy must be one of: {valid_categorical}")
+            raise ValueError(
+                f"categorical_strategy must be one of: {valid_categorical}"
+            )
 
         # Validate thresholds
         if not 0 <= self.missing_threshold <= 1:
@@ -172,7 +175,9 @@ class MissingPatternAnalyzer:
 
         return analysis
 
-    def _recommend_strategy(self, column: str, missing_pct: float, dtype: Any, series: pd.Series) -> dict[str, Any]:
+    def _recommend_strategy(
+        self, column: str, missing_pct: float, dtype: Any, series: pd.Series
+    ) -> dict[str, Any]:
         """Recommend imputation strategy for a specific column."""
         is_numeric = pd.api.types.is_numeric_dtype(dtype)
 
@@ -188,20 +193,30 @@ class MissingPatternAnalyzer:
             if self.config.prefer_speed:
                 if missing_pct < 10:
                     recommendation["suggested_strategy"] = "mean"
-                    recommendation["reasoning"] = "Low missingness, mean imputation is fast and effective"
+                    recommendation["reasoning"] = (
+                        "Low missingness, mean imputation is fast and effective"
+                    )
                 elif missing_pct < 30:
                     recommendation["suggested_strategy"] = "median"
-                    recommendation["reasoning"] = "Moderate missingness, median is robust to outliers"
+                    recommendation["reasoning"] = (
+                        "Moderate missingness, median is robust to outliers"
+                    )
                 else:
                     recommendation["suggested_strategy"] = "knn"
-                    recommendation["reasoning"] = "High missingness, KNN can capture relationships"
+                    recommendation["reasoning"] = (
+                        "High missingness, KNN can capture relationships"
+                    )
             # Prefer accuracy over speed
             elif missing_pct < 20:
                 recommendation["suggested_strategy"] = "median"
-                recommendation["reasoning"] = "Median is robust and accurate for moderate missingness"
+                recommendation["reasoning"] = (
+                    "Median is robust and accurate for moderate missingness"
+                )
             else:
                 recommendation["suggested_strategy"] = "knn"
-                recommendation["reasoning"] = "KNN provides better accuracy for high missingness"
+                recommendation["reasoning"] = (
+                    "KNN provides better accuracy for high missingness"
+                )
 
             recommendation["alternatives"] = ["mean", "median", "knn", "iterative"]
         else:
@@ -209,13 +224,19 @@ class MissingPatternAnalyzer:
             unique_count = series.nunique()
             if unique_count < 10:
                 recommendation["suggested_strategy"] = "mode"
-                recommendation["reasoning"] = "Few categories, mode imputation works well"
+                recommendation["reasoning"] = (
+                    "Few categories, mode imputation works well"
+                )
             elif missing_pct > 30:
                 recommendation["suggested_strategy"] = "missing_category"
-                recommendation["reasoning"] = "High missingness with many categories, explicit missing category"
+                recommendation["reasoning"] = (
+                    "High missingness with many categories, explicit missing category"
+                )
             else:
                 recommendation["suggested_strategy"] = "mode"
-                recommendation["reasoning"] = "Standard mode imputation for categorical data"
+                recommendation["reasoning"] = (
+                    "Standard mode imputation for categorical data"
+                )
 
             recommendation["alternatives"] = ["mode", "constant", "missing_category"]
 
@@ -302,7 +323,9 @@ class AdaptiveImputer(BaseEstimator):
 
         return result
 
-    def fit_transform(self, X: pd.DataFrame, y: Any = None, **fit_params: Any) -> pd.DataFrame:
+    def fit_transform(
+        self, X: pd.DataFrame, y: Any = None, **fit_params: Any
+    ) -> pd.DataFrame:
         """Fit the imputer and transform the data in one step."""
         return self.fit(X, y).transform(X)
 
@@ -316,7 +339,9 @@ class AdaptiveImputer(BaseEstimator):
 
         return X
 
-    def _create_imputation_pipelines(self, X: pd.DataFrame) -> dict[str, Pipeline | None]:
+    def _create_imputation_pipelines(
+        self, X: pd.DataFrame
+    ) -> dict[str, Pipeline | None]:
         """Create column-specific imputation pipelines."""
         pipelines: dict[str, Pipeline | None] = {}
 
@@ -334,7 +359,9 @@ class AdaptiveImputer(BaseEstimator):
     def _get_column_strategy(self, column: str, series: pd.Series) -> str:
         """Determine the imputation strategy for a specific column."""
         if self.analysis_report_ and column in self.analysis_report_["recommendations"]:
-            return str(self.analysis_report_["recommendations"][column]["suggested_strategy"])
+            return str(
+                self.analysis_report_["recommendations"][column]["suggested_strategy"]
+            )
 
         # Fallback to simple rules if no analysis available
         is_numeric = pd.api.types.is_numeric_dtype(series.dtype)
@@ -350,7 +377,9 @@ class AdaptiveImputer(BaseEstimator):
             return "mode" if missing_pct < 30 else "missing_category"
         return self.config.categorical_strategy
 
-    def _create_column_pipeline(self, column: str, strategy: str, series: pd.Series) -> Pipeline:
+    def _create_column_pipeline(
+        self, column: str, strategy: str, series: pd.Series
+    ) -> Pipeline:
         """Create imputation pipeline for a specific column and strategy."""
         is_numeric = pd.api.types.is_numeric_dtype(series.dtype)
 
@@ -368,7 +397,8 @@ class AdaptiveImputer(BaseEstimator):
                 else:
                     warnings.warn(
                         "IterativeImputer not available, falling back to KNN imputation",
-                        UserWarning, stacklevel=2,
+                        UserWarning,
+                        stacklevel=2,
                     )
                     imputer = KNNImputer(n_neighbors=self.config.knn_neighbors)
             else:
@@ -377,7 +407,9 @@ class AdaptiveImputer(BaseEstimator):
         elif strategy == "mode":
             imputer = SimpleImputer(strategy="most_frequent")
         elif strategy in {"constant", "missing_category"}:
-            imputer = SimpleImputer(strategy="constant", fill_value=self.config.categorical_fill_value)
+            imputer = SimpleImputer(
+                strategy="constant", fill_value=self.config.categorical_fill_value
+            )
         else:
             raise ValueError(f"Unknown categorical strategy: {strategy}")
 
@@ -400,7 +432,8 @@ class AdaptiveImputer(BaseEstimator):
                 f"High missingness detected in columns: {', '.join(missing_info)}. "
                 f"Consider investigating these patterns or setting preserve_missing_patterns=True "
                 f"if missingness is informative.",
-                UserWarning, stacklevel=2,
+                UserWarning,
+                stacklevel=2,
             )
 
         # Warn about completely missing columns
@@ -408,7 +441,8 @@ class AdaptiveImputer(BaseEstimator):
         if completely_missing:
             warnings.warn(
                 f"Columns with all missing values will be dropped: {completely_missing}",
-                UserWarning, stacklevel=2,
+                UserWarning,
+                stacklevel=2,
             )
 
     def get_imputation_report(self) -> dict[str, Any]:
@@ -432,12 +466,16 @@ class AdaptiveImputer(BaseEstimator):
                     applied_strategies[col] = strategy_name
 
         report["applied_strategies"] = applied_strategies
-        report["missing_indicators_added"] = list(self.missing_indicators_.keys()) if self.missing_indicators_ else []
+        report["missing_indicators_added"] = (
+            list(self.missing_indicators_.keys()) if self.missing_indicators_ else []
+        )
 
         return report
 
 
-def create_imputation_pipeline(config: ImputationConfig | None = None) -> AdaptiveImputer:
+def create_imputation_pipeline(
+    config: ImputationConfig | None = None,
+) -> AdaptiveImputer:
     """
     Create an adaptive imputation pipeline with intelligent defaults.
 

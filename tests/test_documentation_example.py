@@ -15,11 +15,13 @@ def test_documentation_examples():
     print("=" * 50)
 
     # Create sample data similar to documentation (larger dataset)
-    df = pd.DataFrame({
-        "feature1": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-        "feature2": [10, 20, 15, 25, 12, 22, 30, 35, 18, 28],
-        "category": ["A", "A", "B", "B", "A", "B", "A", "B", "A", "B"],
-    })
+    df = pd.DataFrame(
+        {
+            "feature1": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "feature2": [10, 20, 15, 25, 12, 22, 30, 35, 18, 28],
+            "category": ["A", "A", "B", "B", "A", "B", "A", "B", "A", "B"],
+        }
+    )
 
     print(f"Sample data shape: {df.shape}")
     print("Sample data:")
@@ -106,6 +108,7 @@ def test_documentation_examples():
         return False
 
     return True
+
 
 if __name__ == "__main__":
     success = test_documentation_examples()

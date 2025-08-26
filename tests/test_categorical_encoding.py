@@ -13,6 +13,7 @@ import pandas as pd
 # Test basic configuration system
 try:
     from row2vec.config import EmbeddingConfig, PreprocessingConfig
+
     print("✅ Configuration system loaded successfully")
 except ImportError as e:
     print(f"❌ Configuration import failed: {e}")
@@ -21,6 +22,7 @@ except ImportError as e:
 # Test pipeline builder
 try:
     from row2vec.pipeline_builder import build_adaptive_pipeline
+
     print("✅ Pipeline builder loaded successfully")
 except ImportError as e:
     print(f"❌ Pipeline builder import failed: {e}")
@@ -32,6 +34,7 @@ try:
         CategoricalAnalyzer,
         CategoricalEncodingConfig,
     )
+
     print("✅ Categorical encoding system loaded successfully")
 except ImportError as e:
     print(f"❌ Categorical encoding import failed: {e}")
@@ -44,21 +47,27 @@ def test_basic_functionality():
 
     # Create test data
     np.random.seed(42)
-    df = pd.DataFrame({
-        "color": np.random.choice(["red", "blue", "green"], 100),
-        "size": np.random.choice(["S", "M", "L", "XL"], 100),
-        "brand": np.random.choice([f"brand_{i}" for i in range(10)], 100),
-        "price": np.random.normal(100, 20, 100),
-        "rating": np.random.normal(4.0, 0.5, 100),
-        "target": np.random.choice([0, 1], 100),
-    })
+    df = pd.DataFrame(
+        {
+            "color": np.random.choice(["red", "blue", "green"], 100),
+            "size": np.random.choice(["S", "M", "L", "XL"], 100),
+            "brand": np.random.choice([f"brand_{i}" for i in range(10)], 100),
+            "price": np.random.normal(100, 20, 100),
+            "rating": np.random.normal(4.0, 0.5, 100),
+            "target": np.random.choice([0, 1], 100),
+        }
+    )
 
     print(f"Test data shape: {df.shape}")
-    print(f"Categorical columns: {df.select_dtypes(include=['object']).columns.tolist()}")
+    print(
+        f"Categorical columns: {df.select_dtypes(include=['object']).columns.tolist()}"
+    )
 
     # Test configuration
     config = EmbeddingConfig()
-    print(f"Default categorical encoding strategy: {config.preprocessing.categorical_encoding_strategy}")
+    print(
+        f"Default categorical encoding strategy: {config.preprocessing.categorical_encoding_strategy}"
+    )
 
     # Test categorical analyzer
     try:
@@ -76,7 +85,9 @@ def test_basic_functionality():
         print(f"Analysis completed for {len(analysis)} categorical columns")
 
         for col, info in analysis.items():
-            print(f"- {col}: cardinality={info['cardinality']}, strategy={info['recommended_strategy']}")
+            print(
+                f"- {col}: cardinality={info['cardinality']}, strategy={info['recommended_strategy']}"
+            )
 
     except Exception as e:
         print(f"Categorical analysis failed: {e}")
@@ -85,7 +96,9 @@ def test_basic_functionality():
     try:
         pipeline, report = build_adaptive_pipeline(df.drop(columns=["target"]))
         print("Pipeline built successfully")
-        print(f"Dataset analysis: {report['dataset_shape'][0]} rows, {report['dataset_shape'][1]} columns")
+        print(
+            f"Dataset analysis: {report['dataset_shape'][0]} rows, {report['dataset_shape'][1]} columns"
+        )
 
         # Test pipeline fitting
         X_transformed = pipeline.fit_transform(df.drop(columns=["target"]))
@@ -132,14 +145,18 @@ def test_missing_value_handling():
 
     try:
         # Create data with missing values
-        df = pd.DataFrame({
-            "category_with_missing": ["A", "B", np.nan, "A", "C", np.nan, "B"],
-            "complete_category": ["X", "Y", "Z", "X", "Y", "Z", "X"],
-            "numeric": [1, 2, 3, 4, 5, 6, 7],
-            "target": [0, 1, 0, 1, 0, 1, 0],
-        })
+        df = pd.DataFrame(
+            {
+                "category_with_missing": ["A", "B", np.nan, "A", "C", np.nan, "B"],
+                "complete_category": ["X", "Y", "Z", "X", "Y", "Z", "X"],
+                "numeric": [1, 2, 3, 4, 5, 6, 7],
+                "target": [0, 1, 0, 1, 0, 1, 0],
+            }
+        )
 
-        print(f"Data with missing values created: {df.isnull().sum().sum()} missing values")
+        print(
+            f"Data with missing values created: {df.isnull().sum().sum()} missing values"
+        )
 
         # Test pipeline with missing data
         pipeline, report = build_adaptive_pipeline(df.drop(columns=["target"]))

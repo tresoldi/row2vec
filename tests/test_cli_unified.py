@@ -34,7 +34,14 @@ def test_cli_modes():
                 # Check available modes
                 for action in train_parser._actions:
                     if hasattr(action, "dest") and action.dest == "mode":
-                        expected_modes = ["unsupervised", "target", "pca", "tsne", "umap", "contrastive"]
+                        expected_modes = [
+                            "unsupervised",
+                            "target",
+                            "pca",
+                            "tsne",
+                            "umap",
+                            "contrastive",
+                        ]
                         actual_modes = action.choices
 
                         print(f"Expected modes: {expected_modes}")
@@ -75,9 +82,14 @@ def test_cli_contrastive_args():
                             if hasattr(action, "dest"):
                                 contrastive_args.append(action.dest)
 
-                        expected_args = ["similar_pairs_file", "dissimilar_pairs_file",
-                                       "auto_pairs", "negative_samples",
-                                       "contrastive_loss", "margin"]
+                        expected_args = [
+                            "similar_pairs_file",
+                            "dissimilar_pairs_file",
+                            "auto_pairs",
+                            "negative_samples",
+                            "contrastive_loss",
+                            "margin",
+                        ]
 
                         print(f"  Available contrastive arguments: {contrastive_args}")
 
@@ -101,8 +113,14 @@ def test_cmd_train_signature():
     sig = inspect.signature(cmd_train)
 
     # Check for key parameters
-    expected_params = ["input", "output", "mode", "embedding_dim",
-                      "max_epochs", "batch_size"]
+    expected_params = [
+        "input",
+        "output",
+        "mode",
+        "embedding_dim",
+        "max_epochs",
+        "batch_size",
+    ]
 
     print("Checking cmd_train function signature:")
     for param in expected_params:

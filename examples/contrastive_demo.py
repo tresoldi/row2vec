@@ -13,12 +13,14 @@ print(f"Creating sample files in: {output_dir}")
 
 # Create sample data
 np.random.seed(1305)
-sample_data = pd.DataFrame({
-    "feature1": np.random.rand(100),
-    "feature2": np.random.rand(100),
-    "feature3": np.random.choice(["A", "B", "C"], 100),
-    "feature4": np.random.randint(1, 10, 100),
-})
+sample_data = pd.DataFrame(
+    {
+        "feature1": np.random.rand(100),
+        "feature2": np.random.rand(100),
+        "feature3": np.random.choice(["A", "B", "C"], 100),
+        "feature4": np.random.randint(1, 10, 100),
+    }
+)
 
 # Save sample data
 sample_data_path = output_dir / "sample_data.csv"
@@ -39,17 +41,25 @@ dissimilar_df.to_csv(dissimilar_pairs_path, index=False)
 print("\n✅ Sample data and pair files created!")
 print("\nExample CLI commands for contrastive learning:")
 print("\n1. Using automatic pair generation:")
-print(f"   python -m row2vec train --input {sample_data_path} --output {output_dir}/embeddings.csv \\")
+print(
+    f"   python -m row2vec train --input {sample_data_path} --output {output_dir}/embeddings.csv \\"
+)
 print("       --mode contrastive --auto-pairs cluster --contrastive-loss triplet \\")
 print("       --negative-samples 5 --margin 1.0")
 
 print("\n2. Using predefined similarity/dissimilarity pairs:")
-print(f"   python -m row2vec train --input {sample_data_path} --output {output_dir}/embeddings.csv \\")
+print(
+    f"   python -m row2vec train --input {sample_data_path} --output {output_dir}/embeddings.csv \\"
+)
 print(f"       --mode contrastive --similar-pairs-file {similar_pairs_path} \\")
-print(f"       --dissimilar-pairs-file {dissimilar_pairs_path} --contrastive-loss contrastive")
+print(
+    f"       --dissimilar-pairs-file {dissimilar_pairs_path} --contrastive-loss contrastive"
+)
 
 print("\n3. Using both auto-generation and manual pairs:")
-print(f"   python -m row2vec train --input {sample_data_path} --output {output_dir}/embeddings.csv \\")
+print(
+    f"   python -m row2vec train --input {sample_data_path} --output {output_dir}/embeddings.csv \\"
+)
 print("       --mode contrastive --auto-pairs neighbors \\")
 print(f"       --similar-pairs-file {similar_pairs_path} --negative-samples 3")
 

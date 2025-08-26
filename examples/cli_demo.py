@@ -21,7 +21,9 @@ def run_command(cmd: list[str], description: str) -> None:
     print("-" * 60)
 
     try:
-        result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=120)
+        result = subprocess.run(
+            cmd, check=False, capture_output=True, text=True, timeout=120
+        )
 
         if result.stdout:
             print("Output:")
@@ -78,105 +80,179 @@ def main():
 
         # Demo 3: Data Validation
         run_command(
-            ["row2vec", "annotate",
-             "--input", str(csv_file),
-             "--output", str(temp_path / "dummy.csv"),
-             "--validate-only"],
+            [
+                "row2vec",
+                "annotate",
+                "--input",
+                str(csv_file),
+                "--output",
+                str(temp_path / "dummy.csv"),
+                "--validate-only",
+            ],
             "Validate Data Schema Only",
         )
 
         # Demo 4: Quick PCA Embeddings
         run_command(
-            ["row2vec", "annotate",
-             "--input", str(csv_file),
-             "--output", str(temp_path / "pca_embeddings.csv"),
-             "--mode", "pca",
-             "--dim", "3"],
+            [
+                "row2vec",
+                "annotate",
+                "--input",
+                str(csv_file),
+                "--output",
+                str(temp_path / "pca_embeddings.csv"),
+                "--mode",
+                "pca",
+                "--dim",
+                "3",
+            ],
             "Generate PCA Embeddings (Quick)",
         )
 
         # Demo 5: t-SNE for Visualization
         run_command(
-            ["row2vec", "annotate",
-             "--input", str(tsv_file),
-             "--output", str(temp_path / "tsne_embeddings.csv"),
-             "--mode", "tsne",
-             "--dim", "2",
-             "--n-iter", "250",  # Fast for demo
-             "--verbose"],
+            [
+                "row2vec",
+                "annotate",
+                "--input",
+                str(tsv_file),
+                "--output",
+                str(temp_path / "tsne_embeddings.csv"),
+                "--mode",
+                "tsne",
+                "--dim",
+                "2",
+                "--n-iter",
+                "250",  # Fast for demo
+                "--verbose",
+            ],
             "Generate t-SNE Embeddings (2D Visualization) from TSV",
         )
 
         # Demo 6: Target-based Embeddings
         run_command(
-            ["row2vec", "annotate",
-             "--input", str(csv_file),
-             "--output", str(temp_path / "target_embeddings.csv"),
-             "--mode", "target",
-             "--target-col", "Country",
-             "--dim", "4",
-             "--epochs", "10"],
+            [
+                "row2vec",
+                "annotate",
+                "--input",
+                str(csv_file),
+                "--output",
+                str(temp_path / "target_embeddings.csv"),
+                "--mode",
+                "target",
+                "--target-col",
+                "Country",
+                "--dim",
+                "4",
+                "--epochs",
+                "10",
+            ],
             "Generate Target-based Embeddings for Countries",
         )
 
         # Demo 7: Train and Save Model
         model_file = temp_path / "unsupervised_model.py"
         run_command(
-            ["row2vec", "train",
-             "--input", str(csv_file),
-             "--output", str(model_file),
-             "--mode", "unsupervised",
-             "--dim", "5",
-             "--epochs", "15",
-             "--batch-size", "32",
-             "--dropout", "0.1"],
+            [
+                "row2vec",
+                "train",
+                "--input",
+                str(csv_file),
+                "--output",
+                str(model_file),
+                "--mode",
+                "unsupervised",
+                "--dim",
+                "5",
+                "--epochs",
+                "15",
+                "--batch-size",
+                "32",
+                "--dropout",
+                "0.1",
+            ],
             "Train and Save Unsupervised Model",
         )
 
         # Demo 8: Use Saved Model for Predictions
         if model_file.exists():
             run_command(
-                ["row2vec", "predict",
-                 "--input", str(csv_file),
-                 "--model", str(model_file),
-                 "--output", str(temp_path / "predictions.csv")],
+                [
+                    "row2vec",
+                    "predict",
+                    "--input",
+                    str(csv_file),
+                    "--model",
+                    str(model_file),
+                    "--output",
+                    str(temp_path / "predictions.csv"),
+                ],
                 "Use Saved Model for Predictions",
             )
 
         # Demo 9: UMAP with Custom Parameters
         run_command(
-            ["row2vec", "annotate",
-             "--input", str(csv_file),
-             "--output", str(temp_path / "umap_embeddings.csv"),
-             "--mode", "umap",
-             "--dim", "3",
-             "--n-neighbors", "10",
-             "--min-dist", "0.2"],
+            [
+                "row2vec",
+                "annotate",
+                "--input",
+                str(csv_file),
+                "--output",
+                str(temp_path / "umap_embeddings.csv"),
+                "--mode",
+                "umap",
+                "--dim",
+                "3",
+                "--n-neighbors",
+                "10",
+                "--min-dist",
+                "0.2",
+            ],
             "Generate UMAP Embeddings with Custom Parameters",
         )
 
         # Demo 10: Neural Network with Advanced Options
         run_command(
-            ["row2vec", "annotate",
-             "--input", str(csv_file),
-             "--output", str(temp_path / "neural_embeddings.csv"),
-             "--mode", "unsupervised",
-             "--dim", "8",
-             "--epochs", "20",
-             "--hidden-units", "64",
-             "--dropout", "0.3",
-             "--scale-method", "minmax",
-             "--scale-range", "0", "1",
-             "--seed", "12345"],
+            [
+                "row2vec",
+                "annotate",
+                "--input",
+                str(csv_file),
+                "--output",
+                str(temp_path / "neural_embeddings.csv"),
+                "--mode",
+                "unsupervised",
+                "--dim",
+                "8",
+                "--epochs",
+                "20",
+                "--hidden-units",
+                "64",
+                "--dropout",
+                "0.3",
+                "--scale-method",
+                "minmax",
+                "--scale-range",
+                "0",
+                "1",
+                "--seed",
+                "12345",
+            ],
             "Neural Network Embeddings with Advanced Options",
         )
 
         # Demo 11: Error Handling - Missing Target Column
         run_command(
-            ["row2vec", "annotate",
-             "--input", str(csv_file),
-             "--output", str(temp_path / "error_test.csv"),
-             "--mode", "target"],
+            [
+                "row2vec",
+                "annotate",
+                "--input",
+                str(csv_file),
+                "--output",
+                str(temp_path / "error_test.csv"),
+                "--mode",
+                "target",
+            ],
             "Error Handling: Missing Target Column",
         )
 

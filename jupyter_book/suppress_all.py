@@ -2,6 +2,7 @@
 Complete suppression of all warnings, logging, and verbose output.
 Import this module FIRST before any other imports.
 """
+
 import logging
 import os
 import sys
@@ -48,6 +49,7 @@ for logger_name in loggers_to_suppress:
 # Additional suppression for TensorFlow
 try:
     import tensorflow as tf
+
     if hasattr(tf, "get_logger"):
         tf.get_logger().setLevel("ERROR")
     if hasattr(tf, "logging"):
@@ -60,10 +62,13 @@ try:
     # Suppress TensorFlow model.summary() output
     try:
         from tensorflow.keras.models import Model as KerasModel
+
         original_summary = KerasModel.summary
+
         def silent_summary(self, *args, **kwargs):
             # Completely suppress summary output
             return None
+
         KerasModel.summary = silent_summary
     except ImportError:
         pass
@@ -71,14 +76,18 @@ try:
     # Monkey-patch keras.utils.Progbar to be silent
     try:
         from tensorflow.keras.utils import Progbar
+
         original_progbar_init = Progbar.__init__
+
         def silent_progbar(self, *args, **kwargs):
             kwargs["verbose"] = 0
             return original_progbar_init(self, *args, **kwargs)
+
         Progbar.__init__ = silent_progbar
 
         # Also override update method to be silent
         original_progbar_update = Progbar.update
+
         def silent_progbar_update(self, *args, **kwargs):
             # Capture and discard any output
             old_stdout = sys.stdout
@@ -91,13 +100,16 @@ try:
                 sys.stdout = old_stdout
                 sys.stderr = old_stderr
             return result
+
         Progbar.update = silent_progbar_update
     except ImportError:
         pass
 
     # Force all Keras model.fit() calls to be non-verbose
     from tensorflow.keras import Model
+
     original_fit = Model.fit
+
     def silent_fit(self, *args, **kwargs):
         kwargs["verbose"] = 0  # Force verbose=0 for all fit calls
         # Capture any remaining output
@@ -111,6 +123,7 @@ try:
             sys.stdout = old_stdout
             sys.stderr = old_stderr
         return result
+
     Model.fit = silent_fit
 
 except ImportError:
@@ -119,26 +132,33 @@ except ImportError:
 # Suppress tqdm and other progress bars
 try:
     import tqdm
+
     # Disable all tqdm progress bars by setting disable=True globally
     original_tqdm_init = tqdm.tqdm.__init__
+
     def silent_tqdm_init(self, *args, **kwargs):
         kwargs["disable"] = True
         kwargs["file"] = open(os.devnull, "w")
         return original_tqdm_init(self, *args, **kwargs)
+
     tqdm.tqdm.__init__ = silent_tqdm_init
 
     # Also override auto tqdm
     if hasattr(tqdm, "auto"):
-        tqdm.auto.tqdm = lambda *args, **kwargs: tqdm.tqdm(*args, **{**kwargs, "disable": True})
+        tqdm.auto.tqdm = lambda *args, **kwargs: tqdm.tqdm(
+            *args, **{**kwargs, "disable": True}
+        )
 except ImportError:
     pass
 
 # Suppress any other common progress bar libraries
 try:
     import progressbar
+
     progressbar.streams.wrap_stderr = lambda: None
 except ImportError:
     pass
+
 
 # Global context manager for complete output suppression during training
 class SuppressAllOutput:
@@ -158,6 +178,7 @@ class SuppressAllOutput:
         sys.stdout = self.old_stdout
         sys.stderr = self.old_stderr
         self.devnull.close()
+
 
 # Make the suppressor available globally
 suppress_output = SuppressAllOutput
@@ -179,7 +200,10 @@ def suppress_all_output():
             sys.stdout = old_stdout
             sys.stderr = old_stderr
 
+
 # Make available for import
 __all__ = ["SuppressAllOutput", "suppress_all_output"]
 
-print("✓ Complete output suppression system active (including TensorFlow/Keras progress bars and model summaries)")
+print(
+    "✓ Complete output suppression system active (including TensorFlow/Keras progress bars and model summaries)"
+)
