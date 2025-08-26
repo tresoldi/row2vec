@@ -1,0 +1,298 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "row2vec"
+version = "0.1.0"
+description = "A Python library for easily generating low-dimensional vector embeddings from any tabular dataset."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Tiago Tresoldi", email = "tiago@tresoldi.org" },
+]
+maintainers = [
+    { name = "Tiago Tresoldi", email = "tiago@tresoldi.org" },
+]
+keywords = [
+    "embeddings",
+    "machine-learning",
+    "deep-learning",
+    "dimensionality-reduction",
+    "autoencoder",
+    "tabular-data",
+    "representation-learning",
+    "tensorflow",
+    "keras",
+    "pca",
+    "tsne",
+    "umap",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+dependencies = [
+    "numpy>=1.21.0",
+    "pandas>=1.5.3",
+    "scikit-learn>=1.0.0",
+    "tensorflow>=2.8.0",
+    "jinja2>=3.1.2",
+    "psutil>=5.8.0",
+    "umap-learn>=0.5.0",
+    "click>=8.0.0",
+    "rich>=12.0.0",
+    "pyyaml>=6.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
+    "types-psutil",
+]
+docs = [
+    "sphinx>=5.0.0",
+    "sphinx-rtd-theme>=1.0.0",
+    "myst-parser>=0.18.0",
+]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+]
+
+[project.scripts]
+row2vec = "row2vec.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/evotext/row2vec"
+Repository = "https://github.com/evotext/row2vec"
+Documentation = "https://github.com/evotext/row2vec#readme"
+Issues = "https://github.com/evotext/row2vec/issues"
+Changelog = "https://github.com/evotext/row2vec/releases"
+
+# Hatchling configuration
+[tool.hatch.build.targets.wheel]
+packages = ["row2vec"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/row2vec",
+    "/tests",
+    "/data",
+    "/examples",
+    "/README.md",
+    "/LICENSE",
+    "/pyproject.toml",
+]
+
+# Hatch scripts for development and documentation
+[tool.hatch.envs.default]
+dependencies = [
+    "sphinx",
+    "sphinx-rtd-theme", 
+    "matplotlib",
+    "scikit-learn",
+    "pandas",
+    "numpy",
+]
+
+[tool.hatch.envs.default.scripts]
+update-docs-examples = "/home/tiagot/.pyenv/versions/env_grape/bin/python scripts/generate_doc_examples.py"
+build-docs = [
+    "update-docs-examples",
+    "/home/tiagot/.pyenv/versions/env_grape/bin/python -m sphinx -b html docs/source docs/build"
+]
+build-docs-clean = [
+    "rm -rf docs/build/*",
+    "update-docs-examples", 
+    "/home/tiagot/.pyenv/versions/env_grape/bin/python -m sphinx -b html docs/source docs/build"
+]
+
+# Ruff configuration - Ultra-fast Python linter and formatter
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+indent-width = 4
+
+[tool.ruff.lint]
+# Enable comprehensive rule sets
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "YTT",  # flake8-2020
+    "S",    # flake8-bandit
+    "B",    # flake8-bugbear
+    "A",    # flake8-builtins
+    "COM",  # flake8-commas
+    "C4",   # flake8-comprehensions
+    "ISC",  # flake8-implicit-str-concat
+    "ICN",  # flake8-import-conventions
+    "PIE",  # flake8-pie
+    "T20",  # flake8-print
+    "PT",   # flake8-pytest-style
+    "Q",    # flake8-quotes
+    "RSE",  # flake8-raise
+    "RET",  # flake8-return
+    "SLF",  # flake8-self
+    "SIM",  # flake8-simplify
+    "TID",  # flake8-tidy-imports
+    "TCH",  # flake8-type-checking
+    "ARG",  # flake8-unused-arguments
+    "PTH",  # flake8-use-pathlib
+    "ERA",  # eradicate
+    "PGH",  # pygrep-hooks
+    "PL",   # pylint
+    "TRY",  # tryceratops
+    "FLY",  # flynt
+    "NPY",  # numpy-specific rules
+    "PERF", # perflint
+    "RUF",  # ruff-specific rules
+]
+
+ignore = [
+    "S101",    # assert-used (common in tests)
+    "S311",    # suspicious-non-cryptographic-random-usage
+    "PLR0913", # too-many-arguments
+    "PLR2004", # magic-value-comparison
+    "TRY003",  # raise-vanilla-args
+    "EM101",   # raw-string-in-exception
+    "EM102",   # f-string-in-exception
+]
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101",    # assert-used
+    "PLR2004", # magic-value-comparison
+    "ARG001",  # unused-function-argument
+    "ARG005",  # unused-lambda-argument
+]
+"examples/**/*.py" = [
+    "T201",    # print-found
+    "S101",    # assert-used
+]
+"generate_docs.py" = [
+    "S602",    # subprocess-popen-with-shell-equals-true
+    "S603",    # subprocess-without-shell-equals-true
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["row2vec"]
+
+[tool.ruff.lint.pyupgrade]
+# Preserve types, even if a file imports `from __future__ import annotations`.
+keep-runtime-typing = true
+
+# MyPy configuration - Static type checking
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+implicit_reexport = false
+strict_equality = true
+show_error_codes = true
+
+# Handle third-party libraries without type hints
+[[tool.mypy.overrides]]
+module = [
+    "tensorflow.*",
+    "sklearn.*",
+    "umap.*",
+    "psutil.*",
+]
+ignore_missing_imports = true
+
+# Pytest configuration
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=row2vec",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--cov-fail-under=80",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+filterwarnings = [
+    "error",
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    # TensorFlow warnings
+    "ignore:.*tensorflow.*:DeprecationWarning",
+    "ignore:.*CUDA.*:UserWarning",
+    # UMAP warnings
+    "ignore:.*n_jobs.*:UserWarning",
+]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["row2vec"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "setup.py",
+    "generate_docs.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+show_missing = true
+skip_covered = false

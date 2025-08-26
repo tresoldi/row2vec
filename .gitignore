@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+
+# Virtual environment
+.venv/
+venv/
+env/
+ENV/
+.env/
+
+# IDE / Editor
+.vscode/
+.idea/
+
+# Other
+.DS_Store
+build/
+dist/
+*.egg-info/
+
+# Coverage reports
+htmlcov/
+coverage.xml
+.coverage
+
+# Docs generator temp files
+.docs_tmp/
+
+# Script execution cache
+docs/outputs/cache/
