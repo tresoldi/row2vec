@@ -269,7 +269,8 @@ def _validate_inputs(
     if not isinstance(batch_size, int) or batch_size <= 0:
         raise ValueError(f"batch_size must be a positive integer, got {batch_size}")
 
-    if batch_size > df.shape[0]:
+    # Only validate batch_size for neural methods that actually use it
+    if mode in ['unsupervised', 'target', 'contrastive'] and batch_size > df.shape[0]:
         raise ValueError(
             f"batch_size ({batch_size}) cannot be larger than dataset size ({df.shape[0]})",
         )
@@ -1731,6 +1732,18 @@ def learn_embedding_with_model(
                 # For unsupervised mode, get embeddings from the encoder part
                 encoder = Model(inputs=model.input, outputs=model.get_layer("embedding").output)
                 embeddings = encoder.predict(X_processed)
+
+    # Convert embeddings to DataFrame with proper column names
+    embedding_columns = [f"embedding_{i}" for i in range(embeddings.shape[1])]
+    embeddings_df = pd.DataFrame(embeddings, columns=embedding_columns, index=df.index)
+
+    # Handle target mode grouping
+    if mode == "target" and reference_column is not None:
+        # Add category codes for grouping
+        embeddings_df["category"] = df[reference_column].astype("category").cat.codes
+        embeddings = embeddings_df.groupby("category").mean()
+    else:
+        embeddings = embeddings_df
 
     # Calculate training time
     training_time = time.time() - start_time

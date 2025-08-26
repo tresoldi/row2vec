@@ -328,7 +328,7 @@ class TestIntegrationWithAPI:
             "feature2": np.random.uniform(-1, 1, 30),
         })
 
-    @patch("row2vec.api.search_architecture")
+    @patch("row2vec.architecture_search.search_architecture")
     @patch("row2vec.api._legacy_learn_embedding")
     def test_learn_embedding_v2_with_auto_architecture(self, mock_legacy, mock_search, sample_data):
         """Test learn_embedding_v2 with auto_architecture=True."""
@@ -352,7 +352,7 @@ class TestIntegrationWithAPI:
         # Mock legacy embedding
         mock_legacy.return_value = pd.DataFrame(np.random.randn(30, 5))
 
-        config = EmbeddingConfig(mode="neural", embedding_dim=5)
+        config = EmbeddingConfig(mode="unsupervised", embedding_dim=5)
         result = learn_embedding_v2(sample_data, config, auto_architecture=True)
 
         assert mock_search.called

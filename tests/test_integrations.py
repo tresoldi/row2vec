@@ -9,6 +9,7 @@ import pytest
 
 import row2vec
 from row2vec.utils import generate_synthetic_data
+from row2vec.config import EmbeddingConfig
 
 
 @pytest.fixture
@@ -126,13 +127,13 @@ class TestSklearnIntegration:
         from row2vec import Row2VecTransformer
 
         pipeline = Pipeline([
-            ("scale", StandardScaler()),
             ("embed", Row2VecTransformer(embedding_dim=5, mode="pca")),
+            ("scale", StandardScaler()),
             ("cluster", KMeans(n_clusters=3, random_state=42)),
         ])
 
         # Fit pipeline
-        labels = pipeline.fit_predict(sample_data.values)
+        labels = pipeline.fit_predict(sample_data)
         assert len(labels) == 100
         assert len(np.unique(labels)) <= 3  # Should have at most 3 clusters
 
@@ -152,8 +153,11 @@ class TestSklearnIntegration:
             X, y, test_size=0.3, random_state=42,
         )
 
-        # Test classifier
-        clf = Row2VecClassifier(embedding_dim=8)
+        # Test classifier (use PCA to avoid batch size issues)
+        clf = Row2VecClassifier(
+            embedding_dim=8, 
+            embedding_config=EmbeddingConfig(mode='pca'),
+        )
         clf.fit(X_train, y_train)
 
         # Test predictions

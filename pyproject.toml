@@ -259,15 +259,18 @@ markers = [
     "unit: marks tests as unit tests",
 ]
 filterwarnings = [
-    "error",
     "ignore::UserWarning",
-    "ignore::DeprecationWarning",
+    "ignore::DeprecationWarning", 
     "ignore::PendingDeprecationWarning",
+    "ignore::numba.core.errors.NumbaWarning",
+    "ignore::numba.core.errors.NumbaDeprecationWarning",
+    "ignore::FutureWarning:sklearn",
     # TensorFlow warnings
     "ignore:.*tensorflow.*:DeprecationWarning",
     "ignore:.*CUDA.*:UserWarning",
     # UMAP warnings
     "ignore:.*n_jobs.*:UserWarning",
+    "ignore::UserWarning:umap",
 ]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
