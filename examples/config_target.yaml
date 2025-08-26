@@ -1,0 +1,26 @@
+# Target-based Learning Configuration  
+# Optimized for supervised embedding learning
+
+embedding_dim: 20
+mode: target
+reference_column: "category"  # Replace with your target column name
+seed: 1305
+verbose: true
+
+# Optimized neural configuration for supervised learning
+neural:
+  max_epochs: 75       # Supervised learning often converges faster
+  batch_size: 128      # Larger batches for stable gradients
+  dropout_rate: 0.1    # Lower dropout since we have labels
+  hidden_units: 128    
+  early_stopping: true
+
+# Use minmax scaling to normalize embeddings
+scaling:
+  method: minmax
+  range: [0, 1]
+
+# Standard logging
+logging:
+  level: INFO
+  enabled: true

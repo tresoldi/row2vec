@@ -1,0 +1,44 @@
+# Row2Vec Configuration File
+# This file demonstrates the config-based API for Row2Vec
+
+# Core embedding parameters
+embedding_dim: 10
+mode: unsupervised  # Options: unsupervised, target, pca, tsne, umap, contrastive
+reference_column: null  # Required for 'target' mode
+seed: 1305
+verbose: false
+
+# Neural network configuration (for neural modes: unsupervised, target, contrastive)
+neural:
+  max_epochs: 50
+  batch_size: 64
+  dropout_rate: 0.2
+  hidden_units: 128
+  early_stopping: true
+
+# Classical ML configuration (for classical modes: pca, tsne, umap)
+classical:
+  n_neighbors: 15      # UMAP parameter
+  perplexity: 30.0     # t-SNE parameter
+  min_dist: 0.1        # UMAP parameter
+  n_iter: 1000         # t-SNE parameter
+
+# Contrastive learning configuration (for contrastive mode)
+contrastive:
+  loss_type: triplet   # Options: triplet, contrastive
+  similar_pairs: null  # List of [row_idx1, row_idx2] pairs
+  dissimilar_pairs: null  # List of [row_idx1, row_idx2] pairs
+  auto_pairs: null     # Options: cluster, neighbors, categorical, random
+  margin: 1.0
+  negative_samples: 5
+
+# Scaling/normalization configuration
+scaling:
+  method: null         # Options: null, none, minmax, standard, l2, tanh
+  range: null          # For minmax scaling: [min, max]
+
+# Logging configuration
+logging:
+  level: INFO          # Options: DEBUG, INFO, WARNING, ERROR
+  file: null           # Log file path (null = console only)
+  enabled: true
