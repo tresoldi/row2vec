@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "row2vec"
-version = "0.1.0"
+dynamic = ["version"]
 description = "A Python library for easily generating low-dimensional vector embeddings from any tabular dataset."
 readme = "README.md"
 license = "MIT"
@@ -58,14 +58,25 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    # Testing
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "pytest-mock>=3.10.0",
+    "pytest-xdist>=3.0.0",
+
+    # Code quality
     "mypy>=1.0.0",
     "ruff>=0.1.0",
     "types-psutil",
     "types-PyYAML>=6.0.0",
     "pandas-stubs>=2.0.0",
+
+    # Build and release
+    "build>=0.10.0",
+    "twine>=4.0.0",
+
+    # Documentation
+    "nhandu>=0.1.0",
 ]
 docs = [
     "sphinx>=5.0.0",
@@ -86,45 +97,19 @@ Homepage = "https://github.com/evotext/row2vec"
 Repository = "https://github.com/evotext/row2vec"
 Documentation = "https://github.com/evotext/row2vec#readme"
 Issues = "https://github.com/evotext/row2vec/issues"
-Changelog = "https://github.com/evotext/row2vec/releases"
+Changelog = "https://github.com/evotext/row2vec/blob/main/CHANGELOG.md"
 
-# Hatchling configuration
-[tool.hatch.build.targets.wheel]
-packages = ["row2vec"]
+# Setuptools configuration
+[tool.setuptools.dynamic]
+version = {attr = "row2vec.__version__"}
 
-[tool.hatch.build.targets.sdist]
-include = [
-    "/row2vec",
-    "/tests",
-    "/data",
-    "/examples",
-    "/README.md",
-    "/LICENSE",
-    "/pyproject.toml",
-]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["row2vec*"]
+exclude = ["tests*", "docs*", "examples*", "scripts*"]
 
-# Hatch scripts for development and documentation
-[tool.hatch.envs.default]
-dependencies = [
-    "sphinx",
-    "sphinx-rtd-theme",
-    "matplotlib",
-    "scikit-learn",
-    "pandas",
-    "numpy",
-]
-
-[tool.hatch.envs.default.scripts]
-update-docs-examples = "python scripts/generate_doc_examples.py"
-build-docs = [
-    "update-docs-examples",
-    "python -m sphinx -b html docs/source docs/build"
-]
-build-docs-clean = [
-    "rm -rf docs/build/*",
-    "update-docs-examples",
-    "python -m sphinx -b html docs/source docs/build"
-]
+[tool.setuptools.package-data]
+row2vec = ["py.typed"]
 
 # Ruff configuration - Ultra-fast Python linter and formatter
 [tool.ruff]
@@ -310,7 +295,7 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",
-    "--cov-fail-under=66",
+    "--cov-fail-under=70",  # TODO: Gradual increase plan: 70% → 75% → 80% (target)
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
