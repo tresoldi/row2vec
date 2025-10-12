@@ -27,8 +27,25 @@ htmlcov/
 coverage.xml
 .coverage
 
+# Hypothesis property-based testing
+.hypothesis/
+
 # Docs generator temp files
 .docs_tmp/
 
 # Script execution cache
 docs/outputs/cache/
+
+# Generated Nhandu documentation
+docs/*.html
+docs/*.out.*
+
+# Benchmark results
+benchmark_results*/
+
+# Pytest cache
+.pytest_cache/
+
+# Ruff and MyPy cache
+.ruff_cache/
+.mypy_cache/
