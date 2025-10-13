@@ -1,7 +1,9 @@
 # Row2Vec
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PyPI version](https://badge.fury.io/py/row2vec.svg)](https://pypi.org/project/row2vec/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Downloads](https://pepy.tech/badge/row2vec)](https://pepy.tech/project/row2vec)
 
 **Row2Vec** is a Python library for easily generating low-dimensional vector embeddings from any tabular dataset. It uses deep learning and classical methods to create powerful, dense representations of your data, suitable for visualization, feature engineering, and gaining deeper insights into your data's structure.
 
