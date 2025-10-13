@@ -7,19 +7,21 @@
 #'
 #' Automatically discover optimal network architectures for your data:
 
-#| hide
+# | hide
 import warnings
-warnings.filterwarnings('ignore')
+
+warnings.filterwarnings("ignore")
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-#|
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+# |
 
 from row2vec import (
-    search_architecture,
     ArchitectureSearchConfig,
     EmbeddingConfig,
     NeuralConfig,
-    generate_synthetic_data
+    generate_synthetic_data,
+    search_architecture,
 )
 
 # Generate sample data
@@ -30,17 +32,17 @@ print(f"Dataset: {df.shape}")
 
 # Define search space
 search_config = ArchitectureSearchConfig(
-    method='random',
+    method="random",
     max_layers=3,
     width_options=[64, 128, 256],
-    max_trials=10  # Reduced for demo
+    max_trials=10,  # Reduced for demo
 )
 
 # Base embedding configuration
 base_config = EmbeddingConfig(
     mode="unsupervised",
     embedding_dim=8,
-    neural=NeuralConfig(max_epochs=30, verbose=False)
+    neural=NeuralConfig(max_epochs=30, verbose=False),
 )
 
 print("Search configuration:")
@@ -62,18 +64,15 @@ print(f"  Loss: {best_arch.get('final_loss', 'N/A')}")
 #'
 #' Row2Vec includes intelligent imputation strategies that adapt to your data patterns:
 
-from row2vec import (
-    ImputationConfig,
-    AdaptiveImputer,
-    MissingPatternAnalyzer
-)
-import pandas as pd
 import numpy as np
+import pandas as pd
+
+from row2vec import AdaptiveImputer, ImputationConfig, MissingPatternAnalyzer
 
 # Create data with complex missing patterns
 df_missing = df.copy()
-df_missing.loc[0:10, 'Sales'] = np.nan  # Completely missing block
-df_missing.loc[df_missing['Product'] == 'A', 'Sales'] = np.nan  # Conditional missing
+df_missing.loc[0:10, "Sales"] = np.nan  # Completely missing block
+df_missing.loc[df_missing["Product"] == "A", "Sales"] = np.nan  # Conditional missing
 
 print(f"\nMissing values: {df_missing.isnull().sum().sum()}")
 
@@ -88,25 +87,26 @@ print(f"  Recommendations: {len(analysis.get('recommendations', []))} strategies
 
 #' ### Apply Adaptive Imputation
 
-imputer = AdaptiveImputer(ImputationConfig(
-    numeric_strategy='knn',
-    categorical_strategy='mode',
-    knn_neighbors=10
-))
+imputer = AdaptiveImputer(
+    ImputationConfig(
+        numeric_strategy="knn", categorical_strategy="mode", knn_neighbors=10
+    )
+)
 
 df_imputed = imputer.fit_transform(df_missing)
 
-print(f"\nAfter imputation:")
+print("\nAfter imputation:")
 print(f"  Remaining missing values: {df_imputed.isnull().sum().sum()}")
-print(f"  Successfully imputed!")
+print("  Successfully imputed!")
 
 #' ## Model Serialization
 #'
 #' Train once, use many times by saving and loading models:
 
-from row2vec import train_and_save_model, load_model, learn_embedding
-import tempfile
 import os
+import tempfile
+
+from row2vec import learn_embedding, load_model, train_and_save_model
 
 # Create temporary directory for demo
 tmpdir = tempfile.mkdtemp()
@@ -120,10 +120,10 @@ embeddings, script_path, binary_path = train_and_save_model(
     embedding_dim=6,
     mode="unsupervised",
     max_epochs=20,
-    verbose=False
+    verbose=False,
 )
 
-print(f"\nModel saved:")
+print("\nModel saved:")
 print(f"  Script: {os.path.basename(script_path)}")
 print(f"  Binary: {os.path.basename(binary_path)}")
 print(f"  Training embeddings: {embeddings.shape}")
@@ -137,26 +137,23 @@ model = load_model(script_path)
 new_data = generate_synthetic_data(num_records=50, seed=999)
 new_embeddings = model.predict(new_data)
 
-print(f"\nUsing loaded model:")
+print("\nUsing loaded model:")
 print(f"  New data: {new_data.shape}")
 print(f"  New embeddings: {new_embeddings.shape}")
-print(f"  Model successfully reused!")
+print("  Model successfully reused!")
 
 # Cleanup
 import shutil
+
 shutil.rmtree(tmpdir)
 
 #' ## Automated Dimension Selection
 #'
 #' Let Row2Vec automatically determine the optimal embedding dimension:
 
-from row2vec import auto_select_dimension, AutoDimensionSelector
+from row2vec import AutoDimensionSelector, auto_select_dimension
 
-selector = AutoDimensionSelector(
-    min_dim=2,
-    max_dim=10,
-    method='reconstruction_error'
-)
+selector = AutoDimensionSelector(min_dim=2, max_dim=10, method="reconstruction_error")
 
 #' Run dimension selection (this analyzes reconstruction quality at different dimensions)
 
@@ -173,19 +170,17 @@ print(f"  Suggested dimension: {suggested_dim}")
 #'
 #' Row2Vec provides multiple strategies for encoding categorical features:
 
-from row2vec import CategoricalEncodingConfig, CategoricalEncoder
+from row2vec import CategoricalEncoder, CategoricalEncodingConfig
 
 # Configure entity embeddings for categories
 encoding_config = CategoricalEncodingConfig(
-    method='entity_embedding',
-    embedding_dim=4,
-    handle_unknown='default'
+    method="entity_embedding", embedding_dim=4, handle_unknown="default"
 )
 
 encoder = CategoricalEncoder(encoding_config)
-df_encoded = encoder.fit_transform(df[['Product', 'Country']])
+df_encoded = encoder.fit_transform(df[["Product", "Country"]])
 
-print(f"\nCategorical encoding:")
+print("\nCategorical encoding:")
 print(f"  Original columns: {list(df[['Product', 'Country']].columns)}")
 print(f"  Encoded shape: {df_encoded.shape}")
 print(f"  Method: {encoding_config.method}")
@@ -206,14 +201,11 @@ full_config = EmbeddingConfig(
         batch_size=32,
         dropout_rate=0.2,
         learning_rate=0.001,
-        verbose=False
+        verbose=False,
     ),
     preprocessing=PreprocessingConfig(
-        scaling=ScalingConfig(
-            method='standard',
-            feature_range=(0, 1)
-        )
-    )
+        scaling=ScalingConfig(method="standard", feature_range=(0, 1))
+    ),
 )
 
 print("\nConfiguration-based training:")

@@ -13,15 +13,18 @@
 #'
 #' The core of Row2Vec is the `learn_embedding()` function:
 
-#| hide
+# | hide
 import warnings
-warnings.filterwarnings('ignore')
-import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-#|
 
-from row2vec import learn_embedding, generate_synthetic_data
+warnings.filterwarnings("ignore")
+import os
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+# |
+
 import pandas as pd
+
+from row2vec import generate_synthetic_data, learn_embedding
 
 # Generate sample data
 df = generate_synthetic_data(num_records=200, seed=42)
@@ -34,11 +37,7 @@ print(f"Columns: {df.columns.tolist()}")
 
 # Learn 5-dimensional embeddings for each row
 embeddings = learn_embedding(
-    df,
-    mode="unsupervised",
-    embedding_dim=5,
-    max_epochs=20,
-    verbose=False
+    df, mode="unsupervised", embedding_dim=5, max_epochs=20, verbose=False
 )
 
 print(f"Embeddings shape: {embeddings.shape}")
@@ -62,7 +61,7 @@ country_embeddings = learn_embedding(
     reference_column="Country",
     embedding_dim=3,
     max_epochs=20,
-    verbose=False
+    verbose=False,
 )
 
 print("Country embeddings:")
@@ -74,12 +73,7 @@ print(country_embeddings)
 #'
 #' ### PCA (Fast Linear Reduction)
 
-pca_embeddings = learn_embedding(
-    df,
-    mode="pca",
-    embedding_dim=2,
-    verbose=False
-)
+pca_embeddings = learn_embedding(df, mode="pca", embedding_dim=2, verbose=False)
 
 print("PCA embeddings (first 5):")
 print(pca_embeddings.head())
@@ -87,11 +81,7 @@ print(pca_embeddings.head())
 #' ### t-SNE (Visualization)
 
 tsne_embeddings = learn_embedding(
-    df,
-    mode="tsne",
-    embedding_dim=2,
-    perplexity=30,
-    verbose=False
+    df, mode="tsne", embedding_dim=2, perplexity=30, verbose=False
 )
 
 print("t-SNE embeddings (first 5):")
@@ -101,11 +91,7 @@ print(tsne_embeddings.head())
 
 try:
     umap_embeddings = learn_embedding(
-        df,
-        mode="umap",
-        embedding_dim=2,
-        n_neighbors=15,
-        verbose=False
+        df, mode="umap", embedding_dim=2, n_neighbors=15, verbose=False
     )
     print("UMAP embeddings (first 5):")
     print(umap_embeddings.head())
@@ -120,18 +106,14 @@ import numpy as np
 
 # Create data with missing values
 df_missing = df.copy()
-df_missing.loc[0:5, 'Sales'] = np.nan
-df_missing.loc[10:15, 'Product'] = np.nan
+df_missing.loc[0:5, "Sales"] = np.nan
+df_missing.loc[10:15, "Product"] = np.nan
 
 print(f"Missing values introduced: {df_missing.isnull().sum().sum()}")
 
 # Row2Vec handles this automatically
 embeddings_missing = learn_embedding(
-    df_missing,
-    mode="unsupervised",
-    embedding_dim=3,
-    max_epochs=10,
-    verbose=False
+    df_missing, mode="unsupervised", embedding_dim=3, max_epochs=10, verbose=False
 )
 
 print(f"\nEmbeddings generated: {embeddings_missing.shape}")
@@ -158,13 +140,15 @@ for name, params in methods.items():
         "time": elapsed,
         "shape": emb.shape,
         "mean": emb.mean().mean(),
-        "std": emb.std().mean()
+        "std": emb.std().mean(),
     }
 
 print("Method Comparison:")
 print("-" * 50)
 for method, stats in results.items():
-    print(f"{method:10} | Time: {stats['time']:.2f}s | Mean: {stats['mean']:6.3f} | Std: {stats['std']:5.3f}")
+    print(
+        f"{method:10} | Time: {stats['time']:.2f}s | Mean: {stats['mean']:6.3f} | Std: {stats['std']:5.3f}"
+    )
 
 #' ## Method Selection Guide
 #'
