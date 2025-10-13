@@ -7,21 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-- Migrated to Nhandu documentation system
-- Switched build backend from hatchling to setuptools
-- Achieved 47% test coverage with 91 passing tests (baseline for gradual improvement)
-- Updated test coverage threshold to 46% (plan: 46% → 50% → 60% → 70%)
+## [0.1.0] - 2025-10-13
 
 ### Added
+
+#### Documentation
+- Comprehensive USER_GUIDE.md with mathematical foundations and examples
+- LLM_DOCUMENTATION.md for AI coding agent integration
+- Nhandu-based executable tutorials (tutorial_1_quickstart.py, tutorial_2_advanced.py)
+- Complete API reference documentation
+
+#### Build & Development
 - Comprehensive Makefile for development workflow
 - CHANGELOG.md following Keep a Changelog format
 - scripts/ directory for benchmarking and utilities
 - Dynamic version management from `__init__.py`
+- Switched build backend from hatchling to setuptools
 
-## [0.1.0] - 2025-01-12
-
-### Added
+#### Testing & Quality
+- Achieved 47% test coverage with 91 passing tests
+- Updated test coverage threshold to 46% (baseline for gradual improvement)
+- Test coverage improvement plan: 46% → 50% → 60% → 70%
 
 #### Core Embedding Methods
 - Neural autoencoder-based embeddings for unsupervised learning
