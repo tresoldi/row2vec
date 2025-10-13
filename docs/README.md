@@ -10,6 +10,8 @@ docs/
 ├── tutorial_*.html      # Generated HTML documentation (gitignored)
 ├── figures/             # Tutorial figures and plots
 ├── API_REFERENCE.md     # Complete API documentation
+├── USER_GUIDE.md        # Comprehensive user guide with examples
+├── LLM_DOCUMENTATION.md # Documentation for LLM coding agents
 └── README.md            # This file
 ```
 
@@ -106,10 +108,20 @@ The old `jupyter_book/` directory is retained for reference but is no longer the
 - **Output**: Self-contained HTML files
 - **Advantages**: Executable, testable, version-control friendly
 
+### User Guide
+- **Location**: `docs/USER_GUIDE.md`
+- **Format**: Markdown
+- **Purpose**: Comprehensive guide with mathematical background, detailed examples, and best practices
+
 ### API Reference
 - **Location**: `docs/API_REFERENCE.md`
 - **Format**: Markdown
 - **Purpose**: Complete function and class reference
+
+### LLM Documentation
+- **Location**: `docs/LLM_DOCUMENTATION.md`
+- **Format**: Markdown
+- **Purpose**: Practical guide for LLM coding agents integrating Row2Vec into projects
 
 ## Contributing
 
