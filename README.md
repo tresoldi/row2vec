@@ -141,11 +141,18 @@ df_clean = imputer.fit_transform(df)
 
 ## Documentation
 
+### Online Documentation
 - **[Installation Guide](https://evotext.github.io/row2vec/installation.html)**: Detailed setup instructions
 - **[Quick Start Tutorial](https://evotext.github.io/row2vec/quickstart.html)**: Get up and running in 5 minutes
 - **[API Reference](https://evotext.github.io/row2vec/api_reference.html)**: Complete function documentation
 - **[Example Gallery](https://evotext.github.io/row2vec/)**: Real-world use cases and tutorials
 - **[Advanced Features](https://evotext.github.io/row2vec/advanced_features.html)**: Neural architecture search, imputation strategies
+
+### Local Documentation
+- **[User Guide](docs/USER_GUIDE.md)**: Comprehensive guide with mathematical background, detailed examples, and best practices
+- **[LLM Documentation](docs/LLM_DOCUMENTATION.md)**: Practical guide for LLM coding agents integrating Row2Vec
+- **[API Reference](docs/API_REFERENCE.md)**: Complete function and class reference
+- **[Tutorials](docs/)**: Executable Python tutorials (Nhandu format) - run `make docs` to build HTML
 
 ## Why Row2Vec?
 

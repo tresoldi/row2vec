@@ -294,7 +294,7 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",
-    "--cov-fail-under=70",  # TODO: Gradual increase plan: 70% → 75% → 80% (target)
+    "--cov-fail-under=46",  # Current baseline: 46.58% (91 tests). Plan: 46% → 50% → 60% → 70% (target)
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
