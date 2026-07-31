@@ -1,5 +1,4 @@
-"""
-Row2Vec: Intelligent Pipeline Builder
+"""Construction of preprocessing pipelines.
 
 This module provides intelligent pipeline construction that automatically
 analyzes data characteristics and builds optimal preprocessing pipelines
@@ -8,7 +7,6 @@ with adaptive categorical encoding strategies.
 
 from typing import Any
 
-import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
@@ -18,11 +16,11 @@ from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 from .categorical_encoding import CategoricalEncoder, CategoricalEncodingConfig
 from .config import EmbeddingConfig
 from .imputation import AdaptiveImputer, ImputationConfig
+from .utils import categorical_columns, is_categorical_series, numeric_columns
 
 
 class PipelineBuilder:
-    """
-    Intelligent pipeline builder that analyzes data and constructs optimal
+    """Intelligent pipeline builder that analyzes data and constructs optimal
     preprocessing pipelines with adaptive strategies.
     """
 
@@ -37,22 +35,19 @@ class PipelineBuilder:
         target: pd.Series | None = None,
         mode: str = "unsupervised",
     ) -> tuple[ColumnTransformer, dict[str, Any]]:
-        """
-        Build intelligent preprocessing pipeline based on data analysis.
+        """Build intelligent preprocessing pipeline based on data analysis.
 
-        Parameters
-        ----------
-        df : pd.DataFrame
-            Input dataset to analyze
-        target : pd.Series, optional
-            Target variable for supervised preprocessing
-        mode : str
-            Embedding mode that influences preprocessing strategy
+        Args:
+            df (pd.DataFrame):
+                Input dataset to analyze
+            target (pd.Series, optional):
+                Target variable for supervised preprocessing
+            mode (str):
+                Embedding mode that influences preprocessing strategy
 
-        Returns
-        -------
-        Tuple[ColumnTransformer, Dict[str, Any]]
-            Fitted preprocessing pipeline and analysis report
+        Returns:
+            Tuple[ColumnTransformer, Dict[str, Any]]
+                Fitted preprocessing pipeline and analysis report
         """
         # Analyze data characteristics
         data_analysis = self._analyze_dataset(df, target)
@@ -120,17 +115,15 @@ class PipelineBuilder:
             "dataset_shape": df.shape,
             "total_missing": df.isnull().sum().sum(),
             "missing_percentage": (df.isnull().sum().sum() / df.size) * 100,
-            "numeric_columns": len(df.select_dtypes(include=[np.number]).columns),
-            "categorical_columns": len(
-                df.select_dtypes(include=["object", "category"]).columns
-            ),
+            "numeric_columns": len(numeric_columns(df)),
+            "categorical_columns": len(categorical_columns(df)),
             "memory_usage_mb": df.memory_usage(deep=True).sum() / 1024 / 1024,
             "has_target": target is not None,
             "target_type": None,
         }
 
         if target is not None:
-            if target.dtype in ["object", "category"] or target.nunique() < 20:
+            if is_categorical_series(target) or target.nunique() < 20:
                 analysis["target_type"] = "classification"
             else:
                 analysis["target_type"] = "regression"
@@ -146,29 +139,17 @@ class PipelineBuilder:
                 "memory_usage_mb": df[col].memory_usage(deep=True) / 1024 / 1024,
             }
 
-            if df[col].dtype in ["object", "category"]:
+            if is_categorical_series(df[col]):
                 col_analysis["cardinality"] = df[col].nunique()
                 col_analysis["most_frequent"] = (
-                    df[col].value_counts().iloc[0]
-                    if len(df[col].value_counts()) > 0
-                    else 0
+                    df[col].value_counts().iloc[0] if len(df[col].value_counts()) > 0 else 0
                 )
-                col_analysis["frequency_distribution"] = (
-                    df[col].value_counts().head(5).to_dict()
-                )
+                col_analysis["frequency_distribution"] = df[col].value_counts().head(5).to_dict()
             else:
-                col_analysis["mean"] = (
-                    df[col].mean() if not df[col].isnull().all() else None
-                )
-                col_analysis["std"] = (
-                    df[col].std() if not df[col].isnull().all() else None
-                )
-                col_analysis["min"] = (
-                    df[col].min() if not df[col].isnull().all() else None
-                )
-                col_analysis["max"] = (
-                    df[col].max() if not df[col].isnull().all() else None
-                )
+                col_analysis["mean"] = df[col].mean() if not df[col].isnull().all() else None
+                col_analysis["std"] = df[col].std() if not df[col].isnull().all() else None
+                col_analysis["min"] = df[col].min() if not df[col].isnull().all() else None
+                col_analysis["max"] = df[col].max() if not df[col].isnull().all() else None
 
             analysis["column_analysis"][col] = col_analysis
 
@@ -176,11 +157,11 @@ class PipelineBuilder:
 
     def _get_numeric_columns(self, df: pd.DataFrame) -> list[str]:
         """Get list of numeric columns."""
-        return df.select_dtypes(include=[np.number]).columns.tolist()
+        return numeric_columns(df)
 
     def _get_categorical_columns(self, df: pd.DataFrame) -> list[str]:
         """Get list of categorical columns."""
-        return df.select_dtypes(include=["object", "category"]).columns.tolist()
+        return categorical_columns(df)
 
     def _build_numeric_pipeline(self, numeric_df: pd.DataFrame) -> Pipeline:
         """Build preprocessing pipeline for numeric columns."""
@@ -199,8 +180,7 @@ class PipelineBuilder:
                 # Use adaptive imputer for more sophisticated strategies
                 imputation_config = ImputationConfig(
                     numeric_strategy=missing_strategy,
-                    prefer_speed=self.config.preprocessing.numeric_scaling
-                    == "standard",
+                    prefer_speed=self.config.preprocessing.numeric_scaling == "standard",
                 )
                 steps.append(("imputer", AdaptiveImputer(imputation_config)))
 
@@ -262,9 +242,7 @@ class PipelineBuilder:
 
         # Analyze dataset characteristics to adjust configuration
         total_memory = categorical_df.memory_usage(deep=True).sum() / 1024 / 1024  # MB
-        total_cardinality = sum(
-            categorical_df[col].nunique() for col in categorical_df.columns
-        )
+        total_cardinality = sum(categorical_df[col].nunique() for col in categorical_df.columns)
 
         # Adjust thresholds based on dataset size and memory constraints
         if total_memory > 100:  # Large dataset, be more conservative
@@ -378,39 +356,35 @@ def build_adaptive_pipeline(
     config: EmbeddingConfig | None = None,
     mode: str = "unsupervised",
 ) -> tuple[ColumnTransformer, dict[str, Any]]:
-    """
-    Build adaptive preprocessing pipeline for Row2Vec.
+    """Build adaptive preprocessing pipeline for Row2Vec.
 
     This is the main entry point for intelligent pipeline construction.
     It analyzes the dataset and automatically selects optimal preprocessing
     strategies based on data characteristics.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Input dataset
-    target : pd.Series, optional
-        Target variable for supervised preprocessing
-    config : EmbeddingConfig, optional
-        Configuration for preprocessing. If None, intelligent defaults are used.
-    mode : str
-        Embedding mode ("unsupervised", "target", etc.)
+    Args:
+        df (pd.DataFrame):
+            Input dataset
+        target (pd.Series, optional):
+            Target variable for supervised preprocessing
+        config (EmbeddingConfig, optional):
+            Configuration for preprocessing. If None, intelligent defaults are used.
+        mode (str):
+            Embedding mode ("unsupervised", "target", etc.)
 
-    Returns
-    -------
-    Tuple[ColumnTransformer, Dict[str, Any]]
-        Preprocessing pipeline and analysis report
+    Returns:
+        Tuple[ColumnTransformer, Dict[str, Any]]
+            Preprocessing pipeline and analysis report
 
-    Examples
-    --------
-    Basic usage with automatic configuration:
-    >>> pipeline, report = build_adaptive_pipeline(df)
-    >>> X_processed = pipeline.fit_transform(df)
-
-    With custom configuration:
-    >>> config = EmbeddingConfig()
-    >>> config.preprocessing.categorical_encoding_strategy = "entity"
-    >>> pipeline, report = build_adaptive_pipeline(df, target=y, config=config)
+    Examples:
+        >>> import row2vec
+        >>> from row2vec.pipeline_builder import build_adaptive_pipeline
+        >>> df = row2vec.generate_synthetic_data(60)
+        >>> pipeline, report = build_adaptive_pipeline(df)
+        >>> pipeline.fit_transform(df).shape[0]
+        60
+        >>> "dataset_shape" in report
+        True
     """
 
     builder = PipelineBuilder(config)

@@ -15,6 +15,7 @@ import pytest
 
 from row2vec import generate_synthetic_data
 from row2vec.core import learn_embedding
+from row2vec.utils import is_categorical_series
 
 
 class TestDataManager:
@@ -46,25 +47,25 @@ class TestDataManager:
 
 
 @pytest.fixture(scope="session")
-def small_synthetic_data():
+def small_synthetic_data() -> pd.DataFrame:
     """Small synthetic dataset for quick tests."""
     return generate_synthetic_data(num_records=50, seed=1305)
 
 
 @pytest.fixture(scope="session")
-def medium_synthetic_data():
+def medium_synthetic_data() -> pd.DataFrame:
     """Medium synthetic dataset for thorough tests."""
     return generate_synthetic_data(num_records=200, seed=1305)
 
 
 @pytest.fixture(scope="session")
-def large_synthetic_data():
+def large_synthetic_data() -> pd.DataFrame:
     """Large synthetic dataset for performance tests."""
     return generate_synthetic_data(num_records=1000, seed=1305)
 
 
 @pytest.fixture(scope="session")
-def numeric_only_data():
+def numeric_only_data() -> pd.DataFrame:
     """Dataset with only numeric columns."""
     np.random.seed(42)
     return pd.DataFrame(
@@ -78,7 +79,7 @@ def numeric_only_data():
 
 
 @pytest.fixture(scope="session")
-def categorical_only_data():
+def categorical_only_data() -> pd.DataFrame:
     """Dataset with only categorical columns."""
     np.random.seed(42)
     return pd.DataFrame(
@@ -92,7 +93,7 @@ def categorical_only_data():
 
 
 @pytest.fixture(scope="session")
-def mixed_complex_data():
+def mixed_complex_data() -> pd.DataFrame:
     """Complex mixed dataset with various data types and challenges."""
     np.random.seed(42)
 
@@ -138,7 +139,7 @@ def mixed_complex_data():
 
 
 @pytest.fixture(scope="session")
-def real_data_samples():
+def real_data_samples() -> dict[str, pd.DataFrame]:
     """Samples from real datasets for integration testing."""
     data_dir = Path(__file__).parent.parent / "data"
     samples = {}
@@ -176,9 +177,7 @@ def real_data_samples():
         housing_full = pd.read_csv(housing_path)
         # Select numeric features and a couple categorical
         numeric_cols = housing_full.select_dtypes(include=[np.number]).columns[:8]
-        categorical_cols = (
-            ["MSZoning", "Street"] if "MSZoning" in housing_full.columns else []
-        )
+        categorical_cols = ["MSZoning", "Street"] if "MSZoning" in housing_full.columns else []
         selected_cols = list(numeric_cols) + categorical_cols
         housing_sample = (
             housing_full[selected_cols]
@@ -194,7 +193,7 @@ def real_data_samples():
 
 
 @pytest.fixture(scope="session")
-def performance_baseline_data():
+def performance_baseline_data() -> pd.DataFrame:
     """Standardized dataset for performance baseline testing."""
     np.random.seed(42)
 
@@ -215,7 +214,7 @@ def performance_baseline_data():
 class TestFixtureGeneration:
     """Test that fixtures are generated correctly."""
 
-    def test_small_synthetic_data_fixture(self, small_synthetic_data):
+    def test_small_synthetic_data_fixture(self, small_synthetic_data: pd.DataFrame) -> None:
         """Test small synthetic data fixture."""
         assert isinstance(small_synthetic_data, pd.DataFrame)
         assert len(small_synthetic_data) == 50
@@ -223,21 +222,24 @@ class TestFixtureGeneration:
         assert "Product" in small_synthetic_data.columns
         assert "Sales" in small_synthetic_data.columns
 
-    def test_numeric_only_fixture(self, numeric_only_data):
+    def test_numeric_only_fixture(self, numeric_only_data: pd.DataFrame) -> None:
         """Test numeric-only data fixture."""
         assert isinstance(numeric_only_data, pd.DataFrame)
         assert len(numeric_only_data) == 100
         assert all(numeric_only_data.dtypes == "float64")
         assert numeric_only_data.shape[1] == 4
 
-    def test_categorical_only_fixture(self, categorical_only_data):
+    def test_categorical_only_fixture(self, categorical_only_data: pd.DataFrame) -> None:
         """Test categorical-only data fixture."""
         assert isinstance(categorical_only_data, pd.DataFrame)
         assert len(categorical_only_data) == 100
-        assert all(dtype == "object" for dtype in categorical_only_data.dtypes)
+        assert all(
+            is_categorical_series(categorical_only_data[col])
+            for col in categorical_only_data.columns
+        )
         assert categorical_only_data.shape[1] == 4
 
-    def test_mixed_complex_fixture(self, mixed_complex_data):
+    def test_mixed_complex_fixture(self, mixed_complex_data: pd.DataFrame) -> None:
         """Test complex mixed data fixture."""
         assert isinstance(mixed_complex_data, pd.DataFrame)
         assert len(mixed_complex_data) == 300
@@ -254,7 +256,7 @@ class TestFixtureGeneration:
         # Check for missing values
         assert mixed_complex_data.isnull().any().any()
 
-    def test_real_data_samples_fixture(self, real_data_samples):
+    def test_real_data_samples_fixture(self, real_data_samples: dict[str, pd.DataFrame]) -> None:
         """Test real data samples fixture."""
         assert isinstance(real_data_samples, dict)
 
@@ -272,7 +274,7 @@ class TestFixtureGeneration:
             assert len(housing) <= 150
             assert housing.shape[1] >= 4
 
-    def test_performance_baseline_fixture(self, performance_baseline_data):
+    def test_performance_baseline_fixture(self, performance_baseline_data: pd.DataFrame) -> None:
         """Test performance baseline data fixture."""
         assert isinstance(performance_baseline_data, pd.DataFrame)
         assert len(performance_baseline_data) == 1000
@@ -293,7 +295,7 @@ class TestFixtureGeneration:
 class TestRegressionFixtures:
     """Test fixtures for regression testing."""
 
-    def test_save_and_load_baseline_results(self, performance_baseline_data):
+    def test_save_and_load_baseline_results(self, performance_baseline_data: pd.DataFrame) -> None:
         """Test saving and loading baseline results for regression testing."""
         from row2vec import learn_embedding
 
@@ -340,7 +342,7 @@ class TestRegressionFixtures:
             decimal=10,
         )
 
-    def test_cross_method_consistency_fixtures(self, small_synthetic_data):
+    def test_cross_method_consistency_fixtures(self, small_synthetic_data: pd.DataFrame) -> None:
         """Test consistency across different methods using fixtures."""
         embedding_dim = 3
 

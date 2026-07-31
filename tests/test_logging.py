@@ -17,14 +17,14 @@ from row2vec.utils import generate_synthetic_data
 class TestRow2VecLogger:
     """Test suite for Row2VecLogger class."""
 
-    def test_logger_initialization(self):
+    def test_logger_initialization(self) -> None:
         """Test basic logger initialization."""
         logger = Row2VecLogger()
         assert logger.logger.name == "row2vec"
         assert logger.include_performance is True
         assert logger.include_memory is True
 
-    def test_logger_with_custom_settings(self):
+    def test_logger_with_custom_settings(self) -> None:
         """Test logger with custom settings."""
         logger = Row2VecLogger(
             name="test_logger",
@@ -36,7 +36,7 @@ class TestRow2VecLogger:
         assert logger.include_performance is False
         assert logger.include_memory is False
 
-    def test_logger_with_file_output(self):
+    def test_logger_with_file_output(self) -> None:
         """Test logger with file output."""
         with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
             log_file = f.name
@@ -54,7 +54,7 @@ class TestRow2VecLogger:
             if os.path.exists(log_file):
                 os.unlink(log_file)
 
-    def test_training_lifecycle_logging(self):
+    def test_training_lifecycle_logging(self) -> None:
         """Test the complete training lifecycle logging."""
         logger = Row2VecLogger()
 
@@ -73,7 +73,7 @@ class TestRow2VecLogger:
             # End training
             logger.end_training(0.1, 10)
 
-    def test_error_logging(self):
+    def test_error_logging(self) -> None:
         """Test error logging functionality."""
         logger = Row2VecLogger()
 
@@ -83,7 +83,7 @@ class TestRow2VecLogger:
             logger.log_error(e, "Test context")
             # Should not raise any exceptions
 
-    def test_get_logger_convenience_function(self):
+    def test_get_logger_convenience_function(self) -> None:
         """Test the get_logger convenience function."""
         logger = get_logger("test")
         assert isinstance(logger, Row2VecLogger)
@@ -93,7 +93,7 @@ class TestRow2VecLogger:
 class TestLoggingIntegration:
     """Test suite for logging integration with learn_embedding."""
 
-    def test_learn_embedding_with_logging_enabled(self):
+    def test_learn_embedding_with_logging_enabled(self) -> None:
         """Test learn_embedding with logging enabled."""
         df = generate_synthetic_data(100)
 
@@ -109,7 +109,7 @@ class TestLoggingIntegration:
 
         assert result.shape == (100, 3)
 
-    def test_learn_embedding_with_logging_disabled(self):
+    def test_learn_embedding_with_logging_disabled(self) -> None:
         """Test learn_embedding with logging disabled."""
         df = generate_synthetic_data(50)
 
@@ -123,7 +123,7 @@ class TestLoggingIntegration:
 
         assert result.shape == (50, 2)
 
-    def test_learn_embedding_with_file_logging(self):
+    def test_learn_embedding_with_file_logging(self) -> None:
         """Test learn_embedding with file logging."""
         df = generate_synthetic_data(30)
 
@@ -154,7 +154,7 @@ class TestLoggingIntegration:
             if os.path.exists(log_file):
                 os.unlink(log_file)
 
-    def test_target_mode_logging(self):
+    def test_target_mode_logging(self) -> None:
         """Test logging in target mode."""
         df = pd.DataFrame(
             {
@@ -177,7 +177,7 @@ class TestLoggingIntegration:
 
         assert result.shape == (3, 2)  # 3 categories
 
-    def test_performance_warnings(self):
+    def test_performance_warnings(self) -> None:
         """Test that performance warnings are logged appropriately."""
         # Create a dataset that will trigger performance warnings
         large_df = generate_synthetic_data(1000)  # Large dataset warning
@@ -199,11 +199,11 @@ class TestLoggingIntegration:
         assert result.shape[0] == 1000
         assert result.shape[1] == 50
 
-    def test_validation_error_logging(self):
+    def test_validation_error_logging(self) -> None:
         """Test that validation errors are properly logged."""
         df = generate_synthetic_data(10)
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="embedding_dim"):
             learn_embedding(
                 df,
                 embedding_dim=1000,  # Too large, will trigger validation error
@@ -217,7 +217,7 @@ class TestLoggingIntegration:
 class TestTrainingProgressCallback:
     """Test suite for TrainingProgressCallback."""
 
-    def test_callback_integration(self):
+    def test_callback_integration(self) -> None:
         """Test that the callback integrates properly with Keras training."""
         df = generate_synthetic_data(50)
 

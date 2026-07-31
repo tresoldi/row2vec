@@ -220,18 +220,12 @@ show_error_codes = true
 [[tool.mypy.overrides]]
 module = [
     "tensorflow.*",
-    "keras.*",
     "sklearn.*",
     "umap.*",
     "psutil.*",
-    "pytest.*",
     "yaml.*",
 ]
 ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = ["tests.*"]
-disable_error_code = ["misc", "no-untyped-def", "method-assign"]
 
 
 # Pytest configuration
@@ -299,8 +293,9 @@ output = "coverage.xml"
 [tool.bandit]
 exclude_dirs = ["tests", "docs", "examples"]
 # B101 assert_used, B301/B403 pickle (the documented model-serialization format),
-# B311 non-cryptographic random (seeding, sampling), B404/B603 subprocess.
-skips = ["B101", "B301", "B311", "B403", "B404", "B603"]
+# B311 non-cryptographic random (seeding, sampling), B404/B603 subprocess,
+# B110/B112 best-effort fallbacks around optional backends and metrics.
+skips = ["B101", "B110", "B112", "B301", "B311", "B403", "B404", "B603"]
 
 [tool.bandit.assert_used]
 skips = ["*_test.py", "*/test_*.py"]

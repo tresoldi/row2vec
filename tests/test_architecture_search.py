@@ -2,6 +2,7 @@
 Tests for neural architecture search functionality.
 """
 
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -20,7 +21,7 @@ from row2vec.config import EmbeddingConfig
 class TestArchitectureSearchConfig:
     """Test ArchitectureSearchConfig class."""
 
-    def test_default_config(self):
+    def test_default_config(self) -> None:
         """Test default configuration values."""
         config = ArchitectureSearchConfig()
 
@@ -35,7 +36,7 @@ class TestArchitectureSearchConfig:
         assert config.activation_options == ["relu", "elu", "swish"]
         assert config.verbose is True
 
-    def test_custom_config(self):
+    def test_custom_config(self) -> None:
         """Test custom configuration values."""
         config = ArchitectureSearchConfig(
             method="grid",
@@ -55,7 +56,7 @@ class TestArchitectureSearchConfig:
 class TestArchitectureSearchResult:
     """Test ArchitectureSearchResult class."""
 
-    def test_result_creation(self):
+    def test_result_creation(self) -> None:
         """Test creating search result."""
         best_arch = {"n_layers": 2, "hidden_units": [128, 64]}
         history = [
@@ -76,7 +77,7 @@ class TestArchitectureSearchResult:
         assert result.total_time == 100.0
         assert result.trials_completed == 2
 
-    def test_summary(self):
+    def test_summary(self) -> None:
         """Test result summary generation."""
         best_arch = {"n_layers": 2, "hidden_units": [128, 64]}
         history = [
@@ -106,7 +107,7 @@ class TestArchitectureSearcher:
     """Test ArchitectureSearcher class."""
 
     @pytest.fixture
-    def sample_data(self):
+    def sample_data(self) -> pd.DataFrame:
         """Create sample data for testing."""
         np.random.seed(42)
         return pd.DataFrame(
@@ -118,12 +119,12 @@ class TestArchitectureSearcher:
         )
 
     @pytest.fixture
-    def base_config(self):
+    def base_config(self) -> EmbeddingConfig:
         """Create base embedding config."""
         return EmbeddingConfig(mode="unsupervised", embedding_dim=5)
 
     @pytest.fixture
-    def search_config(self):
+    def search_config(self) -> ArchitectureSearchConfig:
         """Create search config for testing."""
         return ArchitectureSearchConfig(
             max_trials=3,  # Small number for testing
@@ -132,7 +133,7 @@ class TestArchitectureSearcher:
             verbose=False,
         )
 
-    def test_searcher_initialization(self, search_config):
+    def test_searcher_initialization(self, search_config: ArchitectureSearchConfig) -> None:
         """Test searcher initialization."""
         searcher = ArchitectureSearcher(search_config)
 
@@ -142,7 +143,7 @@ class TestArchitectureSearcher:
         assert searcher.best_architecture is None
         assert searcher.trials_without_improvement == 0
 
-    def test_sample_random_architecture(self, search_config):
+    def test_sample_random_architecture(self, search_config: ArchitectureSearchConfig) -> None:
         """Test random architecture sampling."""
         searcher = ArchitectureSearcher(search_config)
 
@@ -154,9 +155,7 @@ class TestArchitectureSearcher:
         assert "activation" in architecture
 
         assert (
-            search_config.layer_range[0]
-            <= architecture["n_layers"]
-            <= search_config.layer_range[1]
+            search_config.layer_range[0] <= architecture["n_layers"] <= search_config.layer_range[1]
         )
         assert architecture["dropout_rate"] in search_config.dropout_options
         assert architecture["activation"] in search_config.activation_options
@@ -167,7 +166,7 @@ class TestArchitectureSearcher:
             assert isinstance(architecture["hidden_units"], list)
             assert len(architecture["hidden_units"]) == architecture["n_layers"]
 
-    def test_generate_grid_architectures(self, search_config):
+    def test_generate_grid_architectures(self, search_config: ArchitectureSearchConfig) -> None:
         """Test grid architecture generation."""
         searcher = ArchitectureSearcher(search_config)
 
@@ -184,8 +183,12 @@ class TestArchitectureSearcher:
 
     @patch("row2vec.architecture_search.learn_embedding_v2")
     def test_evaluate_architecture(
-        self, mock_learn_embedding, sample_data, base_config, search_config
-    ):
+        self,
+        mock_learn_embedding: Any,
+        sample_data: pd.DataFrame,
+        base_config: EmbeddingConfig,
+        search_config: ArchitectureSearchConfig,
+    ) -> None:
         """Test architecture evaluation."""
         # Mock embedding generation
         mock_embeddings = pd.DataFrame(np.random.randn(100, 5))
@@ -199,9 +202,7 @@ class TestArchitectureSearcher:
             "activation": "relu",
         }
 
-        score = searcher._evaluate_architecture(
-            sample_data, base_config, architecture, None, 0
-        )
+        score = searcher._evaluate_architecture(sample_data, base_config, architecture, None, 0)
 
         assert isinstance(score, float)
         assert score != float("-inf")  # Should not fail
@@ -215,8 +216,12 @@ class TestArchitectureSearcher:
 
     @patch("row2vec.architecture_search.learn_embedding_v2")
     def test_search_random(
-        self, mock_learn_embedding, sample_data, base_config, search_config
-    ):
+        self,
+        mock_learn_embedding: Any,
+        sample_data: pd.DataFrame,
+        base_config: EmbeddingConfig,
+        search_config: ArchitectureSearchConfig,
+    ) -> None:
         """Test random search execution."""
         # Mock embedding generation
         mock_embeddings = pd.DataFrame(np.random.randn(100, 5))
@@ -232,7 +237,9 @@ class TestArchitectureSearcher:
         assert len(searcher.search_history) == result.trials_completed
 
     @patch("row2vec.architecture_search.learn_embedding_v2")
-    def test_search_grid(self, mock_learn_embedding, sample_data, base_config):
+    def test_search_grid(
+        self, mock_learn_embedding: Any, sample_data: pd.DataFrame, base_config: EmbeddingConfig
+    ) -> None:
         """Test grid search execution."""
         # Mock embedding generation
         mock_embeddings = pd.DataFrame(np.random.randn(100, 5))
@@ -252,21 +259,21 @@ class TestArchitectureSearcher:
         assert result.best_score > float("-inf")
         assert result.trials_completed <= search_config.max_trials
 
-    def test_should_stop_patience(self, search_config):
+    def test_should_stop_patience(self, search_config: ArchitectureSearchConfig) -> None:
         """Test stopping based on patience."""
         searcher = ArchitectureSearcher(search_config)
         searcher.trials_without_improvement = search_config.patience
 
         assert searcher._should_stop(0) is True
 
-    def test_should_not_stop_early(self, search_config):
+    def test_should_not_stop_early(self, search_config: ArchitectureSearchConfig) -> None:
         """Test not stopping early."""
         searcher = ArchitectureSearcher(search_config)
         searcher.trials_without_improvement = search_config.patience - 1
 
         assert searcher._should_stop(0) is False
 
-    def test_describe_search_space(self, search_config):
+    def test_describe_search_space(self, search_config: ArchitectureSearchConfig) -> None:
         """Test search space description."""
         searcher = ArchitectureSearcher(search_config)
         description = searcher._describe_search_space()
@@ -279,7 +286,7 @@ class TestSearchArchitectureFunction:
     """Test the main search_architecture function."""
 
     @pytest.fixture
-    def sample_data(self):
+    def sample_data(self) -> pd.DataFrame:
         """Create sample data for testing."""
         np.random.seed(42)
         return pd.DataFrame(
@@ -290,14 +297,14 @@ class TestSearchArchitectureFunction:
         )
 
     @pytest.fixture
-    def base_config(self):
+    def base_config(self) -> EmbeddingConfig:
         """Create base embedding config."""
         return EmbeddingConfig(mode="unsupervised", embedding_dim=3)
 
     @patch("row2vec.architecture_search.learn_embedding_v2")
     def test_search_architecture_default_config(
-        self, mock_learn_embedding, sample_data, base_config
-    ):
+        self, mock_learn_embedding: Any, sample_data: pd.DataFrame, base_config: EmbeddingConfig
+    ) -> None:
         """Test search_architecture with default config."""
         # Mock embedding generation
         mock_embeddings = pd.DataFrame(np.random.randn(50, 3))
@@ -314,8 +321,8 @@ class TestSearchArchitectureFunction:
 
     @patch("row2vec.architecture_search.learn_embedding_v2")
     def test_search_architecture_custom_config(
-        self, mock_learn_embedding, sample_data, base_config
-    ):
+        self, mock_learn_embedding: Any, sample_data: pd.DataFrame, base_config: EmbeddingConfig
+    ) -> None:
         """Test search_architecture with custom config."""
         # Mock embedding generation
         mock_embeddings = pd.DataFrame(np.random.randn(50, 3))
@@ -338,7 +345,7 @@ class TestIntegrationWithAPI:
     """Test integration with main API."""
 
     @pytest.fixture
-    def sample_data(self):
+    def sample_data(self) -> pd.DataFrame:
         """Create sample data for testing."""
         np.random.seed(42)
         return pd.DataFrame(
@@ -351,8 +358,8 @@ class TestIntegrationWithAPI:
     @patch("row2vec.architecture_search.search_architecture")
     @patch("row2vec.api._legacy_learn_embedding")
     def test_learn_embedding_v2_with_auto_architecture(
-        self, mock_legacy, mock_search, sample_data
-    ):
+        self, mock_legacy: Any, mock_search: Any, sample_data: pd.DataFrame
+    ) -> None:
         """Test learn_embedding_v2 with auto_architecture=True."""
         from row2vec.api import learn_embedding_v2
         from row2vec.config import EmbeddingConfig
@@ -386,16 +393,18 @@ class TestErrorHandling:
     """Test error handling in architecture search."""
 
     @pytest.fixture
-    def sample_data(self):
+    def sample_data(self) -> pd.DataFrame:
         """Create sample data for testing."""
         return pd.DataFrame({"feature1": [1, 2, 3]})  # Very small dataset
 
     @pytest.fixture
-    def base_config(self):
+    def base_config(self) -> EmbeddingConfig:
         """Create base embedding config."""
         return EmbeddingConfig(mode="unsupervised", embedding_dim=2)
 
-    def test_invalid_search_method(self, sample_data, base_config):
+    def test_invalid_search_method(
+        self, sample_data: pd.DataFrame, base_config: EmbeddingConfig
+    ) -> None:
         """Test error handling for invalid search method."""
         search_config = ArchitectureSearchConfig(method="invalid_method")
         searcher = ArchitectureSearcher(search_config)
@@ -405,8 +414,8 @@ class TestErrorHandling:
 
     @patch("row2vec.architecture_search.learn_embedding_v2")
     def test_embedding_generation_failure(
-        self, mock_learn_embedding, sample_data, base_config
-    ):
+        self, mock_learn_embedding: Any, sample_data: pd.DataFrame, base_config: EmbeddingConfig
+    ) -> None:
         """Test handling of embedding generation failures."""
         # Mock embedding generation to fail
         mock_learn_embedding.side_effect = Exception("Embedding failed")

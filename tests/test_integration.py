@@ -18,12 +18,12 @@ class TestRealDatasetIntegration:
     """Integration tests with real-world datasets."""
 
     @pytest.fixture(scope="class")
-    def data_dir(self):
+    def data_dir(self) -> Path:
         """Get the data directory path."""
         return Path(__file__).parent.parent / "data"
 
     @pytest.fixture(scope="class")
-    def titanic_data(self, data_dir):
+    def titanic_data(self, data_dir: Path) -> pd.DataFrame:
         """Load Titanic dataset."""
         titanic_path = data_dir / "titanic.csv"
         if not titanic_path.exists():
@@ -31,7 +31,7 @@ class TestRealDatasetIntegration:
         return pd.read_csv(titanic_path)
 
     @pytest.fixture(scope="class")
-    def housing_data(self, data_dir):
+    def housing_data(self, data_dir: Path) -> pd.DataFrame:
         """Load Ames housing dataset."""
         housing_path = data_dir / "ames_housing.csv"
         if not housing_path.exists():
@@ -39,14 +39,14 @@ class TestRealDatasetIntegration:
         return pd.read_csv(housing_path)
 
     @pytest.fixture(scope="class")
-    def adult_data(self, data_dir):
+    def adult_data(self, data_dir: Path) -> pd.DataFrame:
         """Load Adult dataset."""
         adult_path = data_dir / "adult.csv"
         if not adult_path.exists():
             pytest.skip("Adult dataset not available")
         return pd.read_csv(adult_path)
 
-    def test_titanic_unsupervised_embedding(self, titanic_data):
+    def test_titanic_unsupervised_embedding(self, titanic_data: pd.DataFrame) -> None:
         """Test unsupervised embeddings on Titanic dataset."""
         # Clean the data for testing - use correct column names
         df = titanic_data.dropna(subset=["Age", "Fare"]).copy()
@@ -95,7 +95,7 @@ class TestRealDatasetIntegration:
         assert embeddings_neural.shape[1] == 3
         assert not embeddings_neural.isnull().any().any()
 
-    def test_titanic_target_embedding(self, titanic_data):
+    def test_titanic_target_embedding(self, titanic_data: pd.DataFrame) -> None:
         """Test target embeddings on Titanic dataset."""
         # Clean the data - use correct column names
         df = titanic_data.dropna(subset=["Age", "Fare", "Survived"]).copy()
@@ -134,13 +134,11 @@ class TestRealDatasetIntegration:
         assert embeddings.shape[0] == unique_survived
         assert embeddings.shape[1] == 3
 
-    def test_housing_classical_methods(self, housing_data):
+    def test_housing_classical_methods(self, housing_data: pd.DataFrame) -> None:
         """Test classical methods on housing dataset."""
         # Select numeric and a few categorical columns
         numeric_cols = housing_data.select_dtypes(include=[np.number]).columns[:5]
-        categorical_cols = (
-            ["MSZoning", "Street"] if "MSZoning" in housing_data.columns else []
-        )
+        categorical_cols = ["MSZoning", "Street"] if "MSZoning" in housing_data.columns else []
 
         selected_cols = list(numeric_cols) + categorical_cols
         df = housing_data[selected_cols].dropna()
@@ -179,7 +177,7 @@ class TestRealDatasetIntegration:
         )
         assert umap_emb.shape == (len(df_sample), 3)
 
-    def test_adult_large_categorical_handling(self, adult_data):
+    def test_adult_large_categorical_handling(self, adult_data: pd.DataFrame) -> None:
         """Test handling of datasets with many categorical variables."""
         # Adult dataset has many categorical columns
         categorical_cols = ["workclass", "education", "marital-status", "occupation"]
@@ -214,7 +212,7 @@ class TestRealDatasetIntegration:
 class TestEdgeCases:
     """Test edge cases and boundary conditions."""
 
-    def test_single_column_dataframe(self):
+    def test_single_column_dataframe(self) -> None:
         """Test with DataFrame containing only one column."""
         df = pd.DataFrame({"single_col": range(50)})
 
@@ -232,7 +230,7 @@ class TestEdgeCases:
 
         assert embeddings.shape == (50, 1)
 
-    def test_constant_values_dataframe(self):
+    def test_constant_values_dataframe(self) -> None:
         """Test with DataFrame containing constant values."""
         df = pd.DataFrame(
             {
@@ -253,7 +251,7 @@ class TestEdgeCases:
 
         assert embeddings.shape == (100, 2)
 
-    def test_mixed_data_types_extreme(self):
+    def test_mixed_data_types_extreme(self) -> None:
         """Test with extreme mix of data types."""
         df = pd.DataFrame(
             {
@@ -280,7 +278,7 @@ class TestEdgeCases:
         assert embeddings.shape == (100, 4)
         assert not embeddings.isnull().any().any()
 
-    def test_missing_values_handling(self):
+    def test_missing_values_handling(self) -> None:
         """Test handling of missing values in data."""
         df = pd.DataFrame(
             {
@@ -303,7 +301,7 @@ class TestEdgeCases:
         assert embeddings.shape[1] == 3
         assert not embeddings.isnull().any().any()
 
-    def test_minimal_dataset_size(self):
+    def test_minimal_dataset_size(self) -> None:
         """Test with very small datasets."""
         # Test with minimum viable dataset size
         df = pd.DataFrame(
@@ -327,7 +325,7 @@ class TestEdgeCases:
 
         assert embeddings.shape == (3, 1)
 
-    def test_high_dimensional_input(self):
+    def test_high_dimensional_input(self) -> None:
         """Test with high-dimensional input (many columns)."""
         # Create dataset with many columns
         n_cols = 50
@@ -351,7 +349,7 @@ class TestEdgeCases:
 class TestCompatibility:
     """Test compatibility across different configurations."""
 
-    def test_different_embedding_dimensions(self):
+    def test_different_embedding_dimensions(self) -> None:
         """Test various embedding dimensions."""
         df = pd.DataFrame(
             {
@@ -375,7 +373,7 @@ class TestCompatibility:
             )
             assert embeddings.shape == (100, dim)
 
-    def test_different_batch_sizes(self):
+    def test_different_batch_sizes(self) -> None:
         """Test various batch sizes for neural methods."""
         df = pd.DataFrame(
             {
@@ -399,7 +397,7 @@ class TestCompatibility:
             )
             assert embeddings.shape == (200, 3)
 
-    def test_scaling_methods_integration(self):
+    def test_scaling_methods_integration(self) -> None:
         """Test all scaling methods work with real data processing."""
         df = pd.DataFrame(
             {

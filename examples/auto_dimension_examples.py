@@ -40,8 +40,7 @@ def basic_auto_selection_example():
     print("📊 Method scores:")
     for method, result in metadata["method_results"].items():
         print(
-            f"   {method}: dim={result['recommended_dim']}, "
-            f"score={result['score']:.3f}",
+            f"   {method}: dim={result['recommended_dim']}, score={result['score']:.3f}",
         )
 
     return optimal_dim, metadata
@@ -234,10 +233,10 @@ def main():
 
     try:
         # Basic example
-        basic_optimal_dim, basic_metadata = basic_auto_selection_example()
+        basic_optimal_dim, _basic_metadata = basic_auto_selection_example()
 
         # Advanced example
-        advanced_optimal_dim, advanced_metadata = advanced_auto_selection_example()
+        advanced_optimal_dim, _advanced_metadata = advanced_auto_selection_example()
 
         # Comparison example
         comparison_optimal_dim = comparison_example()
@@ -246,7 +245,7 @@ def main():
         method_comparison_example()
 
         # Integration example
-        final_embeddings, integration_metadata = integration_example()
+        _final_embeddings, _integration_metadata = integration_example()
 
         print("\n🎉 All examples completed successfully!")
         print("📊 Summary of recommendations:")

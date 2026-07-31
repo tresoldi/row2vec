@@ -1,5 +1,4 @@
-"""
-Row2Vec: Model Serialization and Persistence
+"""Saving and loading trained models.
 
 This module provides functionality to save and load trained Row2Vec models
 with their preprocessing pipelines and training metadata using a transparent
@@ -176,8 +175,7 @@ class Row2VecModelMetadata:
 
 
 class Row2VecModel:
-    """
-    Complete Row2Vec model with preprocessing pipeline and metadata.
+    """Complete Row2Vec model with preprocessing pipeline and metadata.
 
     This class encapsulates the trained model, preprocessing pipeline,
     and all metadata needed for inference.
@@ -193,13 +191,10 @@ class Row2VecModel:
     ):
         self.model = model
         self.preprocessor = preprocessor
-        self.metadata = metadata or Row2VecModelMetadata(
-            embedding_dim=10, mode="unsupervised"
-        )
+        self.metadata = metadata or Row2VecModelMetadata(embedding_dim=10, mode="unsupervised")
 
     def validate_input_schema(self, df: pd.DataFrame, strict: bool = True) -> bool:
-        """
-        Validate input DataFrame schema against expected schema.
+        """Validate input DataFrame schema against expected schema.
 
         Args:
             df: Input DataFrame to validate
@@ -221,12 +216,11 @@ class Row2VecModel:
             return True
         except Exception as e:
             if strict:
-                raise ValueError(f"Schema validation failed: {e!s}")
+                raise ValueError(f"Schema validation failed: {e!s}") from e
             return False
 
     def predict(self, df: pd.DataFrame, validate_schema: bool = True) -> pd.DataFrame:
-        """
-        Generate embeddings for new data.
+        """Generate embeddings for new data.
 
         Args:
             df: Input DataFrame
@@ -273,9 +267,7 @@ class Row2VecModel:
             # Preprocess the data (exclude reference column if target mode)
             if self.metadata.mode == "target" and self.metadata.reference_column:
                 # For target mode prediction, we use all data but ignore the reference column if present
-                input_df = df.drop(
-                    columns=[self.metadata.reference_column], errors="ignore"
-                )
+                input_df = df.drop(columns=[self.metadata.reference_column], errors="ignore")
             else:
                 input_df = df
 
@@ -297,11 +289,9 @@ class Row2VecModel:
                 except Exception as e:
                     raise ValueError(
                         f"Failed to extract embeddings from neural network model: {e}"
-                    )
+                    ) from e
             else:
-                raise ValueError(
-                    "Neural network model doesn't have expected Keras structure"
-                )
+                raise ValueError("Neural network model doesn't have expected Keras structure")
 
             # Create DataFrame
             embedding_df = pd.DataFrame(
@@ -318,8 +308,7 @@ def save_model(
     base_path: str | Path,
     overwrite: bool = False,
 ) -> tuple[str, str]:
-    """
-    Save a Row2Vec model using the two-file approach.
+    """Save a Row2Vec model using the two-file approach.
 
     Args:
         model: The Row2Vec model to save
@@ -371,8 +360,7 @@ def save_model(
 
 
 def load_model(script_path: str | Path) -> Row2VecModel:
-    """
-    Load a Row2Vec model from the script file.
+    """Load a Row2Vec model from the script file.
 
     Args:
         script_path: Path to the Python script file
@@ -391,23 +379,28 @@ def load_model(script_path: str | Path) -> Row2VecModel:
 
     # Execute the script in a controlled namespace
     # Add the script directory to help find the binary file
-    namespace = {
+    namespace: dict[str, Any] = {
         "__script_dir__": str(script_path.parent),
         "__script_path__": str(script_path),
     }
-    exec(script_path.read_text(encoding="utf-8"), namespace)
+    # Row2Vec models are saved as a Python loader script plus a binary blob, so
+    # loading one runs its script. Only load models from a trusted source; see
+    # SECURITY.md.
+    exec(script_path.read_text(encoding="utf-8"), namespace)  # nosec B102
 
     # Get the load function from the script
     if "load_model" not in namespace:
         raise ValueError("Script does not contain load_model function")
 
     # Load the model
-    return namespace["load_model"]()
+    loaded = namespace["load_model"]()
+    if not isinstance(loaded, Row2VecModel):
+        raise TypeError(f"Loader script returned {type(loaded).__name__}, expected Row2VecModel")
+    return loaded
 
 
 def _generate_model_script(metadata: Row2VecModelMetadata, binary_filename: str) -> str:
-    """
-    Generate the Python script for model loading.
+    """Generate the Python script for model loading.
 
     Args:
         metadata: Model metadata
@@ -418,7 +411,7 @@ def _generate_model_script(metadata: Row2VecModelMetadata, binary_filename: str)
     """
 
     # Convert metadata to JSON for inclusion in script, handling None values
-    def json_serializer(obj):
+    def json_serializer(obj: Any) -> Any:
         """Custom JSON serializer to handle None and other Python objects."""
         import numpy as np
 
@@ -447,7 +440,7 @@ def _generate_model_script(metadata: Row2VecModelMetadata, binary_filename: str)
     metadata_repr = repr(metadata_dict)
 
     # Handle potential NaN values in metadata for f-string formatting
-    def safe_format(value):
+    def safe_format(value: Any) -> Any:
         if value is None:
             return "Not recorded"
         if isinstance(value, np.floating | np.integer) and np.isnan(value):
@@ -611,17 +604,48 @@ def train_and_save_model(
     overwrite: bool = False,
     include_training_history: bool = True,
 ) -> tuple[pd.DataFrame, str, str]:
-    """
-    Train a Row2Vec model and save it using the two-file approach.
+    """Train a Row2Vec model and save it using the two-file approach.
 
     This is a convenience function that combines training and saving.
 
     Args:
-        df: Input DataFrame for training
-        base_path: Base path for saving the model
-        **kwargs: All parameters from learn_embedding
-        overwrite: Whether to overwrite existing model files
-        include_training_history: Whether to include full training history in metadata
+        df (pd.DataFrame): The input DataFrame containing numeric and categorical features.
+        base_path (str | Path): Base path for the saved model, without a suffix.
+        embedding_dim (int): The dimensionality of the embedding space.
+        mode (str): Embedding method - 'unsupervised' (autoencoder), 'target' (supervised),
+                   'pca' (Principal Component Analysis), 'tsne' (t-SNE), 'umap' (UMAP),
+                   or 'contrastive' (contrastive learning).
+        reference_column (str): The target column for 'target' mode.
+        max_epochs (int): The maximum number of training epochs (neural methods only).
+        batch_size (int): The batch size for training (neural methods only).
+        dropout_rate (float): The dropout rate for regularization (neural methods only).
+        hidden_units (Union[int, list[int]]): Hidden layer configuration - single int for one layer
+                     or list of ints for multiple layers (neural methods only).
+        early_stopping (bool): Whether to use early stopping (neural methods only).
+        seed (int): A random seed for reproducibility.
+        verbose (bool): Whether to print training progress.
+        scale_method (str, optional): Scaling method for embeddings. Options:
+                     'none', 'minmax', 'standard', 'l2', 'tanh'.
+        scale_range (tuple, optional): Range for minmax scaling. Default: (0, 1).
+        log_level (str): Logging level ('DEBUG', 'INFO', 'WARNING', 'ERROR').
+        log_file (str, optional): File path for logging output.
+        enable_logging (bool): Whether to enable structured logging.
+        n_neighbors (int): Number of neighbors for UMAP (default: 15).
+        perplexity (float): Perplexity parameter for t-SNE (default: 30.0).
+        min_dist (float): Minimum distance for UMAP (default: 0.1).
+        n_iter (int): Number of iterations for t-SNE (default: 1000).
+        similar_pairs (list[tuple[int, int]], optional): List of (row_idx1, row_idx2) pairs
+                     that should have similar embeddings (for contrastive mode).
+        dissimilar_pairs (list[tuple[int, int]], optional): List of (row_idx1, row_idx2) pairs
+                     that should have dissimilar embeddings (for contrastive mode).
+        auto_pairs (str, optional): Strategy for automatic pair generation. Options:
+                     'cluster' (cluster-based), 'neighbors' (k-NN based),
+                     'categorical' (same category values), 'random' (random sampling).
+        contrastive_loss (str): Contrastive loss function. Options: 'triplet', 'contrastive'.
+        margin (float): Margin parameter for contrastive loss functions (default: 1.0).
+        negative_samples (int): Number of negative samples per positive pair (default: 5).
+        overwrite (bool): Whether to overwrite existing model files.
+        include_training_history (bool): Whether to include the full training history in the metadata.
 
     Returns:
         Tuple of (embeddings, script_path, binary_path)

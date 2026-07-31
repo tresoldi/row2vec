@@ -3,6 +3,7 @@ Tests for Row2Vec model serialization and persistence functionality.
 """
 
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 
 import pandas as pd
@@ -23,17 +24,17 @@ class TestModelSerialization:
     """Test model serialization and persistence functionality."""
 
     @pytest.fixture
-    def sample_data(self):
+    def sample_data(self) -> pd.DataFrame:
         """Generate sample data for testing."""
         return generate_synthetic_data(100, seed=1305)
 
     @pytest.fixture
-    def temp_dir(self):
+    def temp_dir(self) -> Iterator[Path]:
         """Create a temporary directory for test files."""
         with tempfile.TemporaryDirectory() as tmpdir:
             yield Path(tmpdir)
 
-    def test_learn_embedding_with_model_unsupervised(self, sample_data):
+    def test_learn_embedding_with_model_unsupervised(self, sample_data: pd.DataFrame) -> None:
         """Test learn_embedding_with_model with unsupervised mode."""
         embeddings, model, preprocessor, metadata = learn_embedding_with_model(
             sample_data,
@@ -59,7 +60,7 @@ class TestModelSerialization:
         assert "training_time" in metadata
         assert "original_columns" in metadata
 
-    def test_learn_embedding_with_model_target(self, sample_data):
+    def test_learn_embedding_with_model_target(self, sample_data: pd.DataFrame) -> None:
         """Test learn_embedding_with_model with target mode."""
         embeddings, model, preprocessor, metadata = learn_embedding_with_model(
             sample_data,
@@ -83,7 +84,7 @@ class TestModelSerialization:
         assert metadata["mode"] == "target"
         assert metadata["reference_column"] == "Country"
 
-    def test_learn_embedding_with_model_pca(self, sample_data):
+    def test_learn_embedding_with_model_pca(self, sample_data: pd.DataFrame) -> None:
         """Test learn_embedding_with_model with PCA mode."""
         embeddings, model, preprocessor, metadata = learn_embedding_with_model(
             sample_data,
@@ -100,10 +101,12 @@ class TestModelSerialization:
         assert preprocessor is not None
         assert metadata["mode"] == "pca"
 
-    def test_save_and_load_model_unsupervised(self, sample_data, temp_dir):
+    def test_save_and_load_model_unsupervised(
+        self, sample_data: pd.DataFrame, temp_dir: Path
+    ) -> None:
         """Test saving and loading an unsupervised model."""
         # Train a model
-        embeddings, model, preprocessor, metadata = learn_embedding_with_model(
+        _embeddings, model, preprocessor, metadata = learn_embedding_with_model(
             sample_data,
             embedding_dim=3,
             mode="unsupervised",
@@ -146,10 +149,10 @@ class TestModelSerialization:
         assert predictions.shape[1] == 3
         assert predictions.shape[0] == 20
 
-    def test_save_and_load_model_pca(self, sample_data, temp_dir):
+    def test_save_and_load_model_pca(self, sample_data: pd.DataFrame, temp_dir: Path) -> None:
         """Test saving and loading a PCA model."""
         # Train a PCA model
-        embeddings, model, preprocessor, metadata = learn_embedding_with_model(
+        _embeddings, model, preprocessor, metadata = learn_embedding_with_model(
             sample_data,
             embedding_dim=2,
             mode="pca",
@@ -166,7 +169,7 @@ class TestModelSerialization:
 
         # Save the model
         base_path = temp_dir / "test_pca_model"
-        script_path, binary_path = save_model(row2vec_model, base_path)
+        script_path, _binary_path = save_model(row2vec_model, base_path)
 
         # Load the model
         loaded_model = load_model(script_path)
@@ -179,7 +182,7 @@ class TestModelSerialization:
         assert predictions.shape[1] == 2
         assert predictions.shape[0] == 20
 
-    def test_train_and_save_model(self, sample_data, temp_dir):
+    def test_train_and_save_model(self, sample_data: pd.DataFrame, temp_dir: Path) -> None:
         """Test the convenience function train_and_save_model."""
         base_path = temp_dir / "convenience_model"
 
@@ -207,12 +210,12 @@ class TestModelSerialization:
         assert predictions.shape[1] == 4
         assert predictions.shape[0] == 15
 
-    def test_model_metadata_inspection(self, sample_data, temp_dir):
+    def test_model_metadata_inspection(self, sample_data: pd.DataFrame, temp_dir: Path) -> None:
         """Test that model metadata is properly accessible and inspectable."""
         base_path = temp_dir / "metadata_test_model"
 
         # Train and save a model
-        embeddings, script_path, binary_path = train_and_save_model(
+        _embeddings, script_path, _binary_path = train_and_save_model(
             sample_data,
             base_path,
             embedding_dim=3,
@@ -243,10 +246,10 @@ class TestModelSerialization:
         assert "original_columns" in metadata_dict
         assert "expected_schema" in metadata_dict
 
-    def test_schema_validation(self, sample_data, temp_dir):
+    def test_schema_validation(self, sample_data: pd.DataFrame, temp_dir: Path) -> None:
         """Test schema validation functionality."""
         # Train and save a model
-        embeddings, model, preprocessor, metadata = learn_embedding_with_model(
+        _embeddings, model, preprocessor, metadata = learn_embedding_with_model(
             sample_data,
             embedding_dim=2,
             mode="unsupervised",
@@ -262,7 +265,7 @@ class TestModelSerialization:
         )
 
         base_path = temp_dir / "schema_test_model"
-        script_path, binary_path = save_model(row2vec_model, base_path)
+        script_path, _binary_path = save_model(row2vec_model, base_path)
         loaded_model = load_model(script_path)
 
         # Test with correct schema
@@ -279,7 +282,7 @@ class TestModelSerialization:
         wrong_type_data["Sales"] = wrong_type_data["Sales"].astype(str)
         # Note: This might not fail due to type compatibility rules
 
-    def test_overwrite_protection(self, sample_data, temp_dir):
+    def test_overwrite_protection(self, sample_data: pd.DataFrame, temp_dir: Path) -> None:
         """Test that overwrite protection works correctly."""
         base_path = temp_dir / "overwrite_test"
 
@@ -306,7 +309,7 @@ class TestModelSerialization:
             )
 
         # Try to save again with overwrite - should succeed
-        embeddings, script_path, binary_path = train_and_save_model(
+        _embeddings, script_path, _binary_path = train_and_save_model(
             sample_data,
             base_path,
             embedding_dim=3,

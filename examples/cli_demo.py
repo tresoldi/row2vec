@@ -21,9 +21,7 @@ def run_command(cmd: list[str], description: str) -> None:
     print("-" * 60)
 
     try:
-        result = subprocess.run(
-            cmd, check=False, capture_output=True, text=True, timeout=120
-        )
+        result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=120)
 
         if result.stdout:
             print("Output:")

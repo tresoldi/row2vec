@@ -1,6 +1,4 @@
-"""
-Row2Vec: Utility functions
-"""
+"""Utility helpers for synthetic data, dtype classification, and DataFrame schemas."""
 
 import random
 from typing import Any
@@ -9,9 +7,82 @@ import numpy as np
 import pandas as pd
 
 
-def generate_synthetic_data(num_records: int, seed: int = 1305) -> pd.DataFrame:
+def is_categorical_series(series: pd.Series) -> bool:
+    """Report whether a column should be treated as categorical.
+
+    Row2Vec splits every column into exactly two buckets — numeric, which is
+    scaled, and categorical, which is encoded. This is the single place that
+    decides which bucket a column falls into.
+
+    A plain ``series.dtype in ("object", "category")`` test is not sufficient:
+    since pandas 3.0 a column of text is inferred as ``str`` (a ``StringDtype``)
+    rather than ``object``, so such a test silently routes text into the numeric
+    branch and the first reduction on it raises. This predicate recognises
+    object, categorical, and string dtypes under both pandas 2 and 3.
+
+    Args:
+        series (pd.Series): The column to classify.
+
+    Returns:
+        bool: True if the column is categorical rather than numeric.
+
+    Examples:
+        >>> import pandas as pd
+        >>> from row2vec.utils import is_categorical_series
+        >>> is_categorical_series(pd.Series(["a", "b"]))
+        True
+        >>> is_categorical_series(pd.Series([1.0, 2.0]))
+        False
     """
-    Generates a synthetic DataFrame for demonstration purposes.
+    dtype = series.dtype
+    return bool(
+        isinstance(dtype, pd.CategoricalDtype)
+        or dtype == np.dtype("O")
+        or pd.api.types.is_string_dtype(dtype)
+    )
+
+
+def categorical_columns(df: pd.DataFrame) -> list[str]:
+    """Return the names of the categorical columns of a DataFrame.
+
+    Args:
+        df (pd.DataFrame): The DataFrame to inspect.
+
+    Returns:
+        list[str]: Column names classified as categorical, in column order.
+
+    Examples:
+        >>> import pandas as pd
+        >>> from row2vec.utils import categorical_columns
+        >>> categorical_columns(pd.DataFrame({"n": [1], "c": ["x"]}))
+        ['c']
+    """
+    return [str(col) for col in df.columns if is_categorical_series(df[col])]
+
+
+def numeric_columns(df: pd.DataFrame) -> list[str]:
+    """Return the names of the numeric columns of a DataFrame.
+
+    Booleans and datetimes are deliberately excluded: they are neither scaled
+    like numbers nor encoded like categories.
+
+    Args:
+        df (pd.DataFrame): The DataFrame to inspect.
+
+    Returns:
+        list[str]: Column names classified as numeric, in column order.
+
+    Examples:
+        >>> import pandas as pd
+        >>> from row2vec.utils import numeric_columns
+        >>> numeric_columns(pd.DataFrame({"n": [1], "c": ["x"]}))
+        ['n']
+    """
+    return [str(col) for col in df.select_dtypes(include=[np.number]).columns]
+
+
+def generate_synthetic_data(num_records: int, seed: int = 1305) -> pd.DataFrame:
+    """Generates a synthetic DataFrame for demonstration purposes.
 
     Args:
         num_records (int): The number of records to generate.
@@ -45,8 +116,7 @@ def generate_synthetic_data(num_records: int, seed: int = 1305) -> pd.DataFrame:
 
 
 def create_dataframe_schema(df: pd.DataFrame) -> dict[str, Any]:
-    """
-    Create a schema dictionary from a DataFrame for validation purposes.
+    """Create a schema dictionary from a DataFrame for validation purposes.
 
     Args:
         df: DataFrame to analyze
@@ -63,7 +133,7 @@ def create_dataframe_schema(df: pd.DataFrame) -> dict[str, Any]:
 
     # Add categorical information for object columns
     categorical_info = {}
-    for col in df.select_dtypes(include=["object", "category"]).columns:
+    for col in categorical_columns(df):
         unique_values = df[col].unique()
         if len(unique_values) <= 50:  # Only store if reasonable number of categories
             categorical_info[col] = list(unique_values)
@@ -82,8 +152,7 @@ def validate_dataframe_schema(
     allow_extra_columns: bool = False,
     allow_missing_columns: bool = False,
 ) -> None:
-    """
-    Validate DataFrame schema against expected schema.
+    """Validate DataFrame schema against expected schema.
 
     Args:
         df: DataFrame to validate
@@ -134,8 +203,7 @@ def validate_dataframe_schema(
 
 
 def _are_compatible_dtypes(expected: str, actual: str) -> bool:
-    """
-    Check if two data types are compatible for schema validation.
+    """Check if two data types are compatible for schema validation.
 
     Args:
         expected: Expected data type string
@@ -163,8 +231,9 @@ def _are_compatible_dtypes(expected: str, actual: str) -> bool:
     if expected in numeric_types and actual in numeric_types:
         return True
 
-    # Object and string types are compatible
-    string_types = {"object", "string"}
+    # Object and string types are compatible. "str" is what pandas 3.0 reports
+    # for an inferred text column, where pandas 2 reported "object".
+    string_types = {"object", "string", "str"}
     if expected in string_types and actual in string_types:
         return True
 

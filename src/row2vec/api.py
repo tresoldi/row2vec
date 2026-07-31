@@ -1,5 +1,4 @@
-"""
-Modernized Row2Vec API with config-based parameters.
+"""Modernized Row2Vec API with config-based parameters.
 
 This module provides the new config-based API for Row2Vec embedding learning.
 The old parameter-based API is maintained for backward compatibility but will
@@ -25,10 +24,9 @@ def learn_embedding_v2(
     config: EmbeddingConfig | None = None,
     auto_architecture: bool = False,
     architecture_search_config: Optional["ArchitectureSearchConfig"] = None,
-    **config_overrides,
+    **config_overrides: Any,
 ) -> pd.DataFrame:
-    """
-    Modern config-based API for learning embeddings from tabular data.
+    """Modern config-based API for learning embeddings from tabular data.
 
     This is the new recommended API that uses configuration objects instead
     of long parameter lists. It provides better organization, type safety,
@@ -105,10 +103,9 @@ def learn_embedding_v2(
 def learn_embedding_with_model_v2(
     df: pd.DataFrame,
     config: EmbeddingConfig | None = None,
-    **config_overrides,
+    **config_overrides: Any,
 ) -> tuple[pd.DataFrame, Any | BaseEstimator, ColumnTransformer, dict[str, Any]]:
-    """
-    Modern config-based API for learning embeddings with model artifacts.
+    """Modern config-based API for learning embeddings with model artifacts.
 
     This function returns the embeddings along with the trained model,
     preprocessor, and metadata for serialization purposes.
@@ -134,9 +131,7 @@ def learn_embedding_with_model_v2(
     return _legacy_learn_embedding_with_model(df, **legacy_params)
 
 
-def _apply_config_overrides(
-    config: EmbeddingConfig, overrides: dict[str, Any]
-) -> EmbeddingConfig:
+def _apply_config_overrides(config: EmbeddingConfig, overrides: dict[str, Any]) -> EmbeddingConfig:
     """Apply override values to a config object."""
     # Convert config to dict, apply overrides, and convert back
     config_dict = config.to_dict()
@@ -239,7 +234,7 @@ def _config_to_legacy_params(config: EmbeddingConfig) -> dict[str, Any]:
 
 # Convenience functions for common configurations
 def learn_embedding_unsupervised(
-    df: pd.DataFrame, embedding_dim: int = 10, **overrides
+    df: pd.DataFrame, embedding_dim: int = 10, **overrides: Any
 ) -> pd.DataFrame:
     """Learn unsupervised embeddings with optimized defaults."""
     config = EmbeddingConfig(mode="unsupervised", embedding_dim=embedding_dim)
@@ -247,7 +242,7 @@ def learn_embedding_unsupervised(
 
 
 def learn_embedding_target(
-    df: pd.DataFrame, reference_column: str, embedding_dim: int = 10, **overrides
+    df: pd.DataFrame, reference_column: str, embedding_dim: int = 10, **overrides: Any
 ) -> pd.DataFrame:
     """Learn target-based embeddings with optimized defaults."""
     config = EmbeddingConfig(
@@ -256,7 +251,7 @@ def learn_embedding_target(
     return learn_embedding_v2(df, config, **overrides)
 
 
-def learn_embedding_contrastive(df: pd.DataFrame, **overrides) -> pd.DataFrame:
+def learn_embedding_contrastive(df: pd.DataFrame, **overrides: Any) -> pd.DataFrame:
     """Convenience function for contrastive learning with optimized defaults."""
     config = create_config_for_mode("contrastive")
 
@@ -275,7 +270,7 @@ def learn_embedding_contrastive(df: pd.DataFrame, **overrides) -> pd.DataFrame:
 
 
 def learn_embedding_classical(
-    df: pd.DataFrame, method: str = "pca", embedding_dim: int = 10, **overrides
+    df: pd.DataFrame, method: str = "pca", embedding_dim: int = 10, **overrides: Any
 ) -> pd.DataFrame:
     """Learn classical ML embeddings (PCA, t-SNE, UMAP) with optimized defaults."""
     if method not in ["pca", "tsne", "umap"]:

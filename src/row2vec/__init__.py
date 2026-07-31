@@ -1,5 +1,4 @@
-"""
-Row2Vec: A library for learning embeddings from tabular data.
+"""Row2Vec: A library for learning embeddings from tabular data.
 
 This library provides both neural network and classical machine learning
 approaches for creating vector embeddings from tabular datasets.
@@ -62,7 +61,7 @@ from .utils import (
 
 # Import pandas accessor to register it
 try:
-    from . import pandas  # This registers the .row2vec accessor
+    from . import pandas  # noqa: F401  (imported for its .row2vec accessor registration)
 
     _PANDAS_AVAILABLE = True
 except ImportError:
@@ -130,9 +129,7 @@ __all__ = [
 
 # Add sklearn integrations if available
 if _SKLEARN_AVAILABLE:
-    __all__.extend(
-        [
-            "Row2VecClassifier",
-            "Row2VecTransformer",
-        ]
-    )
+    __all__ += [
+        "Row2VecClassifier",
+        "Row2VecTransformer",
+    ]

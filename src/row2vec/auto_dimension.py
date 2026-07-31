@@ -1,5 +1,4 @@
-"""
-Automatic Embedding Dimension Selection for Row2Vec
+"""Automatic selection of the embedding dimension.
 
 This module provides intelligent dimension selection capabilities that automatically
 determine optimal embedding dimensions based on data characteristics and performance metrics.
@@ -20,11 +19,11 @@ from sklearn.preprocessing import LabelEncoder
 from .api import learn_embedding_v2
 from .config import EmbeddingConfig, NeuralConfig
 from .logging import get_logger
+from .utils import is_categorical_series
 
 
 class AutoDimensionSelector:
-    """
-    Automatically selects optimal embedding dimensions using multiple strategies.
+    """Automatically selects optimal embedding dimensions using multiple strategies.
 
     Combines data-driven analysis, performance optimization, and heuristic rules
     to determine the best embedding dimension for a given dataset.
@@ -41,8 +40,7 @@ class AutoDimensionSelector:
         n_trials: int = 5,
         verbose: bool = True,
     ):
-        """
-        Initialize automatic dimension selector.
+        """Initialize automatic dimension selector.
 
         Args:
             methods: List of selection methods to use
@@ -81,8 +79,7 @@ class AutoDimensionSelector:
         target_column: str | None = None,
         candidate_dims: list[int] | None = None,
     ) -> tuple[int, dict[str, Any]]:
-        """
-        Select optimal embedding dimension for the given data.
+        """Select optimal embedding dimension for the given data.
 
         Args:
             df: Input dataframe
@@ -111,9 +108,7 @@ class AutoDimensionSelector:
                 if self.verbose:
                     pass
 
-                result = self._apply_method(
-                    method, df, config, candidate_dims, target_column
-                )
+                result = self._apply_method(method, df, config, candidate_dims, target_column)
                 method_results[method] = result
 
                 if self.verbose:
@@ -129,9 +124,7 @@ class AutoDimensionSelector:
 
         # Store results
         self.selection_results_ = method_results
-        self.dimension_scores_ = self._calculate_dimension_scores(
-            method_results, candidate_dims
-        )
+        self.dimension_scores_ = self._calculate_dimension_scores(method_results, candidate_dims)
 
         metadata = {
             "candidate_dimensions": candidate_dims,
@@ -165,9 +158,7 @@ class AutoDimensionSelector:
             max_dim = self.max_dimension
         else:
             # Auto-determine max dimension
-            max_dim = min(
-                n_features // 2, 50, n_samples // 10, max(sqrt_features * 2, 10)
-            )
+            max_dim = min(n_features // 2, 50, n_samples // 10, max(sqrt_features * 2, 10))
 
         max_dim = max(max_dim, min_dim)
 
@@ -185,8 +176,7 @@ class AutoDimensionSelector:
         candidates.update([min_dim, max_dim])
 
         # Filter and sort
-        candidates = [d for d in candidates if min_dim <= d <= max_dim]
-        return sorted(set(candidates))
+        return sorted(d for d in candidates if min_dim <= d <= max_dim)
 
     def _apply_method(
         self,
@@ -203,18 +193,14 @@ class AutoDimensionSelector:
         if method == "intrinsic_dim":
             return self._intrinsic_dimensionality_method(df, candidate_dims)
         if method == "performance_based":
-            return self._performance_based_method(
-                df, config, candidate_dims, target_column
-            )
+            return self._performance_based_method(df, config, candidate_dims, target_column)
         if method == "clustering_quality":
             return self._clustering_quality_method(df, config, candidate_dims)
         if method == "heuristic_rules":
             return self._heuristic_rules_method(df, candidate_dims)
         raise ValueError(f"Unknown method: {method}")
 
-    def _pca_variance_method(
-        self, df: pd.DataFrame, candidate_dims: list[int]
-    ) -> dict[str, Any]:
+    def _pca_variance_method(self, df: pd.DataFrame, candidate_dims: list[int]) -> dict[str, Any]:
         """Select dimension based on PCA explained variance analysis."""
         # Prepare numeric data
         numeric_df = df.select_dtypes(include=[np.number])
@@ -225,9 +211,7 @@ class AutoDimensionSelector:
             }
 
         # Fit PCA
-        max_components = min(
-            len(candidate_dims), numeric_df.shape[1], numeric_df.shape[0]
-        )
+        max_components = min(len(candidate_dims), numeric_df.shape[1], numeric_df.shape[0])
         pca = PCA(n_components=max_components)
         pca.fit(numeric_df.fillna(0))
 
@@ -237,7 +221,7 @@ class AutoDimensionSelector:
         # Look for elbow using second derivative
         if len(explained_var) >= 3:
             second_deriv = np.diff(explained_var, 2)
-            elbow_idx = np.argmax(second_deriv) + 2
+            elbow_idx = int(np.argmax(second_deriv)) + 2
         else:
             elbow_idx = len(explained_var) // 2
 
@@ -290,7 +274,7 @@ class AutoDimensionSelector:
                     )
                     lle.fit(sample_data)
                     errors.append(lle.reconstruction_error_)
-                except:
+                except Exception:
                     errors.append(np.inf)
 
             if not errors or all(e == np.inf for e in errors):
@@ -300,8 +284,8 @@ class AutoDimensionSelector:
                 }
 
             # Find dimension where error stabilizes
-            errors = np.array(errors)
-            valid_errors = errors[errors != np.inf]
+            error_array = np.array(errors)
+            valid_errors = error_array[error_array != np.inf]
 
             if len(valid_errors) < 2:
                 recommended_dim = candidate_dims[len(candidate_dims) // 2]
@@ -322,12 +306,12 @@ class AutoDimensionSelector:
                 recommended_dim = test_dims[min(stabilization_idx, len(test_dims) - 1)]
 
             # Score based on error reduction
-            score = 1.0 / (1.0 + errors[test_dims.index(recommended_dim)])
+            score = 1.0 / (1.0 + error_array[test_dims.index(recommended_dim)])
 
             return {
                 "recommended_dim": recommended_dim,
                 "score": score,
-                "reconstruction_errors": errors.tolist(),
+                "reconstruction_errors": error_array.tolist(),
                 "test_dimensions": test_dims,
             }
 
@@ -355,7 +339,7 @@ class AutoDimensionSelector:
             y = df[target_column]
 
             # Encode target if categorical
-            if y.dtype == "object":
+            if is_categorical_series(y):
                 le = LabelEncoder()
                 y = le.fit_transform(y)
 
@@ -376,9 +360,7 @@ class AutoDimensionSelector:
 
                     # Evaluate with simple classifier
                     clf = LogisticRegression(random_state=1305, max_iter=100)
-                    cv_scores = cross_val_score(
-                        clf, embeddings, y, cv=3, scoring="accuracy"
-                    )
+                    cv_scores = cross_val_score(clf, embeddings, y, cv=3, scoring="accuracy")
                     scores.append(cv_scores.mean())
 
                 except Exception:
@@ -503,9 +485,7 @@ class AutoDimensionSelector:
         recommended_dim = min(candidate_dims, key=lambda x: abs(x - target_dim))
 
         # Score based on how well it matches multiple heuristics
-        agreements = sum(
-            1 for h_dim in heuristics.values() if abs(h_dim - recommended_dim) <= 2
-        )
+        agreements = sum(1 for h_dim in heuristics.values() if abs(h_dim - recommended_dim) <= 2)
         score = agreements / len(heuristics)
 
         return {
@@ -516,9 +496,7 @@ class AutoDimensionSelector:
             "agreements": agreements,
         }
 
-    def _combine_recommendations(
-        self, method_results: dict, candidate_dims: list[int]
-    ) -> int:
+    def _combine_recommendations(self, method_results: dict, candidate_dims: list[int]) -> int:
         """Combine recommendations from different methods using weighted voting."""
         # Create vote matrix
         votes = dict.fromkeys(candidate_dims, 0.0)
@@ -580,10 +558,9 @@ def auto_select_dimension(
     config: EmbeddingConfig | None = None,
     target_column: str | None = None,
     methods: list[str] | None = None,
-    **selector_kwargs,
+    **selector_kwargs: Any,
 ) -> tuple[int, dict[str, Any]]:
-    """
-    Convenience function for automatic dimension selection.
+    """Convenience function for automatic dimension selection.
 
     Args:
         df: Input dataframe
@@ -596,9 +573,7 @@ def auto_select_dimension(
         Tuple of (optimal_dimension, selection_metadata)
     """
     if config is None:
-        config = EmbeddingConfig(
-            mode="pca", embedding_dim=5
-        )  # Temporary, will be overridden
+        config = EmbeddingConfig(mode="pca", embedding_dim=5)  # Temporary, will be overridden
 
     selector = AutoDimensionSelector(methods=methods, **selector_kwargs)
     return selector.select_dimension(df, config, target_column)

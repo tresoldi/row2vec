@@ -1,5 +1,4 @@
-"""
-Row2Vec: Intelligent Missing Value Imputation System
+"""Adaptive missing-value imputation.
 
 This module provides adaptive and configurable missing value imputation strategies
 that automatically detect patterns and apply appropriate techniques while maintaining
@@ -24,7 +23,9 @@ else:
 
 # Enable experimental features
 try:
-    from sklearn.experimental import enable_iterative_imputer
+    from sklearn.experimental import (
+        enable_iterative_imputer,  # noqa: F401  (import required to unlock IterativeImputer)
+    )
     from sklearn.impute import IterativeImputer
 
     ITERATIVE_IMPUTER_AVAILABLE = True
@@ -34,8 +35,7 @@ except ImportError:
 
 @dataclass
 class ImputationConfig:
-    """
-    Configuration for intelligent missing value imputation strategies.
+    """Configuration for intelligent missing value imputation strategies.
 
     This class provides comprehensive control over how missing values are handled,
     with sensible defaults that work well for most datasets while allowing power
@@ -115,9 +115,7 @@ class ImputationConfig:
 
         valid_categorical = {"adaptive", "mode", "constant", "missing_category"}
         if self.categorical_strategy not in valid_categorical:
-            raise ValueError(
-                f"categorical_strategy must be one of: {valid_categorical}"
-            )
+            raise ValueError(f"categorical_strategy must be one of: {valid_categorical}")
 
         # Validate thresholds
         if not 0 <= self.missing_threshold <= 1:
@@ -137,8 +135,7 @@ class MissingPatternAnalyzer:
         self.config = config
 
     def analyze(self, df: pd.DataFrame) -> dict[str, Any]:
-        """
-        Analyze missing data patterns in the DataFrame.
+        """Analyze missing data patterns in the DataFrame.
 
         Args:
             df: Input DataFrame to analyze
@@ -203,9 +200,7 @@ class MissingPatternAnalyzer:
                     )
                 else:
                     recommendation["suggested_strategy"] = "knn"
-                    recommendation["reasoning"] = (
-                        "High missingness, KNN can capture relationships"
-                    )
+                    recommendation["reasoning"] = "High missingness, KNN can capture relationships"
             # Prefer accuracy over speed
             elif missing_pct < 20:
                 recommendation["suggested_strategy"] = "median"
@@ -214,9 +209,7 @@ class MissingPatternAnalyzer:
                 )
             else:
                 recommendation["suggested_strategy"] = "knn"
-                recommendation["reasoning"] = (
-                    "KNN provides better accuracy for high missingness"
-                )
+                recommendation["reasoning"] = "KNN provides better accuracy for high missingness"
 
             recommendation["alternatives"] = ["mean", "median", "knn", "iterative"]
         else:
@@ -224,9 +217,7 @@ class MissingPatternAnalyzer:
             unique_count = series.nunique()
             if unique_count < 10:
                 recommendation["suggested_strategy"] = "mode"
-                recommendation["reasoning"] = (
-                    "Few categories, mode imputation works well"
-                )
+                recommendation["reasoning"] = "Few categories, mode imputation works well"
             elif missing_pct > 30:
                 recommendation["suggested_strategy"] = "missing_category"
                 recommendation["reasoning"] = (
@@ -234,18 +225,15 @@ class MissingPatternAnalyzer:
                 )
             else:
                 recommendation["suggested_strategy"] = "mode"
-                recommendation["reasoning"] = (
-                    "Standard mode imputation for categorical data"
-                )
+                recommendation["reasoning"] = "Standard mode imputation for categorical data"
 
             recommendation["alternatives"] = ["mode", "constant", "missing_category"]
 
         return recommendation
 
 
-class AdaptiveImputer(BaseEstimator):  # type: ignore[misc]
-    """
-    Adaptive imputer that automatically selects and applies appropriate
+class AdaptiveImputer(BaseEstimator):
+    """Adaptive imputer that automatically selects and applies appropriate
     imputation strategies based on data characteristics.
     """
 
@@ -258,8 +246,7 @@ class AdaptiveImputer(BaseEstimator):  # type: ignore[misc]
         self.missing_indicators_: dict[str, Any] | None = None
 
     def fit(self, X: pd.DataFrame, y: Any = None) -> "AdaptiveImputer":
-        """
-        Fit the adaptive imputer to the data.
+        """Fit the adaptive imputer to the data.
 
         Args:
             X: Input DataFrame with potential missing values
@@ -288,8 +275,7 @@ class AdaptiveImputer(BaseEstimator):  # type: ignore[misc]
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
-        """
-        Transform the data by applying imputation strategies.
+        """Transform the data by applying imputation strategies.
 
         Args:
             X: Input DataFrame with potential missing values
@@ -311,10 +297,21 @@ class AdaptiveImputer(BaseEstimator):  # type: ignore[misc]
         # Apply column-specific imputation
         if self.imputation_pipelines_:
             for col, pipeline in self.imputation_pipelines_.items():
-                if pipeline is not None and col in result.columns:
-                    if result[col].isnull().any():
-                        imputed_values = pipeline.transform(result[[col]])
-                        result[col] = imputed_values.ravel()
+                if pipeline is not None and col in result.columns and result[col].isnull().any():
+                    imputed_values = pipeline.transform(result[[col]])
+                    if imputed_values.shape[1] == 0:
+                        # A column with no observed value at all gives the
+                        # underlying scikit-learn imputer nothing to learn from,
+                        # and it drops the column. There is no defensible value
+                        # to invent, so leave it untouched rather than crash.
+                        warnings.warn(
+                            f"Column '{col}' has no observed values and cannot be "
+                            f"imputed; leaving it unchanged.",
+                            UserWarning,
+                            stacklevel=2,
+                        )
+                        continue
+                    result[col] = imputed_values.ravel()
 
         # Add missing indicators if requested
         if self.config.preserve_missing_patterns and self.missing_indicators_:
@@ -323,9 +320,7 @@ class AdaptiveImputer(BaseEstimator):  # type: ignore[misc]
 
         return result
 
-    def fit_transform(
-        self, X: pd.DataFrame, y: Any = None, **fit_params: Any
-    ) -> pd.DataFrame:
+    def fit_transform(self, X: pd.DataFrame, y: Any = None, **fit_params: Any) -> pd.DataFrame:
         """Fit the imputer and transform the data in one step."""
         return self.fit(X, y).transform(X)
 
@@ -339,9 +334,7 @@ class AdaptiveImputer(BaseEstimator):  # type: ignore[misc]
 
         return X
 
-    def _create_imputation_pipelines(
-        self, X: pd.DataFrame
-    ) -> dict[str, Pipeline | None]:
+    def _create_imputation_pipelines(self, X: pd.DataFrame) -> dict[str, Pipeline | None]:
         """Create column-specific imputation pipelines."""
         pipelines: dict[str, Pipeline | None] = {}
 
@@ -359,9 +352,7 @@ class AdaptiveImputer(BaseEstimator):  # type: ignore[misc]
     def _get_column_strategy(self, column: str, series: pd.Series) -> str:
         """Determine the imputation strategy for a specific column."""
         if self.analysis_report_ and column in self.analysis_report_["recommendations"]:
-            return str(
-                self.analysis_report_["recommendations"][column]["suggested_strategy"]
-            )
+            return str(self.analysis_report_["recommendations"][column]["suggested_strategy"])
 
         # Fallback to simple rules if no analysis available
         is_numeric = pd.api.types.is_numeric_dtype(series.dtype)
@@ -377,9 +368,7 @@ class AdaptiveImputer(BaseEstimator):  # type: ignore[misc]
             return "mode" if missing_pct < 30 else "missing_category"
         return self.config.categorical_strategy
 
-    def _create_column_pipeline(
-        self, column: str, strategy: str, series: pd.Series
-    ) -> Pipeline:
+    def _create_column_pipeline(self, column: str, strategy: str, series: pd.Series) -> Pipeline:
         """Create imputation pipeline for a specific column and strategy."""
         is_numeric = pd.api.types.is_numeric_dtype(series.dtype)
 
@@ -446,8 +435,7 @@ class AdaptiveImputer(BaseEstimator):  # type: ignore[misc]
             )
 
     def get_imputation_report(self) -> dict[str, Any]:
-        """
-        Get detailed report about the imputation process.
+        """Get detailed report about the imputation process.
 
         Returns:
             Dict containing analysis and imputation details
@@ -476,8 +464,7 @@ class AdaptiveImputer(BaseEstimator):  # type: ignore[misc]
 def create_imputation_pipeline(
     config: ImputationConfig | None = None,
 ) -> AdaptiveImputer:
-    """
-    Create an adaptive imputation pipeline with intelligent defaults.
+    """Create an adaptive imputation pipeline with intelligent defaults.
 
     This is the main entry point for users who want simple, automatic
     missing value handling without needing to understand the complexity.
@@ -488,9 +475,14 @@ def create_imputation_pipeline(
     Returns:
         Configured AdaptiveImputer ready for use
 
-    Example:
+    Examples:
+        >>> import numpy as np
+        >>> import pandas as pd
+        >>> from row2vec.imputation import create_imputation_pipeline
+        >>> df = pd.DataFrame({"x": [1.0, np.nan, 3.0, 4.0]})
         >>> imputer = create_imputation_pipeline()
-        >>> df_imputed = imputer.fit_transform(df_with_missing)
+        >>> int(imputer.fit_transform(df).isna().sum().sum())
+        0
     """
     if config is None:
         config = ImputationConfig()

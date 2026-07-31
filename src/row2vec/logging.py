@@ -1,5 +1,4 @@
-"""
-Logging utilities for Row2Vec library.
+"""Logging utilities for Row2Vec library.
 
 This module provides structured logging capabilities for training progress,
 debug information, and performance metrics.
@@ -16,8 +15,7 @@ import psutil
 
 
 class Row2VecLogger:
-    """
-    Centralized logging system for Row2Vec operations.
+    """Centralized logging system for Row2Vec operations.
 
     Provides structured logging for training progress, debug information,
     and performance metrics with configurable output formats and levels.
@@ -31,8 +29,7 @@ class Row2VecLogger:
         include_performance: bool = True,
         include_memory: bool = True,
     ) -> None:
-        """
-        Initialize Row2Vec logger.
+        """Initialize Row2Vec logger.
 
         Args:
             name: Logger name
@@ -96,8 +93,7 @@ class Row2VecLogger:
         self.initial_memory: float | None = None
 
     def _should_log(self, level: int) -> bool:
-        """
-        Check if logging should occur at the given level.
+        """Check if logging should occur at the given level.
 
         Respects both the logger's level and any parent logger levels.
         This allows external logging configuration to fully suppress output.
@@ -191,8 +187,7 @@ class Row2VecLogger:
                 final_memory = self._get_memory_usage()
                 memory_delta = final_memory - self.initial_memory
                 self.logger.info(
-                    f"💾 Memory usage: {final_memory:.2f} MB "
-                    f"(+{memory_delta:.2f} MB from start)",
+                    f"💾 Memory usage: {final_memory:.2f} MB (+{memory_delta:.2f} MB from start)",
                 )
 
     def log_data_preprocessing(
@@ -269,9 +264,7 @@ class Row2VecLogger:
                 error_msg += f" | Context: {context}"
             self.logger.error(error_msg, exc_info=True)
 
-    def log_completion(
-        self, message: str = "Embedding generation completed successfully!"
-    ) -> None:
+    def log_completion(self, message: str = "Embedding generation completed successfully!") -> None:
         """Log completion of embedding generation."""
         if self._should_log(logging.INFO):
             self.logger.info(f"🎯 {message}")
@@ -286,8 +279,7 @@ class Row2VecLogger:
 
 
 class TrainingProgressCallback:
-    """
-    Keras callback for logging training progress.
+    """Keras callback for logging training progress.
 
     Integrates with Row2VecLogger to provide structured logging
     during model training.
@@ -324,9 +316,7 @@ class TrainingProgressCallback:
         val_loss = logs.get("val_loss")
 
         # Remove loss from additional metrics to avoid duplication
-        additional_metrics = {
-            k: v for k, v in logs.items() if k not in ["loss", "val_loss"]
-        }
+        additional_metrics = {k: v for k, v in logs.items() if k not in ["loss", "val_loss"]}
 
         self.logger.log_epoch_metrics(
             epoch=epoch,
@@ -347,8 +337,7 @@ def get_logger(
     log_file: str | Path | None = None,
     **kwargs: Any,
 ) -> Row2VecLogger:
-    """
-    Create a Row2Vec logger with standard configuration.
+    """Create a Row2Vec logger with standard configuration.
 
     Args:
         name: Logger name

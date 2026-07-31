@@ -13,14 +13,14 @@ from row2vec.utils import (
 class TestGenerateSyntheticData:
     """Test synthetic data generation."""
 
-    def test_generate_synthetic_data_basic(self):
+    def test_generate_synthetic_data_basic(self) -> None:
         """Test basic synthetic data generation."""
         df = generate_synthetic_data(100)
         assert isinstance(df, pd.DataFrame)
         assert len(df) == 100
         assert set(df.columns) == {"Country", "Product", "Sales"}
 
-    def test_generate_synthetic_data_custom_seed(self):
+    def test_generate_synthetic_data_custom_seed(self) -> None:
         """Test synthetic data generation with custom seed."""
         df1 = generate_synthetic_data(50, seed=1305)
         df2 = generate_synthetic_data(50, seed=1305)
@@ -32,13 +32,13 @@ class TestGenerateSyntheticData:
         # Different seed should produce different data
         assert not df1.equals(df3)
 
-    def test_generate_synthetic_data_small_dataset(self):
+    def test_generate_synthetic_data_small_dataset(self) -> None:
         """Test with very small dataset."""
         df = generate_synthetic_data(5)
         assert len(df) == 5
         assert all(df["Sales"] >= 0)  # Sales should be non-negative
 
-    def test_generate_synthetic_data_countries_and_products(self):
+    def test_generate_synthetic_data_countries_and_products(self) -> None:
         """Test that generated data contains expected countries and products."""
         df = generate_synthetic_data(1000, seed=1305)
 
@@ -52,7 +52,7 @@ class TestGenerateSyntheticData:
 class TestCreateDataFrameSchema:
     """Test DataFrame schema creation."""
 
-    def test_create_schema_basic(self):
+    def test_create_schema_basic(self) -> None:
         """Test basic schema creation."""
         df = pd.DataFrame(
             {
@@ -72,7 +72,7 @@ class TestCreateDataFrameSchema:
         assert schema["columns"] == ["int_col", "float_col", "str_col"]
         assert schema["shape"] == (3, 3)
 
-    def test_create_schema_with_nulls(self):
+    def test_create_schema_with_nulls(self) -> None:
         """Test schema creation with null values."""
         df = pd.DataFrame(
             {
@@ -88,7 +88,7 @@ class TestCreateDataFrameSchema:
         assert schema["nullable_columns"]["col2"] is True
         assert schema["nullable_columns"]["col3"] is False
 
-    def test_create_schema_with_categories(self):
+    def test_create_schema_with_categories(self) -> None:
         """Test schema creation with categorical columns."""
         df = pd.DataFrame(
             {
@@ -102,7 +102,7 @@ class TestCreateDataFrameSchema:
         assert "categorical_info" in schema
         assert set(schema["categorical_info"]["category_col"]) == {"X", "Y", "Z"}
 
-    def test_create_schema_too_many_categories(self):
+    def test_create_schema_too_many_categories(self) -> None:
         """Test schema creation with too many categories."""
         # Create a column with more than 50 unique values
         df = pd.DataFrame(
@@ -122,7 +122,7 @@ class TestCreateDataFrameSchema:
 class TestValidateDataFrameSchema:
     """Test DataFrame schema validation."""
 
-    def test_validate_schema_success(self):
+    def test_validate_schema_success(self) -> None:
         """Test successful schema validation."""
         df = pd.DataFrame(
             {
@@ -136,14 +136,14 @@ class TestValidateDataFrameSchema:
         # Should not raise any exception
         validate_dataframe_schema(df, schema)
 
-    def test_validate_schema_not_dataframe(self):
+    def test_validate_schema_not_dataframe(self) -> None:
         """Test validation with non-DataFrame input."""
         schema = {"columns": ["col1"]}
 
         with pytest.raises(ValueError, match="Expected pandas DataFrame"):
-            validate_dataframe_schema([1, 2, 3], schema)
+            validate_dataframe_schema([1, 2, 3], schema)  # type: ignore[arg-type]
 
-    def test_validate_schema_empty_dataframe(self):
+    def test_validate_schema_empty_dataframe(self) -> None:
         """Test validation with empty DataFrame."""
         df = pd.DataFrame()
         schema = {"columns": ["col1"]}
@@ -151,7 +151,7 @@ class TestValidateDataFrameSchema:
         with pytest.raises(ValueError, match="DataFrame cannot be empty"):
             validate_dataframe_schema(df, schema)
 
-    def test_validate_schema_missing_columns(self):
+    def test_validate_schema_missing_columns(self) -> None:
         """Test validation with missing columns."""
         df = pd.DataFrame({"col1": [1, 2, 3]})
         schema = {"columns": ["col1", "col2"]}
@@ -159,7 +159,7 @@ class TestValidateDataFrameSchema:
         with pytest.raises(ValueError, match="Missing required columns"):
             validate_dataframe_schema(df, schema)
 
-    def test_validate_schema_allow_missing_columns(self):
+    def test_validate_schema_allow_missing_columns(self) -> None:
         """Test validation allowing missing columns."""
         df = pd.DataFrame({"col1": [1, 2, 3]})
         schema = {"columns": ["col1", "col2"]}
@@ -167,7 +167,7 @@ class TestValidateDataFrameSchema:
         # Should not raise when allowing missing columns
         validate_dataframe_schema(df, schema, allow_missing_columns=True)
 
-    def test_validate_schema_extra_columns(self):
+    def test_validate_schema_extra_columns(self) -> None:
         """Test validation with extra columns."""
         df = pd.DataFrame(
             {
@@ -181,7 +181,7 @@ class TestValidateDataFrameSchema:
         with pytest.raises(ValueError, match="Unexpected columns found"):
             validate_dataframe_schema(df, schema)
 
-    def test_validate_schema_allow_extra_columns(self):
+    def test_validate_schema_allow_extra_columns(self) -> None:
         """Test validation allowing extra columns."""
         df = pd.DataFrame(
             {
@@ -195,7 +195,7 @@ class TestValidateDataFrameSchema:
         # Should not raise when allowing extra columns
         validate_dataframe_schema(df, schema, allow_extra_columns=True)
 
-    def test_validate_schema_wrong_dtype(self):
+    def test_validate_schema_wrong_dtype(self) -> None:
         """Test validation with wrong data types."""
         df = pd.DataFrame(
             {
@@ -210,7 +210,7 @@ class TestValidateDataFrameSchema:
         with pytest.raises(ValueError, match="incorrect type"):
             validate_dataframe_schema(df, schema)
 
-    def test_validate_schema_compatible_dtypes(self):
+    def test_validate_schema_compatible_dtypes(self) -> None:
         """Test validation with compatible data types."""
         df = pd.DataFrame(
             {

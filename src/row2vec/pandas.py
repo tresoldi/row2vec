@@ -1,5 +1,4 @@
-"""
-Pandas integration for Row2Vec embeddings.
+"""Pandas integration for Row2Vec embeddings.
 
 This module provides a pandas accessor that allows direct embedding
 generation from DataFrames using the `.row2vec` accessor.
@@ -15,28 +14,16 @@ from .config import EmbeddingConfig, create_config_for_mode
 
 @pd.api.extensions.register_dataframe_accessor("row2vec")
 class Row2VecAccessor:
-    """
-    Pandas DataFrame accessor for Row2Vec embeddings.
+    """Pandas DataFrame accessor for Row2Vec embeddings.
 
     This accessor provides convenient methods to generate embeddings
     directly from DataFrames using the .row2vec namespace.
 
-    Examples
-    --------
-    >>> import pandas as pd
-    >>> import row2vec  # This registers the accessor
-    >>>
-    >>> # Basic usage
-    >>> df = pd.DataFrame(...)
-    >>> embeddings = df.row2vec.embed(dim=10)
-    >>>
-    >>> # With specific mode
-    >>> embeddings = df.row2vec.embed(dim=15, mode="contrastive")
-    >>>
-    >>> # With full configuration
-    >>> embeddings = df.row2vec.unsupervised(dim=10, max_epochs=100)
-    >>> embeddings = df.row2vec.contrastive(dim=20, loss_type="triplet")
-    >>> embeddings = df.row2vec.classical(method="pca", dim=5)
+    Examples:
+        >>> import row2vec  # importing registers the accessor
+        >>> df = row2vec.generate_synthetic_data(60)
+        >>> df.row2vec.pca(dim=2).shape
+        (60, 2)
     """
 
     def __init__(self, pandas_obj: pd.DataFrame) -> None:
@@ -49,29 +36,26 @@ class Row2VecAccessor:
         config: EmbeddingConfig | None = None,
         **kwargs: Any,
     ) -> pd.DataFrame:
-        """
-        Generate embeddings for the DataFrame.
+        """Generate embeddings for the DataFrame.
 
-        Parameters
-        ----------
-        dim : int, default=10
-            Dimensionality of the embedding space.
-        mode : str, default="unsupervised"
-            Embedding mode. Options: "unsupervised", "target", "pca", "tsne", "umap", "contrastive".
-        config : EmbeddingConfig, optional
-            Pre-configured EmbeddingConfig object. If provided, other parameters are ignored.
-        **kwargs
-            Additional parameters for embedding configuration.
+        Args:
+            dim (int, default=10):
+                Dimensionality of the embedding space.
+            mode (str, default="unsupervised"):
+                Embedding mode. Options: "unsupervised", "target", "pca", "tsne", "umap", "contrastive".
+            config (EmbeddingConfig, optional):
+                Pre-configured EmbeddingConfig object. If provided, other parameters are ignored.
+            **kwargs: Additional parameters for embedding configuration.
 
-        Returns
-        -------
-        embeddings : DataFrame
-            DataFrame with embedded representations.
+        Returns:
+            embeddings (DataFrame):
+                DataFrame with embedded representations.
 
-        Examples
-        --------
-        >>> embeddings = df.row2vec.embed(dim=10, mode="unsupervised")
-        >>> embeddings = df.row2vec.embed(dim=15, mode="contrastive", loss_type="triplet")
+        Examples:
+            >>> import row2vec
+            >>> df = row2vec.generate_synthetic_data(60)
+            >>> df.row2vec.embed(dim=2, mode="pca").shape
+            (60, 2)
         """
         if config is None:
             # Create config with specified parameters
@@ -101,32 +85,30 @@ class Row2VecAccessor:
         hidden_units: int = 128,
         **kwargs: Any,
     ) -> pd.DataFrame:
-        """
-        Generate unsupervised embeddings using autoencoder.
+        """Generate unsupervised embeddings using autoencoder.
 
-        Parameters
-        ----------
-        dim : int, default=10
-            Dimensionality of the embedding space.
-        max_epochs : int, default=50
-            Maximum number of training epochs.
-        batch_size : int, default=64
-            Training batch size.
-        dropout_rate : float, default=0.2
-            Dropout rate for regularization.
-        hidden_units : int, default=128
-            Number of hidden units in the autoencoder.
-        **kwargs
-            Additional parameters passed to the config.
+        Args:
+            dim (int, default=10):
+                Dimensionality of the embedding space.
+            max_epochs (int, default=50):
+                Maximum number of training epochs.
+            batch_size (int, default=64):
+                Training batch size.
+            dropout_rate (float, default=0.2):
+                Dropout rate for regularization.
+            hidden_units (int, default=128):
+                Number of hidden units in the autoencoder.
+            **kwargs: Additional parameters passed to the config.
 
-        Returns
-        -------
-        embeddings : DataFrame
-            DataFrame with unsupervised embeddings.
+        Returns:
+            embeddings (DataFrame):
+                DataFrame with unsupervised embeddings.
 
-        Examples
-        --------
-        >>> embeddings = df.row2vec.unsupervised(dim=10, max_epochs=100)
+        Examples:
+            >>> import row2vec
+            >>> df = row2vec.generate_synthetic_data(80)
+            >>> df.row2vec.unsupervised(dim=2, max_epochs=2, verbose=False).shape
+            (80, 2)
         """
         config = create_config_for_mode("unsupervised")
         config.embedding_dim = dim
@@ -145,30 +127,29 @@ class Row2VecAccessor:
         batch_size: int = 64,
         **kwargs: Any,
     ) -> pd.DataFrame:
-        """
-        Generate supervised embeddings using target column.
+        """Generate supervised embeddings using target column.
 
-        Parameters
-        ----------
-        target_column : str
-            Name of the target column for supervised learning.
-        dim : int, default=10
-            Dimensionality of the embedding space.
-        max_epochs : int, default=50
-            Maximum number of training epochs.
-        batch_size : int, default=64
-            Training batch size.
-        **kwargs
-            Additional parameters passed to the config.
+        Args:
+            target_column (str):
+                Name of the target column for supervised learning.
+            dim (int, default=10):
+                Dimensionality of the embedding space.
+            max_epochs (int, default=50):
+                Maximum number of training epochs.
+            batch_size (int, default=64):
+                Training batch size.
+            **kwargs: Additional parameters passed to the config.
 
-        Returns
-        -------
-        embeddings : DataFrame
-            DataFrame with supervised embeddings.
+        Returns:
+            embeddings (DataFrame):
+                DataFrame with supervised embeddings.
 
-        Examples
-        --------
-        >>> embeddings = df.row2vec.supervised("category", dim=15)
+        Examples:
+            >>> import row2vec
+            >>> df = row2vec.generate_synthetic_data(80)
+            >>> vectors = df.row2vec.supervised("Country", dim=2, max_epochs=2)
+            >>> len(vectors) == df["Country"].nunique()
+            True
         """
         config = create_config_for_mode("target")
         config.embedding_dim = dim
@@ -187,38 +168,36 @@ class Row2VecAccessor:
         negative_samples: int = 5,
         max_epochs: int = 100,
         batch_size: int = 32,
-        **kwargs,
+        **kwargs: Any,
     ) -> pd.DataFrame:
-        """
-        Generate contrastive embeddings using similarity learning.
+        """Generate contrastive embeddings using similarity learning.
 
-        Parameters
-        ----------
-        dim : int, default=10
-            Dimensionality of the embedding space.
-        loss_type : str, default="triplet"
-            Type of contrastive loss. Options: "triplet", "contrastive".
-        auto_pairs : str, default="cluster"
-            Strategy for automatic pair generation. Options: "cluster", "neighbors", "random".
-        margin : float, default=1.0
-            Margin for the contrastive loss.
-        negative_samples : int, default=5
-            Number of negative samples per positive pair.
-        max_epochs : int, default=100
-            Maximum number of training epochs.
-        batch_size : int, default=32
-            Training batch size.
-        **kwargs
-            Additional parameters passed to the config.
+        Args:
+            dim (int, default=10):
+                Dimensionality of the embedding space.
+            loss_type (str, default="triplet"):
+                Type of contrastive loss. Options: "triplet", "contrastive".
+            auto_pairs (str, default="cluster"):
+                Strategy for automatic pair generation. Options: "cluster", "neighbors", "random".
+            margin (float, default=1.0):
+                Margin for the contrastive loss.
+            negative_samples (int, default=5):
+                Number of negative samples per positive pair.
+            max_epochs (int, default=100):
+                Maximum number of training epochs.
+            batch_size (int, default=32):
+                Training batch size.
+            **kwargs: Additional parameters passed to the config.
 
-        Returns
-        -------
-        embeddings : DataFrame
-            DataFrame with contrastive embeddings.
+        Returns:
+            embeddings (DataFrame):
+                DataFrame with contrastive embeddings.
 
-        Examples
-        --------
-        >>> embeddings = df.row2vec.contrastive(dim=20, loss_type="triplet")
+        Examples:
+            >>> import row2vec
+            >>> df = row2vec.generate_synthetic_data(80)
+            >>> df.row2vec.contrastive(dim=2, auto_pairs="random", max_epochs=2).shape
+            (80, 2)
         """
         config = create_config_for_mode("contrastive")
         config.embedding_dim = dim
@@ -235,37 +214,30 @@ class Row2VecAccessor:
         self,
         method: str = "pca",
         dim: int = 10,
-        **kwargs,
+        **kwargs: Any,
     ) -> pd.DataFrame:
-        """
-        Generate embeddings using classical ML methods.
+        """Generate embeddings using classical ML methods.
 
-        Parameters
-        ----------
-        method : str, default="pca"
-            Classical method to use. Options: "pca", "tsne", "umap".
-        dim : int, default=10
-            Dimensionality of the embedding space.
-        **kwargs
-            Additional parameters for the specific method:
-            - For t-SNE: perplexity, n_iter
-            - For UMAP: n_neighbors, min_dist
+        Args:
+            method (str, default="pca"):
+                Classical method to use. Options: "pca", "tsne", "umap".
+            dim (int, default=10):
+                Dimensionality of the embedding space.
+            **kwargs: Additional parameters for the specific method:
+                - For t-SNE: perplexity, n_iter
+                - For UMAP: n_neighbors, min_dist
 
-        Returns
-        -------
-        embeddings : DataFrame
-            DataFrame with classical embeddings.
+        Returns:
+            embeddings (DataFrame):
+                DataFrame with classical embeddings.
 
-        Examples
-        --------
-        >>> # PCA embeddings
-        >>> embeddings = df.row2vec.classical("pca", dim=5)
-        >>>
-        >>> # t-SNE embeddings
-        >>> embeddings = df.row2vec.classical("tsne", dim=2, perplexity=30)
-        >>>
-        >>> # UMAP embeddings
-        >>> embeddings = df.row2vec.classical("umap", dim=3, n_neighbors=15)
+        Examples:
+            >>> import row2vec
+            >>> df = row2vec.generate_synthetic_data(60)
+            >>> df.row2vec.classical("pca", dim=2).shape
+            (60, 2)
+            >>> df.row2vec.classical("tsne", dim=2, perplexity=10).shape
+            (60, 2)
         """
         config = create_config_for_mode(method)
         config.embedding_dim = dim
@@ -284,7 +256,7 @@ class Row2VecAccessor:
 
         return learn_embedding_v2(self._obj, config, **kwargs)
 
-    def pca(self, dim: int = 10, **kwargs) -> pd.DataFrame:
+    def pca(self, dim: int = 10, **kwargs: Any) -> pd.DataFrame:
         """Generate PCA embeddings."""
         return self.classical("pca", dim=dim, **kwargs)
 
@@ -293,7 +265,7 @@ class Row2VecAccessor:
         dim: int = 2,
         perplexity: float = 30.0,
         n_iter: int = 1000,
-        **kwargs,
+        **kwargs: Any,
     ) -> pd.DataFrame:
         """Generate t-SNE embeddings."""
         return self.classical(
@@ -309,7 +281,7 @@ class Row2VecAccessor:
         dim: int = 3,
         n_neighbors: int = 15,
         min_dist: float = 0.1,
-        **kwargs,
+        **kwargs: Any,
     ) -> pd.DataFrame:
         """Generate UMAP embeddings."""
         return self.classical(
@@ -325,26 +297,24 @@ class Row2VecAccessor:
         dim: int = 5,
         methods: list[str] | None = None,
     ) -> dict[str, pd.DataFrame]:
-        """
-        Compare multiple embedding methods on the same data.
+        """Compare multiple embedding methods on the same data.
 
-        Parameters
-        ----------
-        dim : int, default=5
-            Dimensionality for all methods.
-        methods : list, optional
-            List of methods to compare. If None, uses ["unsupervised", "pca", "tsne", "umap"].
+        Args:
+            dim (int, default=5):
+                Dimensionality for all methods.
+            methods (list, optional):
+                List of methods to compare. If None, uses ["unsupervised", "pca", "tsne", "umap"].
 
-        Returns
-        -------
-        results : dict
-            Dictionary mapping method names to their embedding DataFrames.
+        Returns:
+            results (dict):
+                Dictionary mapping method names to their embedding DataFrames.
 
-        Examples
-        --------
-        >>> results = df.row2vec.compare_methods(dim=3)
-        >>> print("PCA variance:", results["pca"].var().mean())
-        >>> print("t-SNE variance:", results["tsne"].var().mean())
+        Examples:
+            >>> import row2vec
+            >>> df = row2vec.generate_synthetic_data(60)
+            >>> results = df.row2vec.compare_methods(dim=2, methods=["pca"])
+            >>> results["pca"].shape
+            (60, 2)
         """
         if methods is None:
             methods = ["unsupervised", "pca", "tsne", "umap"]

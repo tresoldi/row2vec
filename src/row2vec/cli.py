@@ -1,5 +1,4 @@
-"""
-Row2Vec Command Line Interface
+"""Command-line interface for Row2Vec.
 
 A comprehensive CLI for training embeddings, making predictions, and annotating datasets
 with Row2Vec embeddings using various methods (neural, PCA, t-SNE, UMAP).
@@ -16,7 +15,12 @@ import pandas as pd
 from . import __version__
 from .core import learn_embedding
 from .serialization import load_model, train_and_save_model
-from .utils import create_dataframe_schema, validate_dataframe_schema
+from .utils import (
+    categorical_columns,
+    create_dataframe_schema,
+    numeric_columns,
+    validate_dataframe_schema,
+)
 
 
 def _detect_input_format(file_path: Path) -> str:
@@ -56,7 +60,7 @@ def _load_dataframe(file_path: Path, validate_only: bool = False) -> pd.DataFram
         return df
 
     except Exception as e:
-        raise ValueError(f"Failed to load {file_path}: {e!s}")
+        raise ValueError(f"Failed to load {file_path}: {e!s}") from e
 
 
 def _save_dataframe(df: pd.DataFrame, file_path: Path) -> None:
@@ -73,12 +77,10 @@ def _save_dataframe(df: pd.DataFrame, file_path: Path) -> None:
             df.to_parquet(file_path, index=False)
 
     except Exception as e:
-        raise ValueError(f"Failed to save to {file_path}: {e!s}")
+        raise ValueError(f"Failed to save to {file_path}: {e!s}") from e
 
 
-def _validate_schema_friendly(
-    df: pd.DataFrame, reference_column: str | None = None
-) -> bool:
+def _validate_schema_friendly(df: pd.DataFrame, reference_column: str | None = None) -> bool:
     """Validate DataFrame schema with user-friendly error messages."""
     try:
         # Create and validate schema
@@ -116,10 +118,8 @@ def _validate_schema_friendly(
             {col: df[col].isnull().sum() for col in missing_cols}
 
         # Check data types
-        numeric_cols = df.select_dtypes(include=["number"]).columns.tolist()
-        categorical_cols = df.select_dtypes(
-            include=["object", "category"]
-        ).columns.tolist()
+        numeric_cols = numeric_columns(df)
+        categorical_cols = categorical_columns(df)
 
         if reference_column and reference_column in categorical_cols:
             categorical_cols.remove(reference_column)
@@ -352,9 +352,7 @@ def cmd_train(args: argparse.Namespace) -> int:
                     pairs_df = pd.read_csv(args.similar_pairs_file, header=None)
                     if pairs_df.shape[1] != 2:
                         return 1
-                    similar_pairs = [
-                        (int(row[0]), int(row[1])) for _, row in pairs_df.iterrows()
-                    ]
+                    similar_pairs = [(int(row[0]), int(row[1])) for _, row in pairs_df.iterrows()]
                     if not args.quiet:
                         pass
                 except Exception:
@@ -397,7 +395,7 @@ def cmd_train(args: argparse.Namespace) -> int:
 
         # Train and save model
         start_time = time.time()
-        embeddings, script_path, binary_path = train_and_save_model(
+        _embeddings, _script_path, _binary_path = train_and_save_model(
             df=df,
             base_path=str(model_path.with_suffix("")),
             embedding_dim=args.dim,
@@ -520,9 +518,7 @@ def cmd_annotate(args: argparse.Namespace) -> int:
                     pairs_df = pd.read_csv(args.similar_pairs_file, header=None)
                     if pairs_df.shape[1] != 2:
                         return 1
-                    similar_pairs = [
-                        (int(row[0]), int(row[1])) for _, row in pairs_df.iterrows()
-                    ]
+                    similar_pairs = [(int(row[0]), int(row[1])) for _, row in pairs_df.iterrows()]
                     if not args.quiet:
                         pass
                 except Exception:
@@ -906,7 +902,7 @@ def main() -> int:
 
     # Execute the subcommand
     try:
-        return args.func(args)
+        return int(args.func(args))
     except KeyboardInterrupt:
         if not args.quiet:
             pass

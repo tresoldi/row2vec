@@ -1,5 +1,4 @@
-"""
-Row2Vec: Intelligent Categorical Encoding System
+"""Adaptive encoding strategies for categorical columns.
 
 This module provides adaptive categorical encoding strategies that automatically
 analyze data characteristics and apply optimal encoding methods while maintaining
@@ -19,6 +18,8 @@ from sklearn.preprocessing import LabelEncoder, OneHotEncoder, OrdinalEncoder
 from tensorflow import keras
 from tensorflow.keras import layers
 
+from .utils import is_categorical_series
+
 if TYPE_CHECKING:
     from sklearn.base import BaseEstimator, TransformerMixin
 else:
@@ -31,8 +32,7 @@ else:
 
 @dataclass
 class CategoricalEncodingConfig:
-    """
-    Configuration for intelligent categorical encoding strategies.
+    """Configuration for intelligent categorical encoding strategies.
 
     This class provides comprehensive control over how categorical variables are encoded,
     with intelligent defaults that automatically select optimal strategies based on
@@ -121,23 +121,18 @@ class CategoricalAnalyzer:
     def __init__(self, config: CategoricalEncodingConfig):
         self.config = config
 
-    def analyze_column(
-        self, series: pd.Series, target: pd.Series | None = None
-    ) -> dict[str, Any]:
-        """
-        Analyze a categorical column to recommend encoding strategy.
+    def analyze_column(self, series: pd.Series, target: pd.Series | None = None) -> dict[str, Any]:
+        """Analyze a categorical column to recommend encoding strategy.
 
-        Parameters
-        ----------
-        series : pd.Series
-            Categorical column to analyze
-        target : pd.Series, optional
-            Target variable for correlation analysis
+        Args:
+            series (pd.Series):
+                Categorical column to analyze
+            target (pd.Series, optional):
+                Target variable for correlation analysis
 
-        Returns
-        -------
-        Dict[str, Any]
-            Analysis results and strategy recommendation
+        Returns:
+            Dict[str, Any]
+                Analysis results and strategy recommendation
         """
         # Basic statistics
         cardinality = series.nunique()
@@ -146,9 +141,7 @@ class CategoricalAnalyzer:
 
         # Distribution analysis
         frequency_entropy = self._calculate_entropy(value_counts)
-        imbalance_ratio = (
-            value_counts.iloc[0] / len(series) if len(value_counts) > 0 else 0
-        )
+        imbalance_ratio = value_counts.iloc[0] / len(series) if len(value_counts) > 0 else 0
 
         # Target correlation analysis
         target_correlation = 0.0
@@ -240,13 +233,9 @@ class CategoricalAnalyzer:
         """Calculate optimal embedding dimension for entity embeddings."""
         # Rule of thumb: embedding_dim = sqrt(cardinality) * ratio
         dim = int(np.sqrt(cardinality) * self.config.embedding_dim_ratio)
-        return int(
-            np.clip(dim, self.config.min_embedding_dim, self.config.max_embedding_dim)
-        )
+        return int(np.clip(dim, self.config.min_embedding_dim, self.config.max_embedding_dim))
 
-    def _explain_recommendation(
-        self, cardinality: int, correlation: float, strategy: str
-    ) -> str:
+    def _explain_recommendation(self, cardinality: int, correlation: float, strategy: str) -> str:
         """Provide human-readable explanation for strategy recommendation."""
         explanations = {
             "onehot": f"Low cardinality ({cardinality}) and low target correlation ({correlation:.3f}). OneHot is fast and interpretable.",
@@ -271,22 +260,19 @@ class EntityEmbeddingTrainer:
         target: pd.Series | None = None,
         embedding_dim: int = 10,
     ) -> NDArray[Any]:
-        """
-        Train entity embeddings for a categorical column.
+        """Train entity embeddings for a categorical column.
 
-        Parameters
-        ----------
-        series : pd.Series
-            Categorical column to embed
-        target : pd.Series, optional
-            Target variable for supervised embedding
-        embedding_dim : int
-            Dimension of embedding vectors
+        Args:
+            series (pd.Series):
+                Categorical column to embed
+            target (pd.Series, optional):
+                Target variable for supervised embedding
+            embedding_dim (int):
+                Dimension of embedding vectors
 
-        Returns
-        -------
-        np.ndarray
-            Trained embedding matrix of shape (cardinality, embedding_dim)
+        Returns:
+            np.ndarray
+                Trained embedding matrix of shape (cardinality, embedding_dim)
         """
         # Prepare data
         valid_mask = ~series.isna()
@@ -330,7 +316,7 @@ class EntityEmbeddingTrainer:
         """Train supervised entity embeddings using target variable."""
 
         # Determine task type
-        if target.dtype in ["object", "category"] or target.nunique() < 20:
+        if is_categorical_series(target) or target.nunique() < 20:
             # Classification task
             target_encoder = LabelEncoder()
             y_encoded = target_encoder.fit_transform(target.astype(str))
@@ -398,7 +384,7 @@ class EntityEmbeddingTrainer:
         if embeddings.ndim == 3:
             embeddings = embeddings.squeeze(axis=1)
 
-        return embeddings
+        return np.asarray(embeddings)
 
     def _train_unsupervised_embedding(
         self,
@@ -452,7 +438,7 @@ class EntityEmbeddingTrainer:
 
         # Get embeddings for all categories
         all_onehot = np.eye(cardinality)
-        return encoder.predict(all_onehot, verbose=0)
+        return np.asarray(encoder.predict(all_onehot, verbose=0))
 
 
 class TargetEncoder:
@@ -468,20 +454,17 @@ class TargetEncoder:
         series: pd.Series,
         target: pd.Series,
     ) -> pd.Series:
-        """
-        Fit target encoder and transform the series.
+        """Fit target encoder and transform the series.
 
-        Parameters
-        ----------
-        series : pd.Series
-            Categorical column to encode
-        target : pd.Series
-            Target variable
+        Args:
+            series (pd.Series):
+                Categorical column to encode
+            target (pd.Series):
+                Target variable
 
-        Returns
-        -------
-        pd.Series
-            Target-encoded values
+        Returns:
+            pd.Series
+                Target-encoded values
         """
         if target is None:
             raise ValueError("Target variable is required for target encoding")
@@ -522,8 +505,7 @@ class TargetEncoder:
 
                 # Bayesian smoothing formula
                 smoothed_mean = (
-                    cat_count * cat_mean
-                    + self.config.target_smoothing * (self.global_mean_ or 0.0)
+                    cat_count * cat_mean + self.config.target_smoothing * (self.global_mean_ or 0.0)
                 ) / (cat_count + self.config.target_smoothing)
                 smoothed_means[category] = smoothed_mean
 
@@ -544,8 +526,7 @@ class TargetEncoder:
             cat_count = final_stats.loc[category, "count"]
 
             smoothed_mean = (
-                cat_count * cat_mean
-                + self.config.target_smoothing * (self.global_mean_ or 0.0)
+                cat_count * cat_mean + self.config.target_smoothing * (self.global_mean_ or 0.0)
             ) / (cat_count + self.config.target_smoothing)
             self.encodings_[category] = smoothed_mean
 
@@ -573,9 +554,8 @@ class TargetEncoder:
         return series.map(self.encodings_).fillna(self.global_mean_)
 
 
-class CategoricalEncoder(BaseEstimator, TransformerMixin):  # type: ignore[misc]
-    """
-    Intelligent categorical encoder with adaptive strategy selection.
+class CategoricalEncoder(BaseEstimator, TransformerMixin):
+    """Intelligent categorical encoder with adaptive strategy selection.
 
     This encoder analyzes categorical data characteristics and automatically
     selects optimal encoding strategies while providing full control for
@@ -593,20 +573,17 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):  # type: ignore[misc]
         self.analysis_report_: dict[str, Any] = {}
 
     def fit(self, X: pd.DataFrame, y: pd.Series | None = None) -> "CategoricalEncoder":
-        """
-        Fit the categorical encoder on training data.
+        """Fit the categorical encoder on training data.
 
-        Parameters
-        ----------
-        X : pd.DataFrame
-            Categorical features to encode
-        y : pd.Series, optional
-            Target variable for supervised encoding strategies
+        Args:
+            X (pd.DataFrame):
+                Categorical features to encode
+            y (pd.Series, optional):
+                Target variable for supervised encoding strategies
 
-        Returns
-        -------
-        self : CategoricalEncoder
-            Fitted encoder instance
+        Returns:
+            self (CategoricalEncoder):
+                Fitted encoder instance
         """
         # Store feature names
         self.feature_names_in_ = list(X.columns)
@@ -617,10 +594,7 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):  # type: ignore[misc]
             self.analysis_report_[col] = analysis
 
             # Determine final strategy
-            if (
-                self.config.encoding_strategy == "mixed"
-                and col in self.config.custom_strategies
-            ):
+            if self.config.encoding_strategy == "mixed" and col in self.config.custom_strategies:
                 strategy = self.config.custom_strategies[col]
             elif self.config.encoding_strategy == "adaptive":
                 strategy = analysis["recommended_strategy"]
@@ -638,18 +612,15 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):  # type: ignore[misc]
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
-        """
-        Transform categorical data using fitted encoders.
+        """Transform categorical data using fitted encoders.
 
-        Parameters
-        ----------
-        X : pd.DataFrame
-            Categorical data to transform
+        Args:
+            X (pd.DataFrame):
+                Categorical data to transform
 
-        Returns
-        -------
-        pd.DataFrame
-            Encoded categorical data
+        Returns:
+            pd.DataFrame
+                Encoded categorical data
         """
         if not self.fitted_encoders_:
             raise ValueError("Encoder must be fitted before transform")
@@ -714,9 +685,7 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):  # type: ignore[misc]
                     f"Target encoding requested for {col} but no target provided. Using ordinal encoding.",
                     stacklevel=2,
                 )
-                encoder = OrdinalEncoder(
-                    handle_unknown="use_encoded_value", unknown_value=-1
-                )
+                encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)
                 encoder.fit(np.asarray(series.values).reshape(-1, 1))
                 self.fitted_encoders_[col] = encoder
             else:
@@ -743,9 +712,7 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):  # type: ignore[misc]
             self.fitted_encoders_[col] = "entity"  # Flag for entity embeddings
 
         elif strategy == "ordinal":
-            encoder = OrdinalEncoder(
-                handle_unknown="use_encoded_value", unknown_value=-1
-            )
+            encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)
             encoder.fit(np.asarray(series.values).reshape(-1, 1))
             self.fitted_encoders_[col] = encoder
 
@@ -844,9 +811,7 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):  # type: ignore[misc]
                 if hasattr(encoder, "get_feature_names_out"):
                     feature_names.extend(encoder.get_feature_names_out([col]))
                 else:
-                    feature_names.extend(
-                        [f"{col}_{cat}" for cat in encoder.categories_[0]]
-                    )
+                    feature_names.extend([f"{col}_{cat}" for cat in encoder.categories_[0]])
             elif strategy == "entity":
                 embedding_dim = self.entity_embeddings_[col]["embedding_dim"]
                 feature_names.extend([f"{col}_emb_{i}" for i in range(embedding_dim)])
@@ -866,12 +831,11 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):  # type: ignore[misc]
         feature_importances = {}
 
         for col in df.columns:
-            if df[col].dtype in ["object", "category"]:
+            if is_categorical_series(df[col]):
                 # For categorical features, use normalized entropy as importance
                 value_counts = df[col].value_counts(normalize=True)
-                entropy = -np.sum(
-                    value_counts * np.log(value_counts + 1e-10)
-                )  # Add small epsilon for numerical stability
+                # The epsilon keeps log() defined for zero-probability categories.
+                entropy = float(-np.sum(value_counts * np.log(value_counts + 1e-10)))
                 max_entropy = np.log(len(df[col].unique()))
                 importance = entropy / max_entropy if max_entropy > 0 else 0.0
             # For numerical features, use normalized variance
@@ -879,9 +843,9 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):  # type: ignore[misc]
                 importance = 0.0
             else:
                 # Type ignore: MyPy cannot infer that df[col] is numeric here
-                importance = min(  # type: ignore[type-var]
+                importance = min(
                     1.0,
-                    df[col].var() / (df[col].var() + df[col].mean() ** 2),  # type: ignore[operator,call-overload]
+                    df[col].var() / (df[col].var() + df[col].mean() ** 2),
                 )
 
             feature_importances[col] = importance
@@ -895,17 +859,13 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):  # type: ignore[misc]
 
         if len(selected_features) == 0:
             # If no features meet the threshold, keep the top 50% by importance
-            sorted_features = sorted(
-                feature_importances.items(), key=lambda x: x[1], reverse=True
-            )
+            sorted_features = sorted(feature_importances.items(), key=lambda x: x[1], reverse=True)
             n_keep = max(1, len(sorted_features) // 2)
             selected_features = [col for col, _ in sorted_features[:n_keep]]
 
         return df[selected_features]
 
-    def get_feature_names_out(
-        self, input_features: list[str] | None = None
-    ) -> list[str]:
+    def get_feature_names_out(self, input_features: list[str] | None = None) -> list[str]:
         """Get output feature names for transformation."""
         if self.feature_names_out_ is None:
             raise ValueError("Encoder must be fitted before getting feature names")

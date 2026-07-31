@@ -52,9 +52,7 @@ print(
     f"   python -m row2vec train --input {sample_data_path} --output {output_dir}/embeddings.csv \\"
 )
 print(f"       --mode contrastive --similar-pairs-file {similar_pairs_path} \\")
-print(
-    f"       --dissimilar-pairs-file {dissimilar_pairs_path} --contrastive-loss contrastive"
-)
+print(f"       --dissimilar-pairs-file {dissimilar_pairs_path} --contrastive-loss contrastive")
 
 print("\n3. Using both auto-generation and manual pairs:")
 print(

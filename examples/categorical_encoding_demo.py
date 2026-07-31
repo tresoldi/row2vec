@@ -65,17 +65,13 @@ def example_adaptive_encoding():
 
     df = create_sample_data()
     print(f"Dataset shape: {df.shape}")
-    print(
-        f"Categorical columns: {df.select_dtypes(include=['object']).columns.tolist()}"
-    )
+    print(f"Categorical columns: {df.select_dtypes(include=['object']).columns.tolist()}")
 
     # Use adaptive strategy (default)
     config = EmbeddingConfig()
 
     # Build preprocessing pipeline to see what strategies are selected
-    preprocessor, analysis = build_adaptive_pipeline(
-        df, target=df["target"], config=config
-    )
+    _preprocessor, analysis = build_adaptive_pipeline(df, target=df["target"], config=config)
 
     print("\nDataset analysis:")
     print(f"- Missing data: {analysis['missing_percentage']:.1f}%")
@@ -105,9 +101,7 @@ def example_target_encoding():
     # Configure for target encoding
     config = EmbeddingConfig()
     config.preprocessing.categorical_encoding_strategy = "target"
-    config.preprocessing.categorical_target_threshold = (
-        50  # Use target encoding for <50 categories
-    )
+    config.preprocessing.categorical_target_threshold = 50  # Use target encoding for <50 categories
 
     embeddings = learn_embedding(
         df,
@@ -136,7 +130,7 @@ def example_entity_embeddings():
     )
 
     # Build pipeline to show entity embedding decisions
-    preprocessor, analysis = build_adaptive_pipeline(df, config=config)
+    _preprocessor, _analysis = build_adaptive_pipeline(df, config=config)
 
     embeddings = learn_embedding(
         df.drop(columns=["target"]),

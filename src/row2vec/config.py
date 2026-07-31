@@ -1,6 +1,4 @@
-"""
-Configuration classes for Row2Vec embedding methods.
-"""
+"""Configuration classes for Row2Vec embedding methods."""
 
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -92,9 +90,7 @@ class ContrastiveConfig:
             "categorical",
             "random",
         ]:
-            raise ValueError(
-                "auto_pairs must be one of: cluster, neighbors, categorical, random"
-            )
+            raise ValueError("auto_pairs must be one of: cluster, neighbors, categorical, random")
         if self.margin < 0:
             raise ValueError("margin must be non-negative")
         if self.negative_samples <= 0:
@@ -302,9 +298,7 @@ def create_config_for_mode(mode: str, **overrides: Any) -> EmbeddingConfig:
 
         # Mode-specific optimizations
         if mode == "contrastive":
-            base_config.neural.max_epochs = (
-                100  # Contrastive learning often needs more epochs
-            )
+            base_config.neural.max_epochs = 100  # Contrastive learning often needs more epochs
             base_config.neural.batch_size = 32  # Smaller batches for triplet learning
             base_config.contrastive.auto_pairs = "cluster"  # Set default auto_pairs
         elif mode in ["pca", "tsne", "umap"]:

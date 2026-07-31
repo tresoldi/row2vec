@@ -1,5 +1,4 @@
-"""
-Automatic Neural Architecture Search for Row2Vec embeddings.
+"""Automatic Neural Architecture Search for Row2Vec embeddings.
 
 This module provides intelligent automatic architecture search to find optimal
 neural network configurations for embedding generation tasks.
@@ -21,8 +20,7 @@ from .config import EmbeddingConfig, NeuralConfig
 
 @dataclass
 class ArchitectureSearchConfig:
-    """
-    Configuration for automatic neural architecture search.
+    """Configuration for automatic neural architecture search.
 
     This class defines the search space, evaluation criteria, and stopping
     conditions for finding optimal neural network architectures.
@@ -41,14 +39,10 @@ class ArchitectureSearchConfig:
     layer_range: tuple[int, int] = (1, 4)  # Min/max number of hidden layers
     max_layers: int = 4  # Maximum number of hidden layers
     width_options: list[int] = field(default_factory=lambda: [32, 64, 128, 256, 512])
-    dropout_options: list[float] = field(
-        default_factory=lambda: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]
-    )
-    activation_options: list[str] = field(
-        default_factory=lambda: ["relu", "elu", "swish"]
-    )
+    dropout_options: list[float] = field(default_factory=lambda: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5])
+    activation_options: list[str] = field(default_factory=lambda: ["relu", "elu", "swish"])
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Initialize derived parameters."""
         self.max_layers = max(self.layer_range[1], 1)  # Ensure at least 1 layer
 
@@ -96,9 +90,7 @@ class ArchitectureSearchResult:
             "total_time": self.total_time,
             "trials_completed": self.trials_completed,
             "improvement_over_baseline": self._compute_improvement(),
-            "search_efficiency": self.best_score / self.total_time
-            if self.total_time > 0
-            else 0,
+            "search_efficiency": self.best_score / self.total_time if self.total_time > 0 else 0,
         }
 
     def _compute_improvement(self) -> float:
@@ -107,16 +99,11 @@ class ArchitectureSearchResult:
             return 0.0
 
         baseline_score = self.search_history[0]["score"]
-        return (
-            (self.best_score - baseline_score) / baseline_score
-            if baseline_score > 0
-            else 0.0
-        )
+        return (self.best_score - baseline_score) / baseline_score if baseline_score > 0 else 0.0
 
 
 class ArchitectureSearcher:
-    """
-    Main class for performing neural architecture search.
+    """Main class for performing neural architecture search.
 
     Implements multiple search strategies to find optimal neural network
     architectures for embedding generation tasks.
@@ -126,7 +113,7 @@ class ArchitectureSearcher:
         self.config = config
         self.search_history: list[dict[str, Any]] = []
         self.best_score = float("-inf")
-        self.best_architecture = None
+        self.best_architecture: dict[str, Any] | None = None
         self.trials_without_improvement = 0
 
         if config.random_seed is not None:
@@ -139,8 +126,7 @@ class ArchitectureSearcher:
         base_config: EmbeddingConfig,
         target_column: str | None = None,
     ) -> ArchitectureSearchResult:
-        """
-        Perform architecture search on the given dataset.
+        """Perform architecture search on the given dataset.
 
         Args:
             df: Input dataframe for embedding generation
@@ -171,9 +157,7 @@ class ArchitectureSearcher:
             return ArchitectureSearchResult(
                 best_architecture=self.best_architecture or {},
                 best_score=self.best_score,
-                search_history=self.search_history
-                if self.config.return_full_history
-                else [],
+                search_history=self.search_history if self.config.return_full_history else [],
                 total_time=total_time,
                 trials_completed=len(self.search_history),
             )
@@ -200,9 +184,7 @@ class ArchitectureSearcher:
             architecture = self._sample_random_architecture()
 
             # Evaluate architecture
-            score = self._evaluate_architecture(
-                df, base_config, architecture, target_column, trial
-            )
+            score = self._evaluate_architecture(df, base_config, architecture, target_column, trial)
 
             # Update best
             if score > self.best_score:
@@ -242,9 +224,7 @@ class ArchitectureSearcher:
                 break
 
             # Evaluate architecture
-            score = self._evaluate_architecture(
-                df, base_config, architecture, target_column, trial
-            )
+            score = self._evaluate_architecture(df, base_config, architecture, target_column, trial)
 
             # Update best
             if score > self.best_score:
@@ -268,8 +248,7 @@ class ArchitectureSearcher:
 
         if n_layers == 1:
             # Single layer: keep as int for backward compatibility
-            width = random.choice(self.config.width_options)
-            hidden_units = width
+            hidden_units: int | list[int] = random.choice(self.config.width_options)
         else:
             # Multi-layer: use list of layer widths
             layer_widths = []
@@ -293,21 +272,15 @@ class ArchitectureSearcher:
         for n_layers in range(
             1, min(self.config.max_layers + 1, 3)
         ):  # Limit to 2 layers for grid efficiency
-            for width in self.config.width_options[
-                ::2
-            ]:  # Use every other width for efficiency
-                for dropout in self.config.dropout_options[
-                    ::2
-                ]:  # Use every other dropout
+            for width in self.config.width_options[::2]:  # Use every other width for efficiency
+                for dropout in self.config.dropout_options[::2]:  # Use every other dropout
                     for activation in self.config.activation_options:
+                        hidden_units: int | list[int]
                         if n_layers == 1:
                             hidden_units = width
                         else:
-                            # For multi-layer, create decreasing layer sizes
-                            hidden_units = [width // (i + 1) for i in range(n_layers)]
-                            hidden_units = [
-                                max(h, 16) for h in hidden_units
-                            ]  # Ensure minimum size
+                            # For multi-layer, create decreasing layer sizes with a floor.
+                            hidden_units = [max(width // (i + 1), 16) for i in range(n_layers)]
 
                         architectures.append(
                             {
@@ -394,9 +367,7 @@ class ArchitectureSearcher:
             training_time = time.time() - start_time
 
             # Compute evaluation metrics
-            metrics = self._compute_evaluation_metrics(
-                df, embeddings, training_time, target_column
-            )
+            metrics = self._compute_evaluation_metrics(df, embeddings, training_time, target_column)
 
             # Compute weighted score
             score = (
@@ -468,7 +439,7 @@ class ArchitectureSearcher:
                 min(1.0, embedding_var / original_var) if original_var > 0 else 0.5
             )
             metrics["reconstruction_score"] = reconstruction_score
-        except:
+        except Exception:
             metrics["reconstruction_score"] = 0.5
 
         # 2. Clustering quality score
@@ -487,7 +458,7 @@ class ArchitectureSearcher:
                 clustering_score = 0.5
 
             metrics["clustering_score"] = clustering_score
-        except:
+        except Exception:
             metrics["clustering_score"] = 0.5
 
         # 3. Efficiency score (inverse of training time, normalized)
@@ -496,7 +467,7 @@ class ArchitectureSearcher:
             time_per_sample = training_time / len(df) if len(df) > 0 else training_time
             efficiency_score = 1.0 / (1.0 + time_per_sample * 1000)  # Scale factor
             metrics["efficiency_score"] = efficiency_score
-        except:
+        except Exception:
             metrics["efficiency_score"] = 0.5
 
         # 4. Stability score (based on embedding variance and outliers)
@@ -518,7 +489,7 @@ class ArchitectureSearcher:
                     stability_score = 1.0
 
             metrics["stability_score"] = stability_score
-        except:
+        except Exception:
             metrics["stability_score"] = 0.5
 
         return metrics
@@ -547,14 +518,12 @@ class ArchitectureSearcher:
         dropout_count = len(self.config.dropout_options)
         activation_count = len(self.config.activation_options)
 
-        total_combinations = (
-            layer_count * (width_count**3) * dropout_count * activation_count
-        )
+        total_combinations = layer_count * (width_count**3) * dropout_count * activation_count
 
         return (
-            f"{layer_count} layer configs × {width_count} width options × "
-            f"{dropout_count} dropout rates × {activation_count} activations "
-            f"≈ {total_combinations:,} total combinations"
+            f"{layer_count} layer configs x {width_count} width options x "
+            f"{dropout_count} dropout rates x {activation_count} activations "
+            f"= approx. {total_combinations:,} total combinations"
         )
 
 
@@ -564,8 +533,7 @@ def search_architecture(
     search_config: ArchitectureSearchConfig | None = None,
     target_column: str | None = None,
 ) -> tuple[dict[str, Any], ArchitectureSearchResult]:
-    """
-    Perform automatic neural architecture search.
+    """Perform automatic neural architecture search.
 
     This is the main entry point for architecture search functionality.
 

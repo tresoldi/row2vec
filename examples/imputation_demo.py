@@ -134,9 +134,7 @@ def demonstrate_custom_strategies():
 
     imputer_fast = AdaptiveImputer(config_fast)
     df_fast = imputer_fast.fit_transform(df)
-    print(
-        f"  Completed in fast mode: {df_fast.isna().sum().sum()} missing values remaining"
-    )
+    print(f"  Completed in fast mode: {df_fast.isna().sum().sum()} missing values remaining")
 
     # Strategy 2: High accuracy (for production)
     print("\nStrategy 2: High Accuracy")
@@ -152,9 +150,7 @@ def demonstrate_custom_strategies():
     df_accurate = imputer_accurate.fit_transform(df)
 
     # Check for missing indicators
-    indicator_cols = [
-        col for col in df_accurate.columns if col.endswith("_was_missing")
-    ]
+    indicator_cols = [col for col in df_accurate.columns if col.endswith("_was_missing")]
     print(
         f"  Completed in accurate mode: {df_accurate.isna().sum().sum()} missing values remaining"
     )
@@ -184,7 +180,6 @@ def demonstrate_integration():
 
     try:
         from sklearn.ensemble import RandomForestClassifier
-        from sklearn.metrics import classification_report
         from sklearn.model_selection import train_test_split
         from sklearn.preprocessing import StandardScaler
 
@@ -210,9 +205,7 @@ def demonstrate_integration():
         y = df["loan_approved"]
 
         # Split data
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=1305
-        )
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1305)
 
         print(f"Training set: {X_train.shape[0]} samples")
         print(f"Test set: {X_test.shape[0]} samples")

@@ -35,7 +35,7 @@ from row2vec.utils import generate_synthetic_data
 class TestConfigObjects:
     """Test the configuration object system."""
 
-    def test_embedding_config_defaults(self):
+    def test_embedding_config_defaults(self) -> None:
         """Test that EmbeddingConfig has sensible defaults."""
         config = EmbeddingConfig()
 
@@ -52,7 +52,7 @@ class TestConfigObjects:
         assert isinstance(config.scaling, ScalingConfig)
         assert isinstance(config.logging, LoggingConfig)
 
-    def test_neural_config_validation(self):
+    def test_neural_config_validation(self) -> None:
         """Test neural config validation."""
         # Valid config should not raise
         NeuralConfig(max_epochs=50, batch_size=32, dropout_rate=0.2)
@@ -67,7 +67,7 @@ class TestConfigObjects:
         with pytest.raises(ValueError, match="dropout_rate must be between 0 and 1"):
             NeuralConfig(dropout_rate=1.5)
 
-    def test_contrastive_config_validation(self):
+    def test_contrastive_config_validation(self) -> None:
         """Test contrastive config validation."""
         # Valid config
         ContrastiveConfig(loss_type="triplet", auto_pairs="cluster")
@@ -80,7 +80,7 @@ class TestConfigObjects:
         with pytest.raises(ValueError, match="auto_pairs must be one of"):
             ContrastiveConfig(auto_pairs="invalid")
 
-    def test_config_to_dict_and_from_dict(self):
+    def test_config_to_dict_and_from_dict(self) -> None:
         """Test config serialization and deserialization."""
         original_config = EmbeddingConfig(
             embedding_dim=20,
@@ -103,7 +103,7 @@ class TestConfigObjects:
         assert restored_config.contrastive.loss_type == "contrastive"
         assert restored_config.contrastive.margin == 2.0
 
-    def test_config_yaml_serialization(self):
+    def test_config_yaml_serialization(self) -> None:
         """Test YAML serialization and loading."""
         config = EmbeddingConfig(
             embedding_dim=15,
@@ -132,7 +132,7 @@ class TestConfigObjects:
 class TestConfigBasedAPI:
     """Test the new config-based API functions."""
 
-    def test_learn_embedding_v2_basic(self):
+    def test_learn_embedding_v2_basic(self) -> None:
         """Test basic functionality of learn_embedding_v2."""
         df = generate_synthetic_data(100)
 
@@ -145,7 +145,7 @@ class TestConfigBasedAPI:
         embeddings = learn_embedding_v2(df, config)
         assert embeddings.shape == (100, 5)
 
-    def test_learn_embedding_v2_with_overrides(self):
+    def test_learn_embedding_v2_with_overrides(self) -> None:
         """Test config overrides in learn_embedding_v2."""
         df = generate_synthetic_data(100)
 
@@ -155,18 +155,17 @@ class TestConfigBasedAPI:
 
         # Test nested overrides
         embeddings = learn_embedding_v2(
-            df, **{"neural.batch_size": 32, "embedding_dim": 3}
+            df,
+            **{"neural.batch_size": 32, "embedding_dim": 3},  # type: ignore[arg-type]
         )
         assert embeddings.shape == (100, 3)
 
-    def test_learn_embedding_with_model_v2(self):
+    def test_learn_embedding_with_model_v2(self) -> None:
         """Test learn_embedding_with_model_v2 returns all artifacts."""
         df = generate_synthetic_data(80)
         config = EmbeddingConfig(embedding_dim=4)
 
-        embeddings, model, preprocessor, metadata = learn_embedding_with_model_v2(
-            df, config
-        )
+        embeddings, model, preprocessor, metadata = learn_embedding_with_model_v2(df, config)
 
         assert embeddings.shape == (80, 4)
         assert model is not None
@@ -174,7 +173,7 @@ class TestConfigBasedAPI:
         assert isinstance(metadata, dict)
         assert "embedding_dim" in metadata
 
-    def test_convenience_functions(self):
+    def test_convenience_functions(self) -> None:
         """Test the convenience functions for common use cases."""
         df = generate_synthetic_data(80)
 
@@ -186,9 +185,7 @@ class TestConfigBasedAPI:
         df_with_cat = df.copy()
         df_with_cat["category"] = np.random.choice(["A", "B", "C"], 80)
         embeddings = learn_embedding_target(df_with_cat, "category", embedding_dim=4)
-        assert (
-            embeddings.shape[1] == 4
-        )  # 3 categories, but embedding_dim controls output
+        assert embeddings.shape[1] == 4  # 3 categories, but embedding_dim controls output
 
         # Test classical convenience function
         embeddings = learn_embedding_classical(df, method="pca", embedding_dim=3)
@@ -204,7 +201,7 @@ class TestConfigBasedAPI:
 class TestAPICompatibility:
     """Test compatibility between new and legacy APIs."""
 
-    def test_config_vs_legacy_equivalence(self):
+    def test_config_vs_legacy_equivalence(self) -> None:
         """Test that config-based and legacy APIs produce equivalent results."""
         df = generate_synthetic_data(100, seed=1305)  # Fixed seed for reproducibility
 
@@ -236,7 +233,7 @@ class TestAPICompatibility:
             atol=1e-10,
         )
 
-    def test_multiple_mode_compatibility(self):
+    def test_multiple_mode_compatibility(self) -> None:
         """Test compatibility across different embedding modes."""
         df = generate_synthetic_data(80, seed=123)
 
@@ -260,18 +257,14 @@ class TestAPICompatibility:
 class TestConfigFactories:
     """Test configuration factory functions."""
 
-    def test_create_config_for_mode(self):
+    def test_create_config_for_mode(self) -> None:
         """Test mode-specific config creation."""
         # Test contrastive mode gets optimized settings
         contrastive_config = create_config_for_mode("contrastive")
         assert contrastive_config.mode == "contrastive"
-        assert (
-            contrastive_config.neural.max_epochs == 100
-        )  # More epochs for contrastive
+        assert contrastive_config.neural.max_epochs == 100  # More epochs for contrastive
         assert contrastive_config.neural.batch_size == 32  # Smaller batches
-        assert (
-            contrastive_config.contrastive.auto_pairs == "cluster"
-        )  # Default auto_pairs
+        assert contrastive_config.contrastive.auto_pairs == "cluster"  # Default auto_pairs
 
         # Test target mode gets optimized settings
         target_config = create_config_for_mode("target")
@@ -288,7 +281,7 @@ class TestConfigFactories:
 class TestConfigValidation:
     """Test configuration validation."""
 
-    def test_mode_specific_validation(self):
+    def test_mode_specific_validation(self) -> None:
         """Test that configs validate mode-specific requirements."""
         # Target mode requires reference_column
         with pytest.raises(ValueError, match="reference_column is required"):
@@ -298,12 +291,12 @@ class TestConfigValidation:
         config = EmbeddingConfig(mode="target", reference_column="test_col")
         assert config.mode == "target"
 
-    def test_invalid_mode_validation(self):
+    def test_invalid_mode_validation(self) -> None:
         """Test validation of invalid modes."""
         with pytest.raises(ValueError, match="mode must be one of"):
             EmbeddingConfig(mode="invalid_mode")
 
-    def test_embedding_dim_validation(self):
+    def test_embedding_dim_validation(self) -> None:
         """Test embedding dimension validation."""
         with pytest.raises(ValueError, match="embedding_dim must be positive"):
             EmbeddingConfig(embedding_dim=0)
