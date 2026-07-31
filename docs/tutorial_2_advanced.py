@@ -65,7 +65,6 @@ print(f"  Loss: {best_arch.get('final_loss', 'N/A')}")
 #' Row2Vec includes intelligent imputation strategies that adapt to your data patterns:
 
 import numpy as np
-import pandas as pd
 
 from row2vec import AdaptiveImputer, ImputationConfig, MissingPatternAnalyzer
 
@@ -88,9 +87,7 @@ print(f"  Recommendations: {len(analysis.get('recommendations', []))} strategies
 #' ### Apply Adaptive Imputation
 
 imputer = AdaptiveImputer(
-    ImputationConfig(
-        numeric_strategy="knn", categorical_strategy="mode", knn_neighbors=10
-    )
+    ImputationConfig(numeric_strategy="knn", categorical_strategy="mode", knn_neighbors=10)
 )
 
 df_imputed = imputer.fit_transform(df_missing)
@@ -106,7 +103,7 @@ print("  Successfully imputed!")
 import os
 import tempfile
 
-from row2vec import learn_embedding, load_model, train_and_save_model
+from row2vec import load_model, train_and_save_model
 
 # Create temporary directory for demo
 tmpdir = tempfile.mkdtemp()
@@ -151,7 +148,7 @@ shutil.rmtree(tmpdir)
 #'
 #' Let Row2Vec automatically determine the optimal embedding dimension:
 
-from row2vec import AutoDimensionSelector, auto_select_dimension
+from row2vec import AutoDimensionSelector
 
 selector = AutoDimensionSelector(min_dim=2, max_dim=10, method="reconstruction_error")
 

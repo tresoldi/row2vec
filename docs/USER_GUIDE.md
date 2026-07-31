@@ -1,1038 +1,586 @@
-# Row2Vec User Guide
+# User Guide
 
-A comprehensive guide to generating vector embeddings from tabular data.
+Row2Vec turns **rows into vectors**. You give it a `DataFrame`; it gives you back
+a numeric matrix with one row per input row, having dealt with the mixed dtypes,
+the missing values, and the scaling on the way.
 
-## Table of Contents
+Almost everything you want to do with a table downstream — cluster it, find the
+nearest neighbours of a record, plot it, feed it to a model that only speaks
+floats — assumes the rows are already points in a metric space. This guide covers
+the concepts, helps you pick a method, and works through the common tasks. Every
+code block on this page is executed by the test suite, so the examples stay
+correct against the installed version.
 
-1. [Introduction](#introduction)
-2. [Mathematical Background](#mathematical-background)
-3. [Embedding Methods Overview](#embedding-methods-overview)
-4. [Data Preparation](#data-preparation)
-5. [Neural Network Embeddings](#neural-network-embeddings)
-6. [Classical Methods](#classical-methods)
-7. [Advanced Features](#advanced-features)
-8. [Model Serialization](#model-serialization)
-9. [Best Practices](#best-practices)
-10. [Common Use Cases](#common-use-cases)
+> New here? Read **Core concepts** and **Choosing a method**, then jump to the
+> section closest to your problem.
 
-## Introduction
+---
 
-### What is Row2Vec?
+## Core concepts
 
-Row2Vec is a comprehensive library for generating low-dimensional vector embeddings from tabular datasets. It transforms mixed-type tabular data (numeric and categorical columns) into dense vector representations suitable for machine learning, visualization, and analysis.
+### One call for every method
 
-**Key Concept:** Each **row** in your dataset becomes a fixed-length **vector** in a lower-dimensional embedding space, while preserving the important relationships and patterns in your data.
+Every embedding is produced by `learn_embedding`. You choose the method with
+`mode`; everything else about the call stays the same.
 
-### Why Vector Embeddings?
+```python
+import row2vec
 
-Tabular data embeddings solve several common problems:
+df = row2vec.generate_synthetic_data(120)
+embeddings = row2vec.learn_embedding(df, mode="pca", embedding_dim=3)
 
-**Dimensionality Reduction:**
-- Raw data: 50+ columns → Embeddings: 5-20 dimensions
-- Reduces computational cost
-- Prevents overfitting
-- Enables visualization
-
-**Feature Engineering:**
-- Automatically discovers complex patterns
-- Captures non-linear relationships
-- Creates universal representations usable across models
-
-**Mixed-Type Data Handling:**
-- Seamlessly combines numeric and categorical features
-- No manual one-hot encoding needed
-- Handles missing values automatically
-
-**Visualization:**
-- 2D/3D embeddings reveal clusters and patterns
-- t-SNE and UMAP for exploration
-- Identify outliers and structure
-
-### When to Use Row2Vec
-
-**Use Row2Vec when:**
-- You have tabular data with mixed types (numeric + categorical)
-- You need to reduce dimensionality while preserving information
-- You want to visualize high-dimensional data
-- You need features for downstream machine learning
-- You want to discover latent structure in your data
-
-**Don't use Row2Vec when:**
-- You have pure text data (use word embeddings instead)
-- You have image data (use CNNs instead)
-- You have < 3 features (no dimensionality to reduce)
-- You need fully interpretable features (use feature selection instead)
-
-### Library Features
-
-- **Multiple Methods**: Neural (autoencoder), PCA, t-SNE, UMAP, contrastive
-- **Intelligent Preprocessing**: Automatic scaling, encoding, imputation
-- **Neural Architecture Search**: Find optimal network structures automatically
-- **Model Persistence**: Save and reuse trained models
-- **Production Ready**: Full type hints, comprehensive tests, CI/CD
-- **Flexible Configuration**: Simple API or detailed configuration objects
-
-### Installation
-
-```bash
-# Core installation
-pip install row2vec
-
-# With development tools
-pip install row2vec[dev]
+assert embeddings.shape == (120, 3)
 ```
 
-## Mathematical Background
+Swapping methods means swapping one argument — the call site never changes.
 
-### The Embedding Problem
+### The output is a DataFrame aligned with your input
 
-Given a dataset $D$ with $n$ rows and $p$ features:
-
-$$D \in \mathbb{R}^{n \times p}$$
-
-We want to learn a mapping $f: \mathbb{R}^p \rightarrow \mathbb{R}^d$ where $d \ll p$:
-
-$$\mathbf{z}_i = f(\mathbf{x}_i) \quad \text{for } i = 1, \ldots, n$$
-
-such that the embeddings $\mathbf{z}_i$ preserve important properties of the original data.
-
-### Autoencoder Framework
-
-Row2Vec's neural method uses autoencoders: neural networks trained to reconstruct their input.
-
-**Architecture:**
-
-$$
-\begin{align}
-\text{Encoder:} \quad & \mathbf{h} = \sigma(W_e \mathbf{x} + \mathbf{b}_e) \\
-\text{Bottleneck:} \quad & \mathbf{z} = \sigma(W_b \mathbf{h} + \mathbf{b}_b) \\
-\text{Decoder:} \quad & \mathbf{\hat{x}} = \sigma(W_d \mathbf{z} + \mathbf{b}_d)
-\end{align}
-$$
-
-**Objective:** Minimize reconstruction error:
-
-$$\mathcal{L} = \frac{1}{n} \sum_{i=1}^{n} \|\mathbf{x}_i - \mathbf{\hat{x}}_i\|^2$$
-
-The bottleneck layer $\mathbf{z}$ forces the network to learn a compressed representation.
-
-### Principal Component Analysis (PCA)
-
-PCA finds orthogonal directions of maximum variance:
-
-$$\mathbf{Z} = \mathbf{X} \mathbf{W}$$
-
-where $\mathbf{W}$ are the top $d$ eigenvectors of the covariance matrix.
-
-**Properties:**
-- Linear transformation
-- Optimal for Gaussian data
-- Deterministic (no random initialization)
-- Interpretable components
-
-### t-SNE (t-Distributed Stochastic Neighbor Embedding)
-
-t-SNE preserves local neighborhood structure by minimizing:
-
-$$\text{KL}(P \| Q) = \sum_{i \neq j} p_{ij} \log \frac{p_{ij}}{q_{ij}}$$
-
-where $P$ represents similarities in high-dimensional space and $Q$ in low-dimensional space.
-
-**Properties:**
-- Non-linear, preserves local structure
-- Excellent for visualization
-- Stochastic (different runs give different results)
-- Slow for large datasets
-
-### UMAP (Uniform Manifold Approximation and Projection)
-
-UMAP constructs a fuzzy topological representation and optimizes:
-
-$$\sum_{i,j} \left[ w_{ij} \log \frac{w_{ij}}{q_{ij}} + (1-w_{ij}) \log \frac{1-w_{ij}}{1-q_{ij}} \right]$$
-
-**Properties:**
-- Non-linear, balances local and global structure
-- Faster than t-SNE
-- Better preserves global structure
-- Supports higher-dimensional outputs
-
-## Embedding Methods Overview
-
-### Method Comparison
-
-| Method | Speed | Type | Best For | Dimensions |
-|--------|-------|------|----------|------------|
-| **PCA** | Fast | Linear | Quick exploration, linear relationships | 2-50 |
-| **Neural** | Medium | Non-linear | Complex patterns, feature engineering | 5-100 |
-| **t-SNE** | Slow | Non-linear | 2D/3D visualization, cluster discovery | 2-3 |
-| **UMAP** | Fast | Non-linear | General purpose, balanced structure | 2-50 |
-| **Contrastive** | Medium | Non-linear | When you have positive/negative pairs | 5-100 |
-
-### Method Selection Guide
-
-**Choose PCA when:**
-- You need fast, deterministic results
-- Your relationships are primarily linear
-- You want interpretable components
-- You're doing initial exploration
-
-**Choose Neural (Autoencoder) when:**
-- You have complex, non-linear patterns
-- You need embeddings for downstream ML
-- You have sufficient data (>1000 rows)
-- You want to fine-tune architecture
-
-**Choose t-SNE when:**
-- You want 2D/3D visualization
-- Discovering clusters is primary goal
-- Local neighborhood is most important
-- You have time for computation
-
-**Choose UMAP when:**
-- You want general-purpose embeddings
-- You need both local and global structure
-- You want faster computation than t-SNE
-- You might need >3 dimensions
-
-**Choose Contrastive when:**
-- You have labeled similar/dissimilar pairs
-- You want to enforce specific relationships
-- You need metric learning
-- You have domain knowledge about similarity
-
-## Data Preparation
-
-### Input Data Format
-
-Row2Vec accepts pandas DataFrames with mixed types:
+The result has the same length and index as the input, so you can put it
+straight back next to the original columns.
 
 ```python
 import pandas as pd
 
-# Example dataset
-data = pd.DataFrame({
-    'age': [25, 35, 45, 30],
-    'income': [50000, 75000, 90000, 60000],
-    'city': ['NYC', 'LA', 'Chicago', 'NYC'],
-    'education': ['BS', 'MS', 'PhD', 'BS']
-})
+import row2vec
+
+df = row2vec.generate_synthetic_data(50)
+embeddings = row2vec.learn_embedding(df, mode="pca", embedding_dim=2)
+
+assert list(embeddings.index) == list(df.index)
+combined = pd.concat([df, embeddings], axis=1)
+assert len(combined.columns) == len(df.columns) + 2
 ```
 
-**Requirements:**
-- DataFrame format (pandas)
-- At least 3 rows (preferably 100+)
-- At least 2 features
-- Mixed numeric and categorical OK
-- Missing values OK (automatically handled)
+### Mixed dtypes are handled for you
 
-### Handling Missing Values
-
-Row2Vec automatically handles missing data with intelligent imputation:
+The input can hold numbers, categories, and gaps at once. Numeric columns are
+scaled, categorical columns are encoded, and missing values are imputed — you do
+not have to prepare any of it.
 
 ```python
-from row2vec import learn_embedding
-
-# Data with missing values
-data_missing = data.copy()
-data_missing.loc[0, 'income'] = np.nan
-data_missing.loc[2, 'city'] = np.nan
-
-# Automatically imputed during embedding
-embeddings = learn_embedding(data_missing, mode="unsupervised", embedding_dim=5)
-```
-
-**Imputation Strategies:**
-- **Numeric columns**: KNN imputation (default) or mean/median
-- **Categorical columns**: Mode or most frequent
-- **Pattern analysis**: Detects systematic missingness
-
-**Manual Configuration:**
-
-```python
-from row2vec import EmbeddingConfig, PreprocessingConfig, ImputationConfig
-
-config = EmbeddingConfig(
-    mode="unsupervised",
-    embedding_dim=5,
-    preprocessing=PreprocessingConfig(
-        imputation=ImputationConfig(
-            numeric_strategy='knn',
-            categorical_strategy='mode',
-            knn_neighbors=5
-        )
-    )
-)
-```
-
-### Data Scaling
-
-Different features have different scales. Row2Vec handles this automatically:
-
-```python
-# Features with different scales
-data = pd.DataFrame({
-    'age': [25, 35, 45],          # Scale: 20-50
-    'income': [50000, 75000, 90000],  # Scale: 50k-100k
-    'score': [0.8, 0.9, 0.7]      # Scale: 0-1
-})
-
-# Automatically scaled during preprocessing
-embeddings = learn_embedding(data, mode="pca", embedding_dim=2)
-```
-
-**Scaling Methods:**
-- **Standard scaling** (default): Zero mean, unit variance
-- **MinMax scaling**: Scale to [0, 1] range
-- **Robust scaling**: Uses median and IQR (robust to outliers)
-
-### Categorical Encoding
-
-Row2Vec handles categorical features automatically:
-
-```python
-# Mixed data types
-data = pd.DataFrame({
-    'category': ['A', 'B', 'C', 'A', 'B'],
-    'numeric': [1.5, 2.3, 1.8, 2.1, 1.9],
-    'ordinal': ['low', 'medium', 'high', 'medium', 'low']
-})
-
-# Automatically encoded
-embeddings = learn_embedding(data, mode="unsupervised", embedding_dim=3)
-```
-
-**Encoding Strategies:**
-- **Entity embeddings**: Learn representations (default for neural)
-- **One-hot encoding**: Binary indicators (default for PCA)
-- **Target encoding**: Use target variable correlation (supervised)
-- **Frequency encoding**: Use category frequencies
-
-## Neural Network Embeddings
-
-### Basic Usage
-
-The simplest way to generate neural embeddings:
-
-```python
-from row2vec import learn_embedding
+import numpy as np
 import pandas as pd
 
-# Your data
-df = pd.read_csv('data.csv')
+import row2vec
 
-# Generate embeddings
-embeddings = learn_embedding(
+df = pd.DataFrame(
+    {
+        "amount": [10.0, 240.0, 35.5, np.nan, 88.0, 12.0, 300.0, 45.0],
+        "region": ["north", "south", "north", "east", "south", "east", "north", "south"],
+        "tier": ["a", "b", "a", "b", "a", "b", "a", "b"],
+    }
+)
+
+embeddings = row2vec.learn_embedding(df, mode="pca", embedding_dim=2)
+
+assert embeddings.shape == (8, 2)
+assert not embeddings.isna().to_numpy().any()  # no NaN survives into the output
+```
+
+### `embedding_dim` is the width of the output
+
+It is the number of columns you get back — how much room the method has to
+describe a row. Two or three for plotting; five to fifty as features for another
+model.
+
+```python
+import row2vec
+
+df = row2vec.generate_synthetic_data(60)
+
+for dim in (2, 5):
+    assert row2vec.learn_embedding(df, mode="pca", embedding_dim=dim).shape[1] == dim
+```
+
+If you would rather not pick, see
+[Choosing the dimension automatically](#choosing-the-dimension-automatically).
+
+---
+
+## Choosing a method
+
+Start from what you want the vectors *for*:
+
+| Your situation | Mode | Key parameter |
+|----------------|------|---------------|
+| A fast, interpretable baseline | `pca` | `embedding_dim` |
+| The structure is non-linear | `unsupervised` | `hidden_units`, `max_epochs` |
+| A 2-D picture showing clusters | `tsne` | `perplexity` |
+| A 2-D picture that also keeps global layout | `umap` | `n_neighbors`, `min_dist` |
+| One vector per *category*, not per row | `target` | `reference_column` |
+| You know which rows are alike | `contrastive` | `auto_pairs`, `margin` |
+
+By data characteristics:
+
+| Rows | Structure | Good default |
+|------|-----------|--------------|
+| Any | Unknown — you are exploring | `pca` first, then `unsupervised` |
+| Thousands+ | Non-linear, plenty of data to fit | `unsupervised` |
+| Up to a few thousand | You want to *see* it | `umap` (or `tsne`) |
+| Any | You have labelled pairs or a grouping column | `contrastive` |
+
+When-to-use, in one line each:
+
+- **`pca`** — linear, deterministic, and instant. Always worth running first: if
+  a few components already separate what you care about, stop here.
+- **`unsupervised`** — an autoencoder. Captures interactions PCA cannot, at the
+  cost of training time and hyperparameters. Wants a few thousand rows.
+- **`tsne`** — for visualisation only. Excellent at revealing clusters, but
+  distances *between* clusters are not meaningful, and it cannot embed new rows.
+- **`umap`** — usually the better plot: faster than t-SNE and keeps more of the
+  global arrangement.
+- **`target`** — flips the question around: instead of embedding rows, embed the
+  *values* of one column by the rows they occur in.
+- **`contrastive`** — supervised by pairs. Use it when you know that certain rows
+  should be close (same customer, same cluster, same label).
+
+---
+
+## The methods
+
+### PCA
+
+The linear baseline. Fast, deterministic, and its components come out ordered by
+how much variance they account for.
+
+```python
+import row2vec
+
+df = row2vec.generate_synthetic_data(200)
+embeddings = row2vec.learn_embedding(df, mode="pca", embedding_dim=3)
+
+assert embeddings.shape == (200, 3)
+# Ordered by explained variance, so the first component is the widest.
+assert embeddings.iloc[:, 0].var() >= embeddings.iloc[:, 2].var()
+```
+
+### Autoencoder (`unsupervised`)
+
+A neural network trained to reconstruct each row through a narrow bottleneck; the
+bottleneck is the embedding. `hidden_units` sets the layers before it — a single
+integer for one layer, a list for several.
+
+```python
+import row2vec
+
+df = row2vec.generate_synthetic_data(200)
+embeddings = row2vec.learn_embedding(
     df,
     mode="unsupervised",
-    embedding_dim=10,
-    max_epochs=100,
-    verbose=True
+    embedding_dim=4,
+    hidden_units=[32, 16],  # two hidden layers
+    max_epochs=3,  # kept small for this example; use far more in practice
+    verbose=False,
 )
 
-print(f"Embeddings shape: {embeddings.shape}")  # (n_rows, 10)
+assert embeddings.shape == (200, 4)
 ```
 
-### Network Architecture
+`max_epochs` bounds training; with `early_stopping=True` (the default) it stops
+sooner once the reconstruction loss plateaus.
 
-**Default Architecture:**
-```
-Input (p features) → Dense(128) → ReLU →
-  Dense(64) → ReLU →
-  Dense(embedding_dim) → Bottleneck →
-  Dense(64) → ReLU →
-  Dense(128) → ReLU →
-  Dense(p) → Output
-```
+### t-SNE and UMAP
 
-**Custom Architecture:**
+Both exist to be looked at. `perplexity` (t-SNE) and `n_neighbors` (UMAP) control
+how large a neighbourhood each point is fitted against — smaller values favour
+tight local structure, larger ones a smoother global picture.
 
 ```python
-from row2vec import EmbeddingConfig, NeuralConfig
+import row2vec
 
-config = EmbeddingConfig(
-    mode="unsupervised",
-    embedding_dim=8,
-    neural=NeuralConfig(
-        hidden_units=[256, 128, 64],  # Encoder layers
-        dropout_rate=0.2,
-        learning_rate=0.001,
-        batch_size=32,
-        max_epochs=100
-    )
-)
+df = row2vec.generate_synthetic_data(150)
 
-embeddings = learn_embedding_v2(df, config)
+tsne = row2vec.learn_embedding(df, mode="tsne", embedding_dim=2, perplexity=10)
+umap = row2vec.learn_embedding(df, mode="umap", embedding_dim=2, n_neighbors=10, min_dist=0.1)
+
+assert tsne.shape == umap.shape == (150, 2)
 ```
 
-### Training Parameters
-
-**Key Hyperparameters:**
-
-- `embedding_dim`: Output dimension (5-100)
-  - Smaller: More compression, may lose information
-  - Larger: Preserves more information, may overfit
-
-- `hidden_units`: Encoder layer sizes
-  - Gradually decreasing (e.g., [128, 64, 32])
-  - Symmetric decoder (mirrored)
-
-- `max_epochs`: Training iterations (50-500)
-  - Too few: Underfitting
-  - Too many: Overfitting
-  - Use early stopping
-
-- `batch_size`: Training batch size (16-128)
-  - Smaller: More noise, better generalization
-  - Larger: Faster training, smoother convergence
-
-- `learning_rate`: Optimizer step size (0.0001-0.01)
-  - Too small: Slow convergence
-  - Too large: Unstable training
-
-- `dropout_rate`: Regularization (0.0-0.5)
-  - 0.0: No regularization
-  - 0.2-0.3: Good default
-  - >0.5: May underfit
-
-### Neural Architecture Search
-
-Automatically discover optimal architectures:
+`perplexity` must be small relative to the number of rows; Row2Vec says so
+directly rather than letting scikit-learn fail obscurely.
 
 ```python
-from row2vec import (
-    search_architecture,
-    ArchitectureSearchConfig,
-    EmbeddingConfig,
-    NeuralConfig
-)
+import pytest
 
-# Define search space
-search_config = ArchitectureSearchConfig(
-    method='random',  # or 'grid'
-    max_layers=4,
-    width_options=[64, 128, 256, 512],
-    dropout_options=[0.0, 0.1, 0.2, 0.3],
-    max_trials=50
-)
+import row2vec
 
-# Base configuration
-base_config = EmbeddingConfig(
-    mode="unsupervised",
-    embedding_dim=10,
-    neural=NeuralConfig(max_epochs=30)
-)
+df = row2vec.generate_synthetic_data(30)
 
-# Search
-best_arch, all_results = search_architecture(df, base_config, search_config)
-
-print("Best architecture found:")
-print(f"  Hidden units: {best_arch['hidden_units']}")
-print(f"  Dropout: {best_arch['dropout_rate']}")
-print(f"  Final loss: {best_arch['final_loss']:.4f}")
+with pytest.raises(ValueError, match="should be less than"):
+    row2vec.learn_embedding(df, mode="tsne", embedding_dim=2, perplexity=100)
 ```
 
-**Search Strategies:**
+### Target-based embeddings
 
-- **Random search**: Sample architectures randomly (faster)
-- **Grid search**: Try all combinations (exhaustive)
-
-**Search Space:**
-
-- `max_layers`: Maximum encoder depth
-- `width_options`: Possible layer sizes
-- `dropout_options`: Possible dropout rates
-- `max_trials`: Number of architectures to try
-
-### Automatic Dimension Selection
-
-Let Row2Vec choose the embedding dimension:
+Instead of one vector per row, get one vector per distinct value of a column —
+learned from the rows in which that value appears. Useful for turning a
+high-cardinality categorical into a small dense feature.
 
 ```python
-from row2vec import auto_select_dimension, AutoDimensionSelector
+import row2vec
 
-selector = AutoDimensionSelector(
-    min_dim=2,
-    max_dim=20,
-    method='reconstruction_error'  # or 'explained_variance'
-)
-
-# Analyze optimal dimension
-suggested_dim = selector.select(df)
-print(f"Suggested dimension: {suggested_dim}")
-
-# Train with suggested dimension
-embeddings = learn_embedding(df, mode="unsupervised", embedding_dim=suggested_dim)
-```
-
-**Selection Methods:**
-
-- `reconstruction_error`: Minimize reconstruction loss
-- `explained_variance`: PCA-based variance threshold
-- `elbow`: Elbow method on reconstruction curve
-
-## Classical Methods
-
-### PCA (Principal Component Analysis)
-
-Fast, linear dimensionality reduction:
-
-```python
-from row2vec import learn_embedding
-
-# PCA embeddings
-pca_embeddings = learn_embedding(
-    df,
-    mode="pca",
-    embedding_dim=10,
-    verbose=False
-)
-
-# Variance explained
-from row2vec import learn_embedding_with_model
-
-embeddings, model, preprocessor, metadata = learn_embedding_with_model(
-    df,
-    mode="pca",
-    embedding_dim=10
-)
-
-print(f"Variance explained: {metadata.get('explained_variance_ratio', [])}")
-```
-
-**Advantages:**
-- Very fast computation
-- Deterministic results
-- Interpretable components
-- Works with any dimension
-
-**Limitations:**
-- Only captures linear relationships
-- Sensitive to outliers
-- Assumes Gaussian distribution
-
-**When to Use:**
-- Initial data exploration
-- Linear relationships dominant
-- Need interpretability
-- Baseline for comparison
-
-### t-SNE (t-Distributed Stochastic Neighbor Embedding)
-
-Excellent for 2D/3D visualization:
-
-```python
-# t-SNE for visualization
-tsne_2d = learn_embedding(
-    df,
-    mode="tsne",
-    embedding_dim=2,
-    perplexity=30,
-    verbose=False
-)
-
-# Visualize
-import matplotlib.pyplot as plt
-
-plt.figure(figsize=(10, 8))
-plt.scatter(tsne_2d.iloc[:, 0], tsne_2d.iloc[:, 1], alpha=0.6)
-plt.xlabel('t-SNE Dimension 1')
-plt.ylabel('t-SNE Dimension 2')
-plt.title('t-SNE Visualization')
-plt.show()
-```
-
-**Key Parameter: Perplexity**
-
-- `perplexity`: Balances local vs global structure (5-50)
-  - Low (5-15): Emphasizes local structure
-  - Medium (15-30): Balanced (default: 30)
-  - High (30-50): Emphasizes global structure
-
-**Advantages:**
-- Excellent cluster visualization
-- Reveals hidden structure
-- Preserves local neighborhoods
-
-**Limitations:**
-- Slow for large datasets (>10,000 rows)
-- Stochastic (different runs differ)
-- Not suitable for >3 dimensions
-- Doesn't preserve distances well
-
-**When to Use:**
-- Visualizing clusters
-- Exploring data structure
-- Presentations and reports
-- Validating clustering
-
-### UMAP (Uniform Manifold Approximation and Projection)
-
-General-purpose non-linear embedding:
-
-```python
-# UMAP embeddings
-umap_embeddings = learn_embedding(
-    df,
-    mode="umap",
-    embedding_dim=10,
-    n_neighbors=15,
-    min_dist=0.1,
-    verbose=False
-)
-```
-
-**Key Parameters:**
-
-- `n_neighbors` (5-50): Local neighborhood size
-  - Low: Local structure
-  - High: Global structure
-  - Default: 15
-
-- `min_dist` (0.0-1.0): Minimum distance between points
-  - Low (0.0-0.1): Tight clusters
-  - High (0.5-1.0): Spread out
-  - Default: 0.1
-
-**Advantages:**
-- Faster than t-SNE
-- Better global structure
-- Supports any dimension
-- More consistent results
-
-**Limitations:**
-- Less established than PCA/t-SNE
-- Some parameters hard to tune
-- Requires umap-learn package
-
-**When to Use:**
-- General-purpose embeddings
-- Need both local and global structure
-- Larger datasets (>10,000 rows)
-- Higher dimensions (>3)
-
-## Advanced Features
-
-### Contrastive Learning
-
-Learn embeddings that bring similar samples closer and push dissimilar samples apart:
-
-```python
-from row2vec import learn_embedding_contrastive
-
-# Contrastive learning with labels
-embeddings = learn_embedding_contrastive(
-    df,
-    embedding_dim=10,
-    temperature=0.5,  # Contrastive temperature
-    max_epochs=100
-)
-```
-
-**Use Cases:**
-- Metric learning
-- Similarity search
-- Few-shot learning
-- When you have similarity annotations
-
-### Target-Based Embeddings
-
-Learn embeddings for categorical features based on their relationship with other columns:
-
-```python
-# Embed each unique country based on associated features
-country_embeddings = learn_embedding(
+df = row2vec.generate_synthetic_data(200)
+country_vectors = row2vec.learn_embedding(
     df,
     mode="target",
     reference_column="Country",
-    embedding_dim=5,
-    max_epochs=50
+    embedding_dim=2,
+    max_epochs=3,
+    verbose=False,
 )
 
-print(f"Embeddings per country: {country_embeddings.shape}")
+# One row out per distinct country in, not one per input row.
+assert len(country_vectors) == df["Country"].nunique()
 ```
 
-**Applications:**
-- Entity embeddings
-- Categorical feature engineering
-- Recommendation systems
-- Transfer learning
+### Contrastive embeddings
 
-### Configuration-Based Workflow
-
-For complex pipelines, use configuration objects:
+Supervision by example: tell the model which rows should end up close together
+and which should not.
 
 ```python
-from row2vec import (
-    EmbeddingConfig,
-    NeuralConfig,
-    PreprocessingConfig,
-    ScalingConfig,
-    ImputationConfig
-)
+import row2vec
 
-# Comprehensive configuration
-config = EmbeddingConfig(
-    mode="unsupervised",
-    embedding_dim=8,
-    neural=NeuralConfig(
-        hidden_units=[256, 128, 64],
-        max_epochs=100,
-        batch_size=32,
-        dropout_rate=0.2,
-        learning_rate=0.001,
-        verbose=True
-    ),
-    preprocessing=PreprocessingConfig(
-        scaling=ScalingConfig(
-            method='standard',
-            feature_range=(0, 1)
-        ),
-        imputation=ImputationConfig(
-            numeric_strategy='knn',
-            categorical_strategy='mode',
-            knn_neighbors=5
-        )
-    )
-)
+df = row2vec.generate_synthetic_data(120)
 
-# Train with full configuration
-from row2vec import learn_embedding_v2
-embeddings = learn_embedding_v2(df, config)
-```
-
-## Model Serialization
-
-### Save and Load Models
-
-Train once, use many times:
-
-```python
-from row2vec import train_and_save_model, load_model
-
-# Train and save
-embeddings, script_path, binary_path = train_and_save_model(
+embeddings = row2vec.learn_embedding(
     df,
-    base_path="my_model",
-    embedding_dim=10,
-    mode="unsupervised",
-    max_epochs=100
+    mode="contrastive",
+    embedding_dim=3,
+    similar_pairs=[(0, 1), (2, 3)],
+    dissimilar_pairs=[(0, 50), (1, 60)],
+    contrastive_loss="contrastive",
+    max_epochs=3,
+    verbose=False,
 )
 
-print(f"Model saved to: {script_path}")
-
-# Load and reuse
-model = load_model(script_path)
-
-# Apply to new data
-new_embeddings = model.predict(new_df)
+assert embeddings.shape == (120, 3)
 ```
 
-**Saved Components:**
-- Trained neural network weights
-- Preprocessing pipeline (scaling, encoding)
-- Imputation strategies
-- Model metadata
-
-**Use Cases:**
-- Production deployment
-- Consistent preprocessing
-- Transfer learning
-- Batch processing
-
-### Model Versioning
+If you don't have pairs to hand, `auto_pairs` derives them: `"categorical"` (rows
+sharing a category value are alike), `"cluster"`, `"neighbors"`, or `"random"`.
 
 ```python
-import datetime
+import row2vec
 
-# Version with timestamp
-timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-model_path = f"models/row2vec_{timestamp}"
+df = row2vec.generate_synthetic_data(120)
 
-train_and_save_model(df, base_path=model_path, embedding_dim=10)
-```
-
-## Best Practices
-
-### Data Quality
-
-**Minimum Requirements:**
-- At least 100 rows (preferably 1000+)
-- At least 3 features (preferably 5+)
-- Representative sampling
-- Reasonable class balance (for target mode)
-
-**Data Cleaning:**
-```python
-# Check data quality
-print(f"Shape: {df.shape}")
-print(f"Missing values:\n{df.isnull().sum()}")
-print(f"Duplicates: {df.duplicated().sum()}")
-
-# Clean data
-df_clean = df.drop_duplicates()
-df_clean = df_clean.dropna(thresh=len(df_clean.columns) * 0.5)  # Keep rows with <50% missing
-```
-
-### Choosing Embedding Dimension
-
-**Rules of Thumb:**
-
-- **Visualization**: 2-3 dimensions
-- **Feature engineering**: 5-20 dimensions
-- **Complex patterns**: 10-100 dimensions
-- **Rule of thumb**: $d \approx \sqrt{p}$ where $p$ is input features
-
-**Empirical Selection:**
-
-```python
-# Try multiple dimensions
-dimensions = [2, 5, 10, 20, 50]
-results = {}
-
-for dim in dimensions:
-    embeddings = learn_embedding(df, mode="unsupervised", embedding_dim=dim)
-    # Evaluate downstream task performance
-    score = evaluate_embeddings(embeddings, labels)
-    results[dim] = score
-
-best_dim = max(results, key=results.get)
-print(f"Best dimension: {best_dim}")
-```
-
-### Hyperparameter Tuning
-
-**Grid Search for Neural Networks:**
-
-```python
-from itertools import product
-
-# Define grid
-hidden_units_options = [[128, 64], [256, 128, 64], [512, 256, 128]]
-dropout_options = [0.0, 0.2, 0.3]
-learning_rate_options = [0.001, 0.0001]
-
-best_loss = float('inf')
-best_params = None
-
-for hidden, dropout, lr in product(hidden_units_options, dropout_options, learning_rate_options):
-    config = EmbeddingConfig(
-        mode="unsupervised",
-        embedding_dim=10,
-        neural=NeuralConfig(
-            hidden_units=hidden,
-            dropout_rate=dropout,
-            learning_rate=lr,
-            max_epochs=30
-        )
-    )
-
-    embeddings, model, _, metadata = learn_embedding_with_model_v2(df, config)
-    loss = metadata.get('final_loss', float('inf'))
-
-    if loss < best_loss:
-        best_loss = loss
-        best_params = (hidden, dropout, lr)
-
-print(f"Best parameters: {best_params}")
-print(f"Best loss: {best_loss:.4f}")
-```
-
-### Validation Strategy
-
-**Hold-Out Validation:**
-
-```python
-from sklearn.model_selection import train_test_split
-
-# Split data
-train_df, val_df = train_test_split(df, test_size=0.2, random_state=42)
-
-# Train on training set
-embeddings_train, model, _, _ = learn_embedding_with_model(
-    train_df,
-    mode="unsupervised",
-    embedding_dim=10
+embeddings = row2vec.learn_embedding(
+    df,
+    mode="contrastive",
+    embedding_dim=2,
+    auto_pairs="categorical",
+    reference_column="Country",
+    max_epochs=3,
+    verbose=False,
 )
 
-# Validate on validation set
-embeddings_val = model.predict(val_df)
-
-# Compute reconstruction error or downstream task performance
-```
-
-### Performance Optimization
-
-**For Large Datasets (>100,000 rows):**
-
-```python
-# Use batch processing
-config = EmbeddingConfig(
-    mode="unsupervised",
-    embedding_dim=10,
-    neural=NeuralConfig(
-        batch_size=128,  # Increase batch size
-        max_epochs=50    # May need fewer epochs
-    )
-)
-```
-
-**For Many Features (>100):**
-
-```python
-# Use PCA for initial reduction
-from sklearn.decomposition import PCA
-
-pca = PCA(n_components=50)
-df_reduced = pca.fit_transform(df)
-
-# Then apply Row2Vec
-embeddings = learn_embedding(
-    pd.DataFrame(df_reduced),
-    mode="unsupervised",
-    embedding_dim=10
-)
-```
-
-## Common Use Cases
-
-### Clustering
-
-Generate embeddings, then cluster:
-
-```python
-from sklearn.cluster import KMeans
-import matplotlib.pyplot as plt
-
-# Generate 2D embeddings for visualization
-embeddings = learn_embedding(df, mode="tsne", embedding_dim=2)
-
-# Cluster
-kmeans = KMeans(n_clusters=3, random_state=42)
-clusters = kmeans.fit_predict(embeddings)
-
-# Visualize
-plt.figure(figsize=(10, 8))
-scatter = plt.scatter(
-    embeddings.iloc[:, 0],
-    embeddings.iloc[:, 1],
-    c=clusters,
-    cmap='viridis',
-    alpha=0.6
-)
-plt.colorbar(scatter, label='Cluster')
-plt.xlabel('Dimension 1')
-plt.ylabel('Dimension 2')
-plt.title('Clustering on Row2Vec Embeddings')
-plt.show()
-```
-
-### Classification
-
-Use embeddings as features:
-
-```python
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-
-# Generate embeddings
-embeddings = learn_embedding(df, mode="unsupervised", embedding_dim=10)
-
-# Add target
-X = embeddings
-y = labels  # Your classification target
-
-# Split and train
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-
-clf = RandomForestClassifier(n_estimators=100)
-clf.fit(X_train, y_train)
-
-score = clf.score(X_test, y_test)
-print(f"Accuracy: {score:.3f}")
-```
-
-### Anomaly Detection
-
-Identify outliers using embeddings:
-
-```python
-from sklearn.covariance import EllipticEnvelope
-
-# Generate embeddings
-embeddings = learn_embedding(df, mode="unsupervised", embedding_dim=10)
-
-# Detect anomalies
-detector = EllipticEnvelope(contamination=0.1)  # 10% anomalies
-predictions = detector.fit_predict(embeddings)
-
-# Anomalies are marked as -1
-anomalies = df[predictions == -1]
-print(f"Detected {len(anomalies)} anomalies")
-```
-
-### Data Visualization
-
-Create interactive visualizations:
-
-```python
-import plotly.express as px
-
-# 2D embeddings
-embeddings_2d = learn_embedding(df, mode="umap", embedding_dim=2)
-
-# Interactive plot
-fig = px.scatter(
-    x=embeddings_2d.iloc[:, 0],
-    y=embeddings_2d.iloc[:, 1],
-    hover_data=df.columns.tolist(),
-    title='Interactive UMAP Projection'
-)
-fig.show()
-```
-
-### Similarity Search
-
-Find similar rows:
-
-```python
-from sklearn.metrics.pairwise import cosine_similarity
-
-# Generate embeddings
-embeddings = learn_embedding(df, mode="unsupervised", embedding_dim=10)
-
-# Find similar to first row
-query_embedding = embeddings.iloc[0:1]
-similarities = cosine_similarity(query_embedding, embeddings)[0]
-
-# Top 5 most similar
-top_indices = similarities.argsort()[-5:][::-1]
-print("Most similar rows:")
-print(df.iloc[top_indices])
-```
-
-### Transfer Learning
-
-Train on one dataset, apply to related dataset:
-
-```python
-# Train on large source dataset
-embeddings_source, model, _, _ = learn_embedding_with_model(
-    source_df,
-    mode="unsupervised",
-    embedding_dim=10,
-    max_epochs=100
-)
-
-# Apply to target dataset (smaller, related domain)
-embeddings_target = model.predict(target_df)
+assert embeddings.shape == (120, 2)
 ```
 
 ---
 
-**For executable examples with code, see the tutorials:**
-- tutorial_1_quickstart.html - Basic usage and method comparison
-- tutorial_2_advanced.html - Advanced features and architecture search
+## Preparing data
 
-**For API reference, see API_REFERENCE.md**
+### Missing values
 
-**For LLM integration, see LLM_DOCUMENTATION.md**
+`AdaptiveImputer` analyses the missingness of each column and picks a strategy to
+match. `learn_embedding` runs it for you, but you can use it on its own.
+
+```python
+import numpy as np
+import pandas as pd
+
+from row2vec import AdaptiveImputer, ImputationConfig, MissingPatternAnalyzer
+
+df = pd.DataFrame(
+    {
+        "age": [25.0, np.nan, 41.0, 33.0, np.nan, 29.0],
+        "city": ["rome", "oslo", None, "rome", "oslo", "rome"],
+    }
+)
+
+analysis = MissingPatternAnalyzer(ImputationConfig()).analyze(df)
+assert analysis["total_missing"] == 3
+
+imputed = AdaptiveImputer(ImputationConfig()).fit_transform(df)
+assert imputed.isna().sum().sum() == 0
+assert len(imputed) == len(df)
+```
+
+Choose the trade-off explicitly when you care: `numeric_strategy="mean"` with
+`prefer_speed=True` for quick iteration, `numeric_strategy="knn"` when accuracy
+matters more than time.
+
+```python
+import numpy as np
+import pandas as pd
+
+from row2vec import AdaptiveImputer, ImputationConfig
+
+df = pd.DataFrame({"x": [1.0, 2.0, np.nan, 4.0, 5.0, np.nan, 7.0, 8.0]})
+
+fast = AdaptiveImputer(ImputationConfig(numeric_strategy="mean", prefer_speed=True)).fit_transform(
+    df
+)
+accurate = AdaptiveImputer(ImputationConfig(numeric_strategy="knn", knn_neighbors=3)).fit_transform(
+    df
+)
+
+assert fast.isna().sum().sum() == 0
+assert accurate.isna().sum().sum() == 0
+```
+
+Set `preserve_missing_patterns=True` to keep the fact that a value *was* missing
+as its own feature — often predictive in itself.
+
+### Categorical columns
+
+The encoder picks a strategy from the column's cardinality: one-hot for a handful
+of values, ordinal or target encoding as the count grows, learned entity
+embeddings for the largest. You can inspect that decision:
+
+```python
+import pandas as pd
+
+from row2vec import CategoricalAnalyzer, CategoricalEncodingConfig
+
+df = pd.DataFrame({"colour": ["red", "green", "blue", "red", "green", "blue"]})
+
+analysis = CategoricalAnalyzer(CategoricalEncodingConfig()).analyze_column(df["colour"])
+
+assert analysis["cardinality"] == 3
+assert analysis["recommended_strategy"]  # a strategy name, e.g. "onehot"
+```
+
+### Scaling the output
+
+`scale_method` rescales the embedding after it is computed — useful when a
+downstream model expects a bounded range.
+
+```python
+import row2vec
+
+df = row2vec.generate_synthetic_data(100)
+
+scaled = row2vec.learn_embedding(
+    df,
+    mode="pca",
+    embedding_dim=2,
+    scale_method="minmax",
+    scale_range=(0.0, 1.0),
+)
+
+values = scaled.to_numpy()
+assert values.min() >= -1e-6
+assert values.max() <= 1.0 + 1e-6
+```
+
+The options are `"minmax"`, `"standard"`, `"l2"`, `"tanh"`, and `"none"`.
+
+---
+
+## Tuning
+
+### Choosing the dimension automatically
+
+`auto_select_dimension` evaluates candidate widths and recommends one, so you do
+not have to guess.
+
+```python
+import row2vec
+
+df = row2vec.generate_synthetic_data(150)
+recommended_dim, details = row2vec.auto_select_dimension(
+    df, methods=["pca_variance"], max_dimension=5
+)
+
+assert 1 <= recommended_dim <= 5
+assert "method_results" in details
+```
+
+### Searching the architecture
+
+For the neural modes, `search_architecture` explores layer counts, widths,
+dropout rates, and activations, and returns the best configuration it found.
+
+```python
+import row2vec
+from row2vec import ArchitectureSearchConfig, EmbeddingConfig, NeuralConfig
+
+df = row2vec.generate_synthetic_data(150)
+
+base_config = EmbeddingConfig(
+    mode="unsupervised", embedding_dim=3, neural=NeuralConfig(max_epochs=2)
+)
+search_config = ArchitectureSearchConfig(
+    method="random", max_trials=2, verbose=False, layer_range=(1, 2)
+)
+
+best_architecture, _result = row2vec.search_architecture(
+    df=df, base_config=base_config, search_config=search_config
+)
+
+assert "n_layers" in best_architecture
+assert "hidden_units" in best_architecture
+```
+
+Searching costs one training run per trial — budget `max_trials` accordingly.
+
+---
+
+## Saving and reusing a model
+
+An embedding is only reproducible if the *preprocessing* is reproducible too. A
+saved Row2Vec model carries its encoders, imputers, and scalers with it, so
+embedding new rows later stays consistent with training.
+
+```python
+import tempfile
+from pathlib import Path
+
+import row2vec
+
+df = row2vec.generate_synthetic_data(100)
+base = Path(tempfile.mkdtemp()) / "model"
+
+embeddings, script_path, _binary_path = row2vec.train_and_save_model(
+    df, base_path=str(base), mode="pca", embedding_dim=2
+)
+
+model = row2vec.load_model(script_path)
+new_rows = row2vec.generate_synthetic_data(20, seed=99)
+
+assert embeddings.shape == (100, 2)
+assert model.predict(new_rows).shape == (20, 2)
+```
+
+Saving produces two files: a readable Python loader script and a binary blob
+holding the fitted objects. Loading executes that script, so **only load models
+you trust** — see
+[SECURITY.md](https://github.com/tresoldi/row2vec/blob/main/SECURITY.md).
+
+---
+
+## Integrations
+
+### scikit-learn pipelines
+
+`Row2VecTransformer` is a standard transformer: put it in a `Pipeline` and it
+behaves like any other step.
+
+```python
+from sklearn.pipeline import Pipeline
+
+import row2vec
+from row2vec import EmbeddingConfig, Row2VecTransformer
+
+df = row2vec.generate_synthetic_data(100)
+
+pipeline = Pipeline(
+    [("embed", Row2VecTransformer(config=EmbeddingConfig(mode="pca", embedding_dim=2)))]
+)
+transformed = pipeline.fit_transform(df)
+
+assert transformed.shape == (100, 2)
+```
+
+### The pandas accessor
+
+Importing `row2vec` registers a `.row2vec` accessor on `DataFrame`, which is
+convenient in a notebook.
+
+```python
+import row2vec  # importing registers the accessor
+
+df = row2vec.generate_synthetic_data(80)
+embeddings = df.row2vec.pca(dim=2)
+
+assert embeddings.shape == (80, 2)
+```
+
+### The command line
+
+For batch work there is no need to write Python at all:
+
+```bash
+# Embed a file in one step
+row2vec annotate --input data.csv --output embeddings.csv --mode pca --dim 5
+
+# Train a reusable model, then apply it to new data
+row2vec train --input data.csv --output model.py --mode unsupervised --dim 10
+row2vec predict --input new.csv --model model.py --output predictions.csv
+```
+
+---
+
+## Practical notes
+
+### Reproducibility
+
+Every mode takes a `seed`. The same seed and the same input give the same
+embedding.
+
+```python
+import row2vec
+
+df = row2vec.generate_synthetic_data(80)
+
+first = row2vec.learn_embedding(df, mode="pca", embedding_dim=2, seed=1305)
+second = row2vec.learn_embedding(df, mode="pca", embedding_dim=2, seed=1305)
+
+assert first.equals(second)
+```
+
+Neural modes are seeded the same way, though exact floating-point results can
+still differ across platforms and library versions.
+
+### Configuration objects
+
+For anything beyond a few arguments, `EmbeddingConfig` groups the settings so
+they can be reused, serialised, and version-controlled.
+
+```python
+import row2vec
+from row2vec import EmbeddingConfig, NeuralConfig
+
+config = EmbeddingConfig(
+    mode="unsupervised",
+    embedding_dim=4,
+    neural=NeuralConfig(hidden_units=[32, 16], max_epochs=2, dropout_rate=0.1),
+)
+
+df = row2vec.generate_synthetic_data(100)
+embeddings = row2vec.learn_embedding_v2(df, config)
+
+assert embeddings.shape == (100, 4)
+```
+
+### Logging
+
+Training emits structured logs. Turn them off for quiet runs, or point them at a
+file with `log_file=`.
+
+```python
+import row2vec
+
+df = row2vec.generate_synthetic_data(50)
+embeddings = row2vec.learn_embedding(df, mode="pca", embedding_dim=2, enable_logging=False)
+
+assert embeddings.shape == (50, 2)
+```
+
+### What is not supported
+
+Free text and datetime columns are not embedded directly. Preprocess them
+yourself — sentence embeddings for text, explicit features (month, weekday,
+elapsed days) for timestamps — and pass the result as ordinary columns.
+
+---
+
+## Next steps
+
+- **[API Reference](reference.md)** — every public class and function, generated
+  from the source.
+- **[Home](index.md)** — the one-minute overview and the method table.
