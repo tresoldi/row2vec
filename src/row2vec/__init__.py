@@ -4,7 +4,7 @@ This library provides both neural network and classical machine learning
 approaches for creating vector embeddings from tabular datasets.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Tiago Tresoldi"
 __email__ = "tiago@tresoldi.org"
 
