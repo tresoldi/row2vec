@@ -52,9 +52,8 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):
             Reference column name for supervised ("target") mode.
         config (EmbeddingConfig, optional):
             Pre-configured EmbeddingConfig object. If provided, other parameters are ignored.
-        **kwargs
-            Additional parameters passed to the embedding configuration.
-            These can include nested parameters like neural__max_epochs=100.
+        **kwargs: Additional parameters passed to the embedding configuration,
+            including nested ones such as ``neural__max_epochs=100``.
 
     Attributes:
         config_ (EmbeddingConfig):
@@ -301,8 +300,7 @@ class Row2VecClassifier(BaseEstimator):
             The downstream classifier. If None, uses LogisticRegression.
         embedding_config (EmbeddingConfig, optional):
             Configuration for embedding generation.
-        **embedding_kwargs
-            Additional parameters for embedding configuration.
+        **embedding_kwargs: Additional parameters for the embedding configuration.
 
     Examples:
         >>> import row2vec
