@@ -8,17 +8,30 @@ branch pushed normally.
 
 ## To activate
 
+Run these from a checkout whose credentials carry the `workflow` scope — an
+ordinary `git push` from your own machine does; this session's did not.
+
 ```bash
-git rm .github/workflows/ci.yml
-git mv .github/workflows-pending/quality.yml .github/workflows/quality.yml
-git mv .github/workflows-pending/docs.yml    .github/workflows/docs.yml
-git mv .github/workflows-pending/release.yml .github/workflows/release.yml
-git rm .github/workflows-pending/README.md
+git rm -q .github/workflows/ci.yml
+git mv -f .github/workflows-pending/docs.yml    .github/workflows/docs.yml
+git mv    .github/workflows-pending/quality.yml .github/workflows/quality.yml
+git mv    .github/workflows-pending/release.yml .github/workflows/release.yml
+git rm -q .github/workflows-pending/README.md
 git commit -m "ci: activate the quality, docs, and release workflows"
+git push
 ```
 
-The `git rm` of `ci.yml` matters: `quality.yml` replaces it, and leaving both in
-place means every push runs two overlapping test matrices.
+Two details in that order matter:
+
+- **`docs.yml` needs `-f`**, because it overwrites the old Jupyter Book
+  workflow of the same name.
+- **Move `docs.yml` before removing the others.** `git rm`-ing both existing
+  workflows first leaves `.github/workflows/` empty, git drops the now-empty
+  directory, and the subsequent `git mv` fails with a confusing
+  `No such file or directory` pointing at the *source* path.
+
+The `git rm` of `ci.yml` matters too: `quality.yml` replaces it, and leaving
+both in place means every push runs two overlapping test matrices.
 
 ## What each file does
 
