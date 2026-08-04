@@ -1,15 +1,16 @@
+import pandas as pd
 import pytest
 
 from row2vec import generate_synthetic_data, learn_embedding
 
 
 @pytest.fixture
-def synthetic_data():
+def synthetic_data() -> pd.DataFrame:
     """Provides a standard synthetic dataset for testing."""
     return generate_synthetic_data(num_records=100)
 
 
-def test_unsupervised_embedding(synthetic_data):
+def test_unsupervised_embedding(synthetic_data: pd.DataFrame) -> None:
     """
     Tests the unsupervised mode.
     """
@@ -27,7 +28,7 @@ def test_unsupervised_embedding(synthetic_data):
     assert list(embeddings.columns) == [f"embedding_{i}" for i in range(embedding_dim)]
 
 
-def test_target_embedding(synthetic_data):
+def test_target_embedding(synthetic_data: pd.DataFrame) -> None:
     """
     Tests the target-based mode.
     """
@@ -49,7 +50,7 @@ def test_target_embedding(synthetic_data):
     assert list(embeddings.columns) == [f"embedding_{i}" for i in range(embedding_dim)]
 
 
-def test_minmax_scaling_range_unsupervised(synthetic_data):
+def test_minmax_scaling_range_unsupervised(synthetic_data: pd.DataFrame) -> None:
     df = synthetic_data
     emb = learn_embedding(
         df,
@@ -62,11 +63,11 @@ def test_minmax_scaling_range_unsupervised(synthetic_data):
     assert (emb.values <= 1.0 + 1e-6).all()
 
 
-def test_minmax_constant_column_raises_on_single_category(synthetic_data):
+def test_minmax_constant_column_raises_on_single_category(synthetic_data: pd.DataFrame) -> None:
     # Force a single category so grouping yields 1 row -> min==max for any column
     df = synthetic_data.copy()
     df["Country"] = "OnlyOne"
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="at least 2 unique values"):
         learn_embedding(
             df,
             mode="target",
@@ -78,7 +79,7 @@ def test_minmax_constant_column_raises_on_single_category(synthetic_data):
         )
 
 
-def test_standard_l2_tanh_scaling(synthetic_data):
+def test_standard_l2_tanh_scaling(synthetic_data: pd.DataFrame) -> None:
     df = synthetic_data
     # standard
     emb_std = learn_embedding(
@@ -116,22 +117,22 @@ def test_standard_l2_tanh_scaling(synthetic_data):
     assert (emb_th.values >= -1.0 - 1e-6).all()
 
 
-def test_invalid_mode_raises_error(synthetic_data):
+def test_invalid_mode_raises_error(synthetic_data: pd.DataFrame) -> None:
     """
     Tests that an invalid mode raises a ValueError.
     """
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="mode must be one of"):
         learn_embedding(
             synthetic_data,
             mode="invalid_mode",
         )
 
 
-def test_missing_reference_column_raises_error(synthetic_data):
+def test_missing_reference_column_raises_error(synthetic_data: pd.DataFrame) -> None:
     """
     Tests that target mode without a reference column raises a ValueError.
     """
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="reference_column is required"):
         learn_embedding(
             synthetic_data,
             mode="target",
@@ -142,7 +143,7 @@ def test_missing_reference_column_raises_error(synthetic_data):
 # === CLASSICAL ML METHODS TESTS ===
 
 
-def test_pca_embedding(synthetic_data):
+def test_pca_embedding(synthetic_data: pd.DataFrame) -> None:
     """
     Tests PCA embedding mode.
     """
@@ -162,7 +163,7 @@ def test_pca_embedding(synthetic_data):
     assert embeddings.var().sum() > 0
 
 
-def test_tsne_embedding(synthetic_data):
+def test_tsne_embedding(synthetic_data: pd.DataFrame) -> None:
     """
     Tests t-SNE embedding mode with small dataset.
     """
@@ -182,7 +183,7 @@ def test_tsne_embedding(synthetic_data):
     assert list(embeddings.columns) == [f"embedding_{i}" for i in range(embedding_dim)]
 
 
-def test_umap_embedding(synthetic_data):
+def test_umap_embedding(synthetic_data: pd.DataFrame) -> None:
     """
     Tests UMAP embedding mode.
     """
@@ -202,7 +203,7 @@ def test_umap_embedding(synthetic_data):
     assert list(embeddings.columns) == [f"embedding_{i}" for i in range(embedding_dim)]
 
 
-def test_classical_methods_with_scaling(synthetic_data):
+def test_classical_methods_with_scaling(synthetic_data: pd.DataFrame) -> None:
     """
     Tests that scaling works with classical methods.
     """
@@ -237,14 +238,14 @@ def test_classical_methods_with_scaling(synthetic_data):
     assert (np.abs(col_means) < 1e-1).all()
 
 
-def test_classical_method_parameter_validation(synthetic_data):
+def test_classical_method_parameter_validation(synthetic_data: pd.DataFrame) -> None:
     """
     Tests parameter validation for classical methods.
     """
     df = synthetic_data
 
     # Test invalid perplexity for t-SNE
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="perplexity must be a positive number"):
         learn_embedding(
             df,
             mode="tsne",
@@ -253,7 +254,7 @@ def test_classical_method_parameter_validation(synthetic_data):
         )
 
     # Test invalid n_neighbors for UMAP
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="n_neighbors must be a positive integer"):
         learn_embedding(
             df,
             mode="umap",
@@ -262,7 +263,7 @@ def test_classical_method_parameter_validation(synthetic_data):
         )
 
     # Test perplexity too large for dataset size
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="should be less than"):
         learn_embedding(
             df,
             mode="tsne",
@@ -271,7 +272,7 @@ def test_classical_method_parameter_validation(synthetic_data):
         )
 
     # Test n_neighbors too large for dataset size
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="n_neighbors"):
         learn_embedding(
             df,
             mode="umap",
@@ -280,7 +281,7 @@ def test_classical_method_parameter_validation(synthetic_data):
         )
 
 
-def test_classical_methods_different_dimensions(synthetic_data):
+def test_classical_methods_different_dimensions(synthetic_data: pd.DataFrame) -> None:
     """
     Tests classical methods with different embedding dimensions.
     """
@@ -308,7 +309,7 @@ def test_classical_methods_different_dimensions(synthetic_data):
             assert umap_emb.shape[1] == dim
 
 
-def test_pca_explained_variance_logging(synthetic_data):
+def test_pca_explained_variance_logging(synthetic_data: pd.DataFrame) -> None:
     """
     Tests that PCA logs explained variance information.
     """
@@ -328,7 +329,7 @@ def test_pca_explained_variance_logging(synthetic_data):
     assert embeddings.shape == (df.shape[0], 3)
 
 
-def test_tsne_high_dimension_warning(synthetic_data):
+def test_tsne_high_dimension_warning(synthetic_data: pd.DataFrame) -> None:
     """
     Tests that t-SNE warns for high embedding dimensions.
     """
@@ -348,7 +349,7 @@ def test_tsne_high_dimension_warning(synthetic_data):
     assert embeddings.shape == (df.shape[0], 5)
 
 
-def test_invalid_classical_mode_raises_error(synthetic_data):
+def test_invalid_classical_mode_raises_error(synthetic_data: pd.DataFrame) -> None:
     """
     Tests that invalid classical method raises ValueError.
     """

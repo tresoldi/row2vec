@@ -178,8 +178,7 @@ def direct_search_example():
 
     if summary["improvement_over_baseline"] > 0:
         print(
-            f"\n📈 Improvement over baseline: "
-            f"{summary['improvement_over_baseline']:.2%}",
+            f"\n📈 Improvement over baseline: {summary['improvement_over_baseline']:.2%}",
         )
 
     # Show search history
@@ -307,7 +306,8 @@ def comparison_example():
             print(f"   Manual {i + 1}: {arch_config['layers']} - FAILED: {e}")
 
     # Automatic architecture search
-    print("\n    search_config = ArchitectureSearchConfig(
+    print("\n   Running automatic architecture search...")
+    search_config = ArchitectureSearchConfig(
         max_trials=15,
         patience=5,
         verbose=False,
@@ -324,9 +324,7 @@ def comparison_example():
 
     print("\n📊 Comparison Summary:")
     print(f"   Manual architectures tested: {len(manual_results)}")
-    print(
-        f"   Manual success rate: {len(manual_results) / len(manual_configs) * 100:.1f}%"
-    )
+    print(f"   Manual success rate: {len(manual_results) / len(manual_configs) * 100:.1f}%")
     print("   Automatic search: Always finds working architecture")
     print("   Recommendation: Use automatic search for optimal results")
 
@@ -343,10 +341,10 @@ def main():
         basic_embeddings = basic_architecture_search_example()
 
         # Advanced example
-        advanced_embeddings, df_with_category = advanced_architecture_search_example()
+        advanced_embeddings, _df_with_category = advanced_architecture_search_example()
 
         # Direct search API
-        best_arch, search_result, final_embeddings = direct_search_example()
+        best_arch, _search_result, final_embeddings = direct_search_example()
 
         # Grid search
         grid_search_example()

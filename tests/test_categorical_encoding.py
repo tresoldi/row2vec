@@ -5,24 +5,11 @@ This script tests the basic functionality of the categorical encoding
 system without requiring TensorFlow or heavy dependencies.
 """
 
-import sys
-
 import numpy as np
 import pandas as pd
 
-# Test basic configuration system
-try:
-    from row2vec.config import EmbeddingConfig, PreprocessingConfig
-except ImportError:
-    # Skip tests if imports fail
-    pass
-
-# Test pipeline builder
-try:
-    from row2vec.pipeline_builder import build_adaptive_pipeline
-except ImportError:
-    # Skip tests if imports fail
-    pass
+from row2vec.config import EmbeddingConfig
+from row2vec.pipeline_builder import build_adaptive_pipeline
 
 # Test categorical analyzer (without TensorFlow-dependent parts)
 try:
@@ -37,7 +24,7 @@ except ImportError as e:
     print("This might be due to TensorFlow not being available")
 
 
-def test_basic_functionality():
+def test_basic_functionality() -> None:
     """Test basic functionality without TensorFlow dependencies."""
     print("\n=== Testing Basic Functionality ===")
 
@@ -55,9 +42,7 @@ def test_basic_functionality():
     )
 
     print(f"Test data shape: {df.shape}")
-    print(
-        f"Categorical columns: {df.select_dtypes(include=['object']).columns.tolist()}"
-    )
+    print(f"Categorical columns: {df.select_dtypes(include=['object']).columns.tolist()}")
 
     # Test configuration
     config = EmbeddingConfig()
@@ -106,7 +91,7 @@ def test_basic_functionality():
     print("✅ Basic functionality test completed")
 
 
-def test_configuration_serialization():
+def test_configuration_serialization() -> None:
     """Test configuration serialization and deserialization."""
     print("\n=== Testing Configuration Serialization ===")
 
@@ -135,7 +120,7 @@ def test_configuration_serialization():
         print(f"❌ Configuration serialization failed: {e}")
 
 
-def test_missing_value_handling():
+def test_missing_value_handling() -> None:
     """Test missing value handling in categorical encoding."""
     print("\n=== Testing Missing Value Handling ===")
 
@@ -150,12 +135,10 @@ def test_missing_value_handling():
             }
         )
 
-        print(
-            f"Data with missing values created: {df.isnull().sum().sum()} missing values"
-        )
+        print(f"Data with missing values created: {df.isnull().sum().sum()} missing values")
 
         # Test pipeline with missing data
-        pipeline, report = build_adaptive_pipeline(df.drop(columns=["target"]))
+        pipeline, _report = build_adaptive_pipeline(df.drop(columns=["target"]))
         X_transformed = pipeline.fit_transform(df.drop(columns=["target"]))
 
         print("Pipeline handled missing data successfully")

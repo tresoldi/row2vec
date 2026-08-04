@@ -5,288 +5,232 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "row2vec"
 dynamic = ["version"]
-description = "A Python library for easily generating low-dimensional vector embeddings from any tabular dataset."
+description = "A Python library for learning low-dimensional vector embeddings from any tabular dataset."
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.10"
-authors = [
-    { name = "Tiago Tresoldi", email = "tiago@tresoldi.org" },
-]
-maintainers = [
-    { name = "Tiago Tresoldi", email = "tiago@tresoldi.org" },
-]
 keywords = [
     "embeddings",
-    "machine-learning",
-    "deep-learning",
-    "dimensionality-reduction",
-    "autoencoder",
     "tabular-data",
+    "dimensionality-reduction",
     "representation-learning",
-    "tensorflow",
-    "keras",
-    "pca",
-    "tsne",
-    "umap",
+    "autoencoder",
+    "machine-learning",
+]
+authors = [
+    { name = "Tiago Tresoldi", email = "row2vec@tresoldi.org" },
+]
+maintainers = [
+    { name = "Tiago Tresoldi", email = "row2vec@tresoldi.org" },
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
+    "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Scientific/Engineering",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]
+requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.21.0",
     "pandas>=1.5.3",
     "scikit-learn>=1.0.0",
     "tensorflow>=2.8.0",
-    "jinja2>=3.1.2",
-    "psutil>=5.8.0",
     "umap-learn>=0.5.0",
-    "click>=8.0.0",
-    "rich>=12.0.0",
+    "psutil>=5.8.0",
     "pyyaml>=6.0.0",
 ]
 
 [project.optional-dependencies]
-dev = [
-    # Testing
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "pytest-mock>=3.10.0",
-    "pytest-xdist>=3.0.0",
-
-    # Code quality
-    "mypy>=1.0.0",
-    "ruff>=0.1.0",
-    "types-psutil",
-    "types-PyYAML>=6.0.0",
-    "pandas-stubs>=2.0.0",
-
-    # Build and release
-    "build>=0.10.0",
-    "twine>=4.0.0",
-
-    # Documentation
-    "nhandu>=0.1.0",
-]
-docs = [
-    "sphinx>=5.0.0",
-    "sphinx-rtd-theme>=1.0.0",
-    "myst-parser>=0.18.0",
-]
+# Testing dependencies (lightweight; used by the CI test matrix)
 test = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "pytest-mock>=3.10.0",
+    "pytest-xdist>=3.0.0",
+]
+# Documentation site (MkDocs + mkdocstrings)
+docs = [
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.24",
+]
+# Development dependencies
+dev = [
+    # Testing (required by the Makefile and tests/)
+    "row2vec[test]",
+
+    # Code quality (required by the Makefile).
+    # ruff/mypy pinned exactly so local, CI, and pre-commit run identical linter
+    # versions (unpinned ruff/mypy drift silently changes check results).
+    "ruff==0.16.0",
+    "mypy==2.3.0",
+    "bandit[toml]>=1.7.0",
+
+    # Type stubs for the third-party libraries we call into.
+    "pandas-stubs>=2.0.0",
+    "types-psutil",
+    "types-PyYAML>=6.0.0",
+
+    # Build and release (required by the Makefile)
+    "build>=0.10.0",
+    "twine>=4.0.0",
+]
+# All optional dependencies (runtime + development)
+all = [
+    "row2vec[dev,docs]",
 ]
 
 [project.scripts]
 row2vec = "row2vec.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/evotext/row2vec"
-Repository = "https://github.com/evotext/row2vec"
-Documentation = "https://github.com/evotext/row2vec#readme"
-Issues = "https://github.com/evotext/row2vec/issues"
-Changelog = "https://github.com/evotext/row2vec/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/tresoldi/row2vec"
+Documentation = "https://row2vec.tresoldi.org/"
+Repository = "https://github.com/tresoldi/row2vec.git"
+Issues = "https://github.com/tresoldi/row2vec/issues"
+Changelog = "https://github.com/tresoldi/row2vec/blob/main/CHANGELOG.md"
 
-# Setuptools configuration
 [tool.setuptools.dynamic]
-version = {attr = "row2vec.__version__"}
+version = { attr = "row2vec.__version__" }
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
 include = ["row2vec*"]
-exclude = ["tests*", "docs*", "examples*", "scripts*"]
 
 [tool.setuptools.package-data]
 row2vec = ["py.typed"]
 
-# Ruff configuration - Ultra-fast Python linter and formatter
+
+# Ruff linting (replaces flake8, pycodestyle, pyflakes, isort, etc.)
 [tool.ruff]
+line-length = 100
 target-version = "py310"
-line-length = 88
-indent-width = 4
+extend-exclude = [
+    "__pycache__",
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+]
 
 [tool.ruff.lint]
-# Enable comprehensive rule sets
 select = [
-    "E",    # pycodestyle errors
-    "W",    # pycodestyle warnings
-    "F",    # pyflakes
-    "I",    # isort
-    "N",    # pep8-naming
-    "UP",   # pyupgrade
-    "YTT",  # flake8-2020
-    "S",    # flake8-bandit
-    "B",    # flake8-bugbear
-    "A",    # flake8-builtins
-    "COM",  # flake8-commas
-    "C4",   # flake8-comprehensions
-    "ISC",  # flake8-implicit-str-concat
-    "ICN",  # flake8-import-conventions
-    "PIE",  # flake8-pie
-    "T20",  # flake8-print
-    "PT",   # flake8-pytest-style
-    "Q",    # flake8-quotes
-    "RSE",  # flake8-raise
-    "RET",  # flake8-return
-    "SLF",  # flake8-self
-    "SIM",  # flake8-simplify
-    "TID",  # flake8-tidy-imports
-    "TCH",  # flake8-type-checking
-    "ARG",  # flake8-unused-arguments
-    "PTH",  # flake8-use-pathlib
-    "ERA",  # eradicate
-    "PGH",  # pygrep-hooks
-    "PL",   # pylint
-    "TRY",  # tryceratops
-    "FLY",  # flynt
-    "NPY",  # numpy-specific rules
-    "PERF", # perflint
-    "RUF",  # ruff-specific rules
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "B",     # flake8-bugbear
+    "C4",    # flake8-comprehensions
+    "UP",    # pyupgrade
+    "ARG",   # flake8-unused-arguments
+    "SIM",   # flake8-simplify
+    "ICN",   # flake8-import-conventions
+    "PIE",   # flake8-pie
+    "T20",   # flake8-print
+    "PYI",   # flake8-pyi
+    "PT",    # flake8-pytest-style
+    "Q",     # flake8-quotes
+    "RSE",   # flake8-raise
+    "RET",   # flake8-return
+    "TID",   # flake8-tidy-imports
+    "TCH",   # flake8-type-checking
+    "NPY",   # NumPy-specific rules
+    "RUF",   # Ruff-specific rules
+    "D",     # pydocstyle
 ]
 
 ignore = [
-    "S101",    # assert-used (common in tests)
-    "S311",    # suspicious-non-cryptographic-random-usage
-    "PLR0913", # too-many-arguments
-    "PLR2004", # magic-value-comparison
-    "TRY003",  # raise-vanilla-args
-    "TRY004",  # prefer-type-error
-    "EM101",   # raw-string-in-exception
-    "EM102",   # f-string-in-exception
-    "NPY002",  # legacy numpy random (will fix in future PR)
-    "T201",    # print statements (acceptable in examples)
-    "PERF203", # try-except in loops (acceptable for examples)
-    "PLR0915", # too many statements (acceptable in examples)
-    "S603",    # subprocess calls (acceptable in examples)
-    "E501",    # line too long (will fix gradually)
-    "PLC0415", # imports not at top level (acceptable in examples)
-    "F401",    # unused imports (acceptable in examples)
-    "N806",    # variable naming (acceptable for ML variables like X, y)
-    "PTH123",  # use Path.open() (will modernize later)
-    "PTH110",  # use Path.exists() (will modernize later)
-    "PTH108",  # use Path.unlink() (will modernize later)
-    "PTH118",  # use Path with / operator (will modernize later)
-    "PTH120",  # use Path.parent (will modernize later)
-    "PLW2901", # variable overwrite (acceptable in examples)
-    "ARG001",  # unused arguments (acceptable in examples)
-    "ARG002",  # unused method arguments (acceptable)
-    "SIM115",  # context managers (acceptable in examples)
-    "E402",    # module level import not at top
-    "TRY301",  # abstract raise to inner function
-    "TRY300",  # consider moving to else block
-    "PLR0912", # too many branches
-    "PLR0911", # too many returns
-    "E722",    # bare except (will fix in future)
-    "RUF001",  # ambiguous unicode characters
-    "N803",    # argument naming (ML convention)
-    "B904",    # exception chaining (will fix in future)
-    "SLF001",  # private member access
-    "PT011",   # pytest.raises missing match parameter
-    "ERA001",  # commented out code
-    "SIM102",  # nested conditions
-    "PGH003",  # type ignore without codes
-    "PERF401", # manual list comprehension
-    "B007",    # unused loop variable
-    "S110",    # try-except-pass
-    "S112",    # try-except-continue
-    "S102",    # exec builtin
-    "S301",    # pickle usage
-    "PTH100",  # os.path.abspath
-    "COM812",  # trailing comma (conflicts with formatter)
-    "ISC001",  # single line implicit string concatenation (conflicts with formatter)
+    "E501",   # Line too long (ruff format handles this)
+    "B008",   # Do not perform function calls in argument defaults
+    "RET504", # Unnecessary variable assignment before return
+    "ARG002", # Unused method argument (common in abstract methods)
+    "D202",   # No blank lines allowed after function docstring
+    "D200",   # One-line docstring should fit on one line
+    "D107",   # Missing docstring in __init__
+    "D205",   # 1 blank line required between summary line and description
+    # Migrating to `np.random.Generator` changes the numbers a given seed
+    # produces, which would silently break every `seed=`-based reproducibility
+    # guarantee (and the regression fixtures in tests/fixtures/). Deliberate.
+    "NPY002", # Legacy np.random.* calls
 ]
-
-# Allow fix for all enabled rules (when `--fix`) is provided.
-fixable = ["ALL"]
-unfixable = []
-
-# Allow unused variables when underscore-prefixed.
-dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = [
-    "S101",    # assert-used
-    "PLR2004", # magic-value-comparison
-    "ARG001",  # unused-function-argument
-    "ARG005",  # unused-lambda-argument
+    "ARG001",  # Unused function arguments in tests
+    "ARG002",  # Unused method arguments in tests
+    "D",       # Test docstrings are not user-facing documentation
+    "S101",    # Use of assert detected (pytest uses assert)
+    "T201",    # Allow print statements for manual inspection
 ]
 "examples/**/*.py" = [
-    "T201",    # print-found
-    "S101",    # assert-used
+    "D",       # Examples read as scripts, not as API documentation
+    "T201",    # Allow print statements in examples
 ]
-"generate_docs.py" = [
-    "S602",    # subprocess-popen-with-shell-equals-true
-    "S603",    # subprocess-without-shell-equals-true
+"scripts/**/*.py" = [
+    "D",       # Maintenance scripts are not user-facing documentation
+    "T201",    # Allow print statements in scripts
+]
+"docs/tutorial_*.py" = [
+    "D",       # Nhandu tutorial files are self-documenting prose
+    "E402",    # Module level import not at top (pedagogical import placement)
+    "T201",    # Allow print statements in tutorials
 ]
 
 [tool.ruff.lint.isort]
 known-first-party = ["row2vec"]
+known-third-party = ["numpy", "pandas", "sklearn", "tensorflow", "umap", "pytest"]
 
-[tool.ruff.lint.pyupgrade]
-# Preserve types, even if a file imports `from __future__ import annotations`.
-keep-runtime-typing = true
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
-# MyPy configuration - Static type checking
+
+# MyPy type checking
 [tool.mypy]
-python_version = "3.10"
-strict = true
+# Target 3.12 so mypy can parse modern dependency stubs. Our 3.10 syntax
+# compatibility is enforced by ruff (target-version = "py310") and validated by
+# the 3.10 CI test matrix leg.
+python_version = "3.12"
+files = ["src/row2vec", "tests", "scripts"]
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 check_untyped_defs = true
-disallow_untyped_decorators = true
+disallow_untyped_decorators = false  # Some third-party decorators are untyped
 no_implicit_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
-implicit_reexport = false
 strict_equality = true
 show_error_codes = true
 
-# Handle third-party libraries without type hints
 [[tool.mypy.overrides]]
 module = [
     "tensorflow.*",
     "sklearn.*",
     "umap.*",
     "psutil.*",
+    "yaml.*",
 ]
 ignore_missing_imports = true
 
-# Specific overrides for our modules with complex type issues
-[[tool.mypy.overrides]]
-module = [
-    "row2vec.pandas",
-    "row2vec.categorical_encoding",
-    "row2vec.auto_dimension",
-    "row2vec.architecture_search",
-    "row2vec.cli",
-    "row2vec.serialization",
-    "row2vec.api",
-    "row2vec.pipeline_builder",
-]
-# Disable some strict checks for these complex modules
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-warn_return_any = false
 
 # Pytest configuration
 [tool.pytest.ini_options]
 minversion = "7.0"
-testpaths = ["tests"]
 addopts = [
     "--strict-markers",
     "--strict-config",
@@ -294,53 +238,64 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",
-    "--cov-fail-under=46",  # Current baseline: 46.58% (91 tests). Plan: 46% → 50% → 60% → 70% (target)
+    "--cov-fail-under=70",
 ]
+testpaths = ["tests"]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
+    "neural: marks tests that train a neural network",
+    "docs: marks tests that execute documentation examples",
 ]
 filterwarnings = [
     "ignore::UserWarning",
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
-    "ignore::numba.core.errors.NumbaWarning",
-    "ignore::numba.core.errors.NumbaDeprecationWarning",
-    "ignore::FutureWarning:sklearn",
-    # TensorFlow warnings
-    "ignore:.*tensorflow.*:DeprecationWarning",
-    "ignore:.*CUDA.*:UserWarning",
-    # UMAP warnings
-    "ignore:.*n_jobs.*:UserWarning",
-    "ignore::UserWarning:umap",
+    "ignore::FutureWarning",
 ]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 
+
 # Coverage configuration
 [tool.coverage.run]
 source = ["row2vec"]
+branch = true
 omit = [
     "*/tests/*",
-    "*/test_*",
-    "setup.py",
-    "generate_docs.py",
+    "*/test_*.py",
 ]
 
 [tool.coverage.report]
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",
-    "if self.debug:",
-    "if settings.DEBUG",
     "raise AssertionError",
     "raise NotImplementedError",
-    "if 0:",
     "if __name__ == .__main__.:",
-    "class .*\\bProtocol\\):",
-    "@(abc\\.)?abstractmethod",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
 ]
 show_missing = true
 skip_covered = false
+precision = 2
+
+[tool.coverage.html]
+directory = "tests/htmlcov"
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+
+# Bandit security configuration
+[tool.bandit]
+exclude_dirs = ["tests", "docs", "examples"]
+# B101 assert_used, B301/B403 pickle (the documented model-serialization format),
+# B311 non-cryptographic random (seeding, sampling), B404/B603 subprocess,
+# B110/B112 best-effort fallbacks around optional backends and metrics.
+skips = ["B101", "B110", "B112", "B301", "B311", "B403", "B404", "B603"]
+
+[tool.bandit.assert_used]
+skips = ["*_test.py", "*/test_*.py"]

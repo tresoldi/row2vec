@@ -54,7 +54,7 @@ def main():
 
         # Train supervised model
         print("   Training supervised (target) model...")
-        sup_embeddings, sup_script, sup_binary = train_and_save_model(
+        sup_embeddings, sup_script, _sup_binary = train_and_save_model(
             data,
             tmpdir / "supervised_model",
             embedding_dim=3,
@@ -70,7 +70,7 @@ def main():
 
         # Train PCA model
         print("   Training PCA model...")
-        pca_embeddings, pca_script, pca_binary = train_and_save_model(
+        pca_embeddings, pca_script, _pca_binary = train_and_save_model(
             data,
             tmpdir / "pca_model",
             embedding_dim=4,
@@ -85,7 +85,7 @@ def main():
         print("\n3. Manual training and saving workflow...")
         print("   Training with learn_embedding_with_model...")
 
-        embeddings, model, preprocessor, metadata = learn_embedding_with_model(
+        _embeddings, model, preprocessor, metadata = learn_embedding_with_model(
             data,
             embedding_dim=2,
             mode="umap",
@@ -101,7 +101,7 @@ def main():
         )
 
         # Save manually
-        manual_script, manual_binary = save_model(
+        manual_script, _manual_binary = save_model(
             row2vec_model,
             tmpdir / "manual_model",
         )

@@ -1,7 +1,7 @@
 # Row2Vec Makefile
 # POSIX-compatible development commands
 
-.PHONY: help quality format test test-cov test-fast bump-version build build-release clean install install-dev bench docs docs-clean
+.PHONY: help quality security format test test-cov test-fast bump-version build build-release clean install install-dev bench site site-serve tutorials tutorials-clean
 
 # Default target: show help
 .DEFAULT_GOAL := help
@@ -31,8 +31,13 @@ quality: ## Run code quality checks (ruff format --check, ruff check, mypy)
 	@echo "==> Running ruff linter..."
 	ruff check .
 	@echo "==> Running mypy type checker..."
-	mypy row2vec/ tests/ scripts/
+	mypy
 	@echo "✓ All quality checks passed!"
+
+security: ## Run bandit static security analysis
+	@echo "==> Running bandit security scan..."
+	bandit -c pyproject.toml -r src/row2vec/
+	@echo "✓ Security scan passed!"
 
 format: ## Auto-format code with ruff
 	@echo "==> Formatting code with ruff..."
@@ -49,13 +54,13 @@ test-cov: ## Run tests with coverage (HTML report in tests/htmlcov/, fails if <7
 	pytest --cov=row2vec --cov-report=html:tests/htmlcov --cov-report=term-missing --cov-fail-under=70 tests/
 	@echo "✓ Coverage report generated in tests/htmlcov/"
 
-test-fast: ## Run tests in parallel (faster)
+test-fast: ## Run tests in parallel, skipping slow ones (faster)
 	@echo "==> Running tests in parallel..."
-	pytest -n auto tests/
+	pytest -n auto -m "not slow" tests/
 	@echo "✓ Tests passed!"
 
 bump-version: ## Bump version (TYPE=patch|minor|major), commit, and tag
-	@CURRENT=$$(grep -o "__version__ = \"[^\"]*\"" row2vec/__init__.py | cut -d'"' -f2); \
+	@CURRENT=$$(grep -o "__version__ = \"[^\"]*\"" src/row2vec/__init__.py | cut -d'"' -f2); \
 	echo "==> Current version: $$CURRENT"; \
 	IFS='.' read -r major minor patch <<< "$$CURRENT"; \
 	if [ "$(TYPE)" = "major" ]; then NEW="$$((major + 1)).0.0"; \
@@ -63,12 +68,12 @@ bump-version: ## Bump version (TYPE=patch|minor|major), commit, and tag
 	elif [ "$(TYPE)" = "patch" ]; then NEW="$$major.$$minor.$$((patch + 1))"; \
 	else echo "Error: TYPE must be patch, minor, or major"; exit 1; fi; \
 	echo "==> Bumping $(TYPE) version to $$NEW..."; \
-	sed -i "s/__version__ = \"$$CURRENT\"/__version__ = \"$$NEW\"/" row2vec/__init__.py; \
+	sed -i "s/__version__ = \"$$CURRENT\"/__version__ = \"$$NEW\"/" src/row2vec/__init__.py; \
 	echo ""; \
 	echo "⚠️  Please update CHANGELOG.md manually before committing!"; \
 	echo ""; \
 	read -p "Press Enter to commit and tag, or Ctrl+C to cancel..."; \
-	git add row2vec/__init__.py; \
+	git add src/row2vec/__init__.py; \
 	git commit -m "chore: bump version to $$NEW"; \
 	git tag -a "v$$NEW" -m "Release v$$NEW"; \
 	echo "✓ Version bumped to $$NEW and tagged!"; \
@@ -91,9 +96,9 @@ build-release: clean quality test build ## Full release build (clean → quality
 
 clean: ## Remove build artifacts, caches, and coverage reports
 	@echo "==> Cleaning build artifacts..."
-	rm -rf dist/ build/ *.egg-info
+	rm -rf dist/ build/ *.egg-info src/*.egg-info
 	rm -rf .coverage htmlcov/ tests/htmlcov/ coverage.xml
-	rm -rf .pytest_cache .ruff_cache .mypy_cache
+	rm -rf .pytest_cache .ruff_cache .mypy_cache site/
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	@echo "✓ Cleaned!"
 
@@ -104,14 +109,14 @@ install: ## Install package in development mode
 
 install-dev: ## Install package with development dependencies (includes all Makefile tools)
 	@echo "==> Installing package with dev dependencies..."
-	$(PIP) install -e .[dev]
+	$(PIP) install -e .[dev,docs]
 	@echo "✓ Package installed with dev dependencies!"
 	@echo ""
 	@echo "Installed tools for Makefile:"
 	@echo "  - pytest, pytest-cov, pytest-xdist (testing)"
-	@echo "  - ruff, mypy (code quality)"
+	@echo "  - ruff, mypy, bandit (code quality)"
 	@echo "  - build, twine (build/release)"
-	@echo "  - nhandu (documentation generation)"
+	@echo "  - mkdocs-material, mkdocstrings (docs site)"
 
 bench: ## Run quick performance benchmarks
 	@echo "==> Running quick benchmarks..."
@@ -119,15 +124,24 @@ bench: ## Run quick performance benchmarks
 	@echo "✓ Quick benchmarks complete!"
 	@echo "  Results saved to benchmark_results_quick/"
 
-docs: ## Generate HTML documentation from Nhandu tutorial sources
-	@echo "==> Generating tutorial documentation..."
+site: ## Build the MkDocs documentation site (strict) into site/
+	@echo "==> Building documentation site..."
+	mkdocs build --strict
+	@echo "✓ Site built in site/"
+
+site-serve: ## Serve the docs site locally with live reload
+	@echo "==> Serving docs at http://127.0.0.1:8000 ..."
+	mkdocs serve
+
+tutorials: ## Render the executable Nhandu tutorials to HTML (build artifact)
+	@echo "==> Rendering tutorials..."
 	@for f in docs/tutorial_*.py; do \
-		echo "  Generating $$(basename $$f .py).html..."; \
+		echo "  Rendering $$(basename $$f .py).html..."; \
 		nhandu "$$f" --format html -o "docs/$$(basename $$f .py).html"; \
 	done
-	@echo "✓ Documentation generated in docs/"
+	@echo "✓ Tutorials rendered in docs/"
 
-docs-clean: ## Remove generated HTML documentation
-	@echo "==> Cleaning generated documentation..."
+tutorials-clean: ## Remove rendered tutorial HTML
+	@echo "==> Cleaning rendered tutorials..."
 	rm -f docs/tutorial_*.html
-	@echo "✓ Documentation cleaned!"
+	@echo "✓ Tutorials cleaned!"

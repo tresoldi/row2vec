@@ -1,198 +1,164 @@
 # Row2Vec
 
-[![PyPI version](https://badge.fury.io/py/row2vec.svg)](https://pypi.org/project/row2vec/)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![CI](https://github.com/tresoldi/row2vec/actions/workflows/quality.yml/badge.svg)](https://github.com/tresoldi/row2vec/actions/workflows/quality.yml)
+[![codecov](https://codecov.io/gh/tresoldi/row2vec/branch/main/graph/badge.svg)](https://codecov.io/gh/tresoldi/row2vec)
+[![Docs](https://img.shields.io/badge/docs-mkdocs-blue.svg)](https://row2vec.tresoldi.org/)
+[![PyPI version](https://badge.fury.io/py/row2vec.svg)](https://badge.fury.io/py/row2vec)
+[![Python versions](https://img.shields.io/pypi/pyversions/row2vec.svg)](https://pypi.org/project/row2vec/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Downloads](https://pepy.tech/badge/row2vec)](https://pepy.tech/project/row2vec)
+[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
-**Row2Vec** is a Python library for easily generating low-dimensional vector embeddings from any tabular dataset. It uses deep learning and classical methods to create powerful, dense representations of your data, suitable for visualization, feature engineering, and gaining deeper insights into your data's structure.
+**Turn table rows into vectors.**
 
-## Features
+Row2Vec takes a `DataFrame` whose columns are a mix of numbers, categories, and
+missing values, and returns one dense numeric vector per row. The scaling,
+encoding, and imputation are handled for you, and both neural and classical
+methods sit behind the same call.
 
-### 🎯 Multiple Embedding Methods
-- **Neural (Autoencoder)**: Deep learning approach for complex, non-linear patterns
-- **Target-based**: Learn embeddings for categorical columns and their relationships
-- **PCA**: Fast, linear dimensionality reduction with interpretable components
-- **t-SNE**: Excellent for 2D/3D visualization and cluster discovery
-- **UMAP**: Balanced preservation of local and global structure
+```python
+import row2vec
 
-### 🧠 Intelligent Preprocessing
-- **Adaptive Missing Value Imputation**: Automatically analyzes patterns and applies optimal strategies
-- **Pattern-Aware Analysis**: Detects problematic missing patterns with configurable strategies
-- **Automated Feature Engineering**: Handles scaling, encoding, and preprocessing seamlessly
+df = row2vec.generate_synthetic_data(200)  # mixed numeric + categorical columns
+embeddings = row2vec.learn_embedding(df, mode="pca", embedding_dim=3)
 
-### 🚀 Advanced Features
-- **Neural Architecture Search (NAS)**: Automatically discovers optimal network architectures
-- **Multi-layer Networks**: Support for deep architectures with dropout and regularization
-- **Model Serialization**: Save and load models with full preprocessing pipelines
-- **Command-Line Interface**: Complete CLI for batch processing and automation
+assert embeddings.shape == (200, 3)  # one row in, one vector out
+```
 
-### 🔧 Production Ready
-- **Comprehensive Testing**: 163+ test functions across 17 test files
-- **Type Safety**: Complete MyPy annotations
-- **Modern Build System**: Uses `pyproject.toml` with hatchling backend
-- **Documentation**: Interactive Jupyter Book with executable examples
+That is the whole point: everything downstream of a table — clustering,
+nearest-neighbour lookup, a scatter plot, a feature for another model —
+presupposes that rows are already points in a metric space. Getting them there
+usually means a hand-rolled pipeline of encoders, scalers, and imputers.
+Row2Vec is that pipeline, with several well-tested ways to do the projection
+itself behind one consistent interface.
 
-## Installation
+## Install
 
 ```bash
 pip install row2vec
 ```
 
-## Quick Start
+## The interface
+
+One function does the work. Swapping methods means changing `mode`; the call
+site never changes.
 
 ```python
-import pandas as pd
-from row2vec import learn_embedding, generate_synthetic_data
+import row2vec
 
-# Load your data
-df = generate_synthetic_data(num_records=1000)
+df = row2vec.generate_synthetic_data(150)
 
-# Generate neural embeddings for each row
-embeddings = learn_embedding(
-    df,
-    mode="unsupervised",
-    embedding_dim=5
-)
-print(f"Embeddings shape: {embeddings.shape}")
-print(embeddings.head())
+pca = row2vec.learn_embedding(df, mode="pca", embedding_dim=2)
+tsne = row2vec.learn_embedding(df, mode="tsne", embedding_dim=2, perplexity=10)
 
-# Learn categorical embeddings
-country_embeddings = learn_embedding(
-    df,
-    mode="target",
-    reference_column="Country",
-    embedding_dim=3
-)
-print(f"Country embeddings: {country_embeddings}")
-
-# Compare with classical methods
-pca_embeddings = learn_embedding(df, mode="pca", embedding_dim=5)
-tsne_embeddings = learn_embedding(df, mode="tsne", embedding_dim=2)
+assert pca.shape == tsne.shape == (150, 2)
+assert list(pca.index) == list(df.index)  # aligned with the input frame
 ```
 
-## Command Line Interface
+The result is a `DataFrame` of the same length as the input, sharing its index,
+with one column per embedding dimension — so it joins straight back onto the
+original data.
+
+A trained model can be saved with its preprocessing pipeline and reloaded to
+embed new rows the same way:
+
+```python
+import tempfile
+from pathlib import Path
+
+import row2vec
+
+df = row2vec.generate_synthetic_data(100)
+base = Path(tempfile.mkdtemp()) / "model"
+
+embeddings, script_path, _binary_path = row2vec.train_and_save_model(
+    df, base_path=str(base), mode="pca", embedding_dim=2
+)
+model = row2vec.load_model(script_path)
+
+assert model.predict(df).shape == embeddings.shape
+```
+
+## Choosing a method
+
+| Mode | Use it for | Key parameter |
+|------|------------|---------------|
+| `pca` | a fast linear baseline with interpretable components | `embedding_dim` |
+| `unsupervised` | non-linear structure, via an autoencoder | `hidden_units`, `max_epochs` |
+| `tsne` | 2-D/3-D plots that show local structure and clusters | `perplexity` |
+| `umap` | preserving local *and* global structure | `n_neighbors`, `min_dist` |
+| `target` | one vector per *category* of a column, not per row | `reference_column` |
+| `contrastive` | supervision from pairs known to be alike or unalike | `auto_pairs`, `margin` |
+
+Start with `pca`. It costs nothing to run and tells you whether the structure
+you are after is linear; if it isn't, `unsupervised` is the next step.
+
+## What you don't have to write
+
+- **Missing values** — the pattern of missingness is analysed per column and an
+  imputation strategy chosen to match (`AdaptiveImputer`).
+- **Categorical columns** — encoded by a strategy picked from the column's
+  cardinality: one-hot, ordinal, target encoding, or learned entity embeddings.
+- **Scaling** — numeric columns are standardised before the projection, and the
+  output can be rescaled (`minmax`, `standard`, `l2`, `tanh`).
+- **Architecture** — for the neural modes, layer widths and even the embedding
+  dimension can be searched rather than guessed (`search_architecture`,
+  `auto_select_dimension`).
+
+## Also included
+
+A **command-line interface** for batch work:
 
 ```bash
-# Quick embeddings
-row2vec annotate --input data.csv --output embeddings.csv --mode unsupervised --dim 5
-
-# Train and save model
-row2vec train --input data.csv --output model.py --mode unsupervised --dim 10 --epochs 50
-
-# Use saved model
-row2vec predict --input new_data.csv --model model.py --output predictions.csv
-
-# Target-based embeddings
-row2vec annotate --input data.csv --output categories.csv --mode target --target-col Category --dim 3
+row2vec annotate --input data.csv --output embeddings.csv --mode pca --dim 5
+row2vec train --input data.csv --output model.py --mode unsupervised --dim 10
+row2vec predict --input new.csv --model model.py --output predictions.csv
 ```
 
-## Advanced Usage
+A **scikit-learn** transformer and classifier (`Row2VecTransformer`,
+`Row2VecClassifier`) for use inside a `Pipeline`, and a **pandas accessor**
+(`df.row2vec.pca(dim=2)`) for quick interactive work.
 
-### Neural Architecture Search
+## Why Row2Vec
 
-```python
-from row2vec import ArchitectureSearchConfig, search_architecture, EmbeddingConfig, NeuralConfig
-
-# Configure architecture search
-config = ArchitectureSearchConfig(
-    method='random',
-    max_layers=3,
-    width_options=[64, 128, 256],
-    max_trials=20
-)
-
-base_config = EmbeddingConfig(
-    mode="unsupervised",
-    embedding_dim=8,
-    neural=NeuralConfig(max_epochs=50)
-)
-
-# Find optimal architecture
-best_arch, results = search_architecture(df, base_config, config)
-print(f"Best architecture: {best_arch}")
-
-# Train with optimal settings
-optimal_embeddings = learn_embedding(
-    df,
-    mode="unsupervised",
-    embedding_dim=8,
-    hidden_units=best_arch.get('hidden_units', [128]),
-    max_epochs=100
-)
-```
-
-### Missing Value Imputation
-
-```python
-from row2vec import ImputationConfig, AdaptiveImputer, MissingPatternAnalyzer
-
-# Analyze missing patterns
-analyzer = MissingPatternAnalyzer(ImputationConfig())
-analysis = analyzer.analyze(df)
-print(f"Missing patterns: {analysis['recommendations']}")
-
-# Apply adaptive imputation
-imputer = AdaptiveImputer(ImputationConfig(
-    numeric_strategy='knn',
-    categorical_strategy='mode',
-    knn_neighbors=10
-))
-df_clean = imputer.fit_transform(df)
-```
+- **One consistent API** across six embedding methods — swap the projection
+  without rewriting your preprocessing.
+- **Preprocessing travels with the model** — a saved model carries its own
+  encoders and imputers, so inference on new data reproduces training exactly.
+- **Typed and production-ready** — full type hints (`py.typed`), strict linting
+  and type-checking, and a test suite run across Python 3.10–3.12 on Linux,
+  macOS, and Windows. Every example in this README and in the User Guide is
+  executed by that suite.
 
 ## Documentation
 
-### Online Documentation
-- **[Installation Guide](https://evotext.github.io/row2vec/installation.html)**: Detailed setup instructions
-- **[Quick Start Tutorial](https://evotext.github.io/row2vec/quickstart.html)**: Get up and running in 5 minutes
-- **[API Reference](https://evotext.github.io/row2vec/api_reference.html)**: Complete function documentation
-- **[Example Gallery](https://evotext.github.io/row2vec/)**: Real-world use cases and tutorials
-- **[Advanced Features](https://evotext.github.io/row2vec/advanced_features.html)**: Neural architecture search, imputation strategies
-
-### Local Documentation
-- **[User Guide](docs/USER_GUIDE.md)**: Comprehensive guide with mathematical background, detailed examples, and best practices
-- **[LLM Documentation](docs/LLM_DOCUMENTATION.md)**: Practical guide for LLM coding agents integrating Row2Vec
-- **[API Reference](docs/API_REFERENCE.md)**: Complete function and class reference
-- **[Tutorials](docs/)**: Executable Python tutorials (Nhandu format) - run `make docs` to build HTML
-
-## Why Row2Vec?
-
-| Method | Row2Vec Advantage | Alternative |
-|--------|-------------------|-------------|
-| **Manual Neural Networks** | Automated preprocessing, simple API | 200+ lines of boilerplate |
-| **sklearn PCA** | Integrated preprocessing, multiple methods | Limited to linear reduction |
-| **sklearn t-SNE/UMAP** | Unified interface, consistent preprocessing | Manual pipeline setup |
-| **Custom Embeddings** | Production-ready with serialization | Significant development time |
-
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+- **[Documentation site](https://row2vec.tresoldi.org/)** — user guide and full
+  API reference.
+- **[User Guide](docs/USER_GUIDE.md)** — concepts, choosing a method, and worked
+  examples.
+- **[API Reference](https://row2vec.tresoldi.org/reference/)** — every public
+  class and function, generated from the source.
+- **[Architecture](ARCHITECTURE.md)** — how the package is put together, and why.
 
 ## Citation
 
-If you use Row2Vec in your research, please cite:
+If you use Row2Vec in academic research, please cite:
 
 ```bibtex
-@software{tresoldi_row2vec,
+@software{tresoldi_row2vec_2026,
   author = {Tresoldi, Tiago},
-  title = {Row2Vec: Neural and Classical Embeddings for Tabular Data},
-  url = {https://github.com/evotext/row2vec},
-  version = {1.0.0}
+  title = {Row2Vec: Neural and classical embeddings for tabular data},
+  url = {https://github.com/tresoldi/row2vec},
+  version = {0.2.0},
+  year = {2026}
 }
 ```
 
 ## Acknowledgments
 
-This library was originally developed as part of the **"Cultural Evolution of Texts"** project, led by Michael Dunn at the Department of Linguistics and Philology, Uppsala University. The project investigates the application of evolutionary models to textual data and cultural transmission patterns.
-
-## Authors
-
-**Tiago Tresoldi**
-*Affiliate Researcher, Department of Linguistics and Philology*
-*Uppsala University*
-*GitHub: [@tresoldi](https://github.com/tresoldi)*
+This library was originally developed as part of the **"Cultural Evolution of
+Texts"** project, led by Michael Dunn at the Department of Linguistics and
+Philology, Uppsala University.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT — see [LICENSE](LICENSE).

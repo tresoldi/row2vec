@@ -22,7 +22,6 @@ import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 # |
 
-import pandas as pd
 
 from row2vec import generate_synthetic_data, learn_embedding
 
@@ -36,9 +35,7 @@ print(f"Columns: {df.columns.tolist()}")
 #' Create compressed representations of each row:
 
 # Learn 5-dimensional embeddings for each row
-embeddings = learn_embedding(
-    df, mode="unsupervised", embedding_dim=5, max_epochs=20, verbose=False
-)
+embeddings = learn_embedding(df, mode="unsupervised", embedding_dim=5, max_epochs=20, verbose=False)
 
 print(f"Embeddings shape: {embeddings.shape}")
 print("\nFirst 3 embeddings:")
@@ -80,9 +77,7 @@ print(pca_embeddings.head())
 
 #' ### t-SNE (Visualization)
 
-tsne_embeddings = learn_embedding(
-    df, mode="tsne", embedding_dim=2, perplexity=30, verbose=False
-)
+tsne_embeddings = learn_embedding(df, mode="tsne", embedding_dim=2, perplexity=30, verbose=False)
 
 print("t-SNE embeddings (first 5):")
 print(tsne_embeddings.head())

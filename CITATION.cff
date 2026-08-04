@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata from this file."
+title: "Row2Vec: Neural and classical embeddings for tabular data"
+abstract: >-
+  Row2Vec is a Python library for learning low-dimensional vector embeddings
+  from tabular data. It converts the rows of a mixed numeric/categorical
+  DataFrame into dense numeric vectors, handling scaling, categorical encoding,
+  and missing-value imputation, and offers neural (autoencoder, contrastive) and
+  classical (PCA, t-SNE, UMAP) methods behind a single interface.
+type: software
+authors:
+  - family-names: Tresoldi
+    given-names: Tiago
+    email: row2vec@tresoldi.org
+version: 0.2.0
+date-released: 2026-07-31
+license: MIT
+repository-code: "https://github.com/tresoldi/row2vec"
+url: "https://github.com/tresoldi/row2vec"
+keywords:
+  - embeddings
+  - tabular-data
+  - dimensionality-reduction
+  - representation-learning
+  - autoencoder
+  - machine-learning

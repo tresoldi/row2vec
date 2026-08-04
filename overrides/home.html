@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>row2vec — embeddings for tabular data</title>
+<meta name="description" content="A Python library that turns the rows of any tabular dataset into low-dimensional numeric vectors, with neural and classical methods behind one interface.">
+<link rel="canonical" href="{{ config.site_url }}">
+<style>
+  :root {
+    --paper: #ffffff;
+    --ink: #1a1a1a;
+    --ink-2: #474747;
+    --ink-3: #737373;
+    --rule: #d8d8d8;
+    --rule-2: #ececec;
+    --link: #234a86;
+    --code-bg: #f6f6f6;
+    --fig-ink: #1a1a1a;
+    --fig-grey: #8f8f8f;
+    --fig-light: #c9c9c9;
+    --serif: "Times New Roman", Times, Georgia, "Nimbus Roman", serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --measure: 42rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #121212; --ink: #e6e6e6; --ink-2: #b2b2b2; --ink-3: #8a8a8a;
+      --rule: #2d2d2d; --rule-2: #242424; --link: #8fb0e6;
+      --code-bg: #1a1a1a; --fig-ink: #e6e6e6; --fig-grey: #969696; --fig-light: #575757;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--serif); font-size: 18px; line-height: 1.55;
+    text-rendering: optimizeLegibility;
+  }
+  .page { max-width: var(--measure); margin: 0 auto; padding: 0 26px 80px; }
+  a { color: var(--link); text-underline-offset: 2px; }
+  a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+
+  header.mast { padding: 60px 0 22px; border-bottom: 1px solid var(--ink); }
+  .title { font-size: 1.9rem; font-weight: 700; margin: 0 0 8px; }
+  .title .mono { font-family: var(--mono); font-weight: 600; letter-spacing: -0.02em; }
+  .dek { font-size: 1.05rem; color: var(--ink-2); margin: 0 0 18px; max-width: 34em; }
+  .meta { font-size: 0.9rem; color: var(--ink-3); }
+  .meta a { color: var(--ink-2); }
+  .meta .sep { padding: 0 6px; color: var(--rule); }
+
+  main > section { padding: 26px 0; border-bottom: 1px solid var(--rule-2); }
+  main > section:last-of-type { border-bottom: 0; }
+  h2 { font-size: 1.15rem; font-weight: 700; color: var(--ink); margin: 0 0 12px; }
+  p { margin: 0 0 14px; } p:last-child { margin-bottom: 0; }
+  .lead { font-size: 1.08rem; } .lead b { font-weight: 700; }
+
+  code { font-family: var(--mono); font-size: 0.84em; }
+  pre {
+    margin: 4px 0 0; background: var(--code-bg); border: 1px solid var(--rule);
+    padding: 14px 16px; overflow-x: auto; font-family: var(--mono);
+    font-size: 13.5px; line-height: 1.65; color: var(--ink);
+  }
+  pre.install { padding: 10px 14px; }
+  .c-com { color: var(--ink-3); }
+  .after-code { font-size: 0.96rem; color: var(--ink-2); margin-top: 12px; }
+
+  figure { margin: 4px 0 0; }
+  .fig-frame { border: 1px solid var(--rule); background: var(--paper); padding: 12px 14px 6px; }
+  canvas { width: 100%; height: 210px; display: block; }
+  .fig-legend { font-size: 0.8rem; color: var(--ink-3); display: flex; flex-wrap: wrap; gap: 14px; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--rule-2); }
+  .fig-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .fig-legend i { width: 14px; height: 10px; display: inline-block; border: 1px solid var(--fig-ink); }
+  .fig-legend i.solid { background: var(--fig-grey); border-color: var(--fig-grey); }
+  .fig-legend i.open { background: var(--paper); border-color: var(--fig-light); }
+  .fig-legend i.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--fig-ink); border-color: var(--fig-ink); }
+  figcaption { font-size: 0.9rem; color: var(--ink-2); line-height: 1.5; margin-top: 10px; }
+  figcaption b { font-weight: 700; color: var(--ink); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+  thead th { font-size: 0.82rem; color: var(--ink-2); font-weight: 700; text-align: left; padding: 0 14px 7px 0; border-bottom: 1px solid var(--ink); }
+  tbody td { padding: 8px 14px 8px 0; border-bottom: 1px solid var(--rule-2); vertical-align: baseline; }
+  tbody tr:last-child td { border-bottom: 1px solid var(--ink); }
+  td.m { font-family: var(--mono); font-size: 0.82rem; color: var(--ink); white-space: nowrap; }
+  td.k { font-family: var(--mono); font-size: 0.8rem; color: var(--ink-3); white-space: nowrap; }
+  .tbl-scroll { overflow-x: auto; }
+
+  ul.plain { margin: 0; padding: 0; list-style: none; }
+  ul.plain li { padding: 6px 0; border-bottom: 1px solid var(--rule-2); }
+  ul.plain li:last-child { border-bottom: 0; }
+  ul.plain b { font-weight: 700; } ul.plain .d { color: var(--ink-2); }
+
+  .links-row { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 0.98rem; }
+
+  footer { padding-top: 24px; margin-top: 6px; border-top: 1px solid var(--ink); font-size: 0.85rem; color: var(--ink-3); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="mast">
+    <h1 class="title"><span class="mono">row2vec</span></h1>
+    <p class="dek">Low-dimensional vector embeddings for tabular data — neural
+      and classical methods behind one interface.</p>
+    <div class="meta">
+      MIT<span class="sep">·</span>Python 3.10–3.12<span class="sep">·</span><a href="https://github.com/tresoldi/row2vec">GitHub</a><span class="sep">·</span><a href="https://pypi.org/project/row2vec/">PyPI</a><span class="sep">·</span><a href="{{ base_url }}/USER_GUIDE/">Documentation</a>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <p class="lead">A table row is an awkward object: some columns are numbers on
+        incompatible scales, others are categories, and some values are missing
+        altogether. Most of what one wants to do with rows — cluster them, find the
+        near neighbours of one, feed them to a model, plot them — presupposes that
+        they are already <b>points in a metric space</b>. Row2Vec performs that
+        conversion. It takes a <code>DataFrame</code> and returns one dense numeric
+        vector per row, handling the scaling, encoding, and imputation on the way,
+        and it offers both neural and classical methods behind a single call.</p>
+    </section>
+
+    <section>
+      <h2>Installation</h2>
+      <pre class="install">pip install row2vec</pre>
+    </section>
+
+    <section>
+      <h2>Example</h2>
+<pre>import pandas as pd
+from row2vec import learn_embedding
+
+df = pd.read_csv("customers.csv")   <span class="c-com"># mixed types, some values missing</span>
+embeddings = learn_embedding(df, mode="pca", embedding_dim=5)
+
+embeddings.shape                    <span class="c-com"># (len(df), 5)</span></pre>
+      <p class="after-code">The returned object is a <code>DataFrame</code> of the
+        same length as the input, indexed alike, with one column per embedding
+        dimension. Choosing a different method is a change of the <code>mode</code>
+        argument — <code>"unsupervised"</code>, <code>"tsne"</code>,
+        <code>"umap"</code>, <code>"target"</code>, <code>"contrastive"</code> — and
+        the call site does not otherwise change.</p>
+    </section>
+
+    <section>
+      <h2>The embedding</h2>
+      <figure>
+        <div class="fig-frame">
+          <canvas id="viz" width="720" height="210"></canvas>
+          <div class="fig-legend">
+            <span><i class="solid"></i>numeric column</span>
+            <span><i class="open"></i>categorical column</span>
+            <span><i class="dot"></i>embedded row</span>
+          </div>
+        </div>
+        <figcaption><b>Figure 1.</b> Each row of the table (left) — a mix of numeric
+          and categorical fields — becomes a single point in a low-dimensional space
+          (right). Rows that resemble one another end up near one another, which is
+          what makes the output usable for clustering, retrieval, and visualisation.</figcaption>
+      </figure>
+    </section>
+
+    <section>
+      <h2>Methods</h2>
+      <div class="tbl-scroll">
+        <table>
+          <thead>
+            <tr><th>Mode</th><th>Appropriate when</th><th>Parameter</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="m">pca</td><td>a fast linear baseline with interpretable components is wanted</td><td class="k">embedding_dim</td></tr>
+            <tr><td class="m">unsupervised</td><td>the structure is non-linear and an autoencoder is warranted</td><td class="k">hidden_units, max_epochs</td></tr>
+            <tr><td class="m">tsne</td><td>the goal is a two- or three-dimensional plot of local structure</td><td class="k">perplexity</td></tr>
+            <tr><td class="m">umap</td><td>local and global structure are both to be preserved</td><td class="k">n_neighbors, min_dist</td></tr>
+            <tr><td class="m">target</td><td>one vector per category of a column is wanted, not per row</td><td class="k">reference_column</td></tr>
+            <tr><td class="m">contrastive</td><td>pairs known to be alike or unalike are available for supervision</td><td class="k">auto_pairs, margin</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>What is handled for you</h2>
+      <ul class="plain">
+        <li><b>Missing values.</b> <span class="d">the pattern of missingness is analysed and an imputation strategy chosen per column.</span></li>
+        <li><b>Categorical fields.</b> <span class="d">encoded by a strategy selected from the column's cardinality — one-hot, ordinal, target, or learned entity embeddings.</span></li>
+        <li><b>Scale.</b> <span class="d">numeric columns are standardised; the output can additionally be scaled to a fixed range.</span></li>
+        <li><b>Architecture.</b> <span class="d">for the neural modes, the layer widths and the embedding dimension can be searched rather than guessed.</span></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Documentation</h2>
+      <div class="links-row">
+        <a href="{{ base_url }}/USER_GUIDE/">User Guide →</a>
+        <a href="{{ base_url }}/reference/">API Reference →</a>
+        <a href="https://github.com/tresoldi/row2vec/blob/main/CHANGELOG.md">Changelog →</a>
+        <a href="https://github.com/tresoldi/row2vec">Source (GitHub) →</a>
+        <a href="https://pypi.org/project/row2vec/">Package (PyPI) →</a>
+      </div>
+    </section>
+
+    <section>
+      <h2>Citation</h2>
+<pre>@software{tresoldi_row2vec_2026,
+  author  = {Tresoldi, Tiago},
+  title   = {Row2Vec: Neural and classical embeddings
+             for tabular data},
+  year    = {2026},
+  version = {0.2.0},
+  url     = {https://github.com/tresoldi/row2vec}
+}</pre>
+    </section>
+  </main>
+
+  <footer>
+    <span>MIT License</span>
+    <span>© 2026 Tiago Tresoldi</span>
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var canvas = document.getElementById("viz");
+    if (!canvas) return;
+    var ctx = canvas.getContext("2d");
+    function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+    // A fixed, deterministic sketch: 7 table rows, each landing in one of two
+    // groups in the embedding space.
+    var rows = [
+      { cells: [0.85, 0.30, 1, 0.55], group: 0 },
+      { cells: [0.70, 0.45, 0, 0.40], group: 0 },
+      { cells: [0.90, 0.25, 1, 0.62], group: 0 },
+      { cells: [0.20, 0.80, 0, 0.15], group: 1 },
+      { cells: [0.30, 0.72, 1, 0.22], group: 1 },
+      { cells: [0.15, 0.88, 0, 0.10], group: 1 },
+      { cells: [0.55, 0.55, 1, 0.35], group: 1 }
+    ];
+    var points = [
+      [0.74, 0.30], [0.66, 0.42], [0.80, 0.24],
+      [0.24, 0.74], [0.32, 0.66], [0.18, 0.82], [0.46, 0.54]
+    ];
+
+    function dims() {
+      var ratio = window.devicePixelRatio || 1;
+      var w = canvas.clientWidth, h = canvas.clientHeight;
+      canvas.width = w * ratio; canvas.height = h * ratio;
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      return { w: w, h: h };
+    }
+
+    function draw() {
+      var d = dims(), w = d.w, h = d.h;
+      ctx.clearRect(0, 0, w, h);
+      var fig = css("--fig-ink"), grey = css("--fig-grey"),
+          light = css("--fig-light"), paper = css("--paper"), rule = css("--rule");
+
+      var padT = 20, padB = 26;
+      var plotH = h - padT - padB;
+      var tableW = Math.min(w * 0.38, 250);
+      var gap = Math.max(w * 0.10, 54);
+      var spaceX = tableW + gap;
+      var spaceW = w - spaceX - 4;
+
+      ctx.font = "10px " + css("--mono");
+      ctx.fillStyle = css("--ink-3");
+      ctx.textAlign = "left";
+      ctx.fillText("table rows", 0, 12);
+      ctx.fillText("embedding space", spaceX, 12);
+
+      // ---- left: the table, one band per row, one block per column
+      var rowH = plotH / rows.length, cellPad = 2;
+      var nCols = rows[0].cells.length, colW = tableW / nCols;
+      for (var i = 0; i < rows.length; i++) {
+        var y = padT + i * rowH;
+        for (var c = 0; c < nCols; c++) {
+          var x = c * colW;
+          var v = rows[i].cells[c];
+          if (c === 2) {
+            // categorical column: an open block
+            ctx.fillStyle = paper;
+            ctx.fillRect(x, y + cellPad, colW - 3, rowH - cellPad * 2);
+            ctx.strokeStyle = light; ctx.lineWidth = 1;
+            ctx.strokeRect(x + 0.5, y + cellPad + 0.5, colW - 4, rowH - cellPad * 2 - 1);
+          } else {
+            // numeric column: a solid block whose width encodes the value
+            ctx.fillStyle = grey;
+            ctx.globalAlpha = 0.35 + 0.55 * v;
+            ctx.fillRect(x, y + cellPad, (colW - 3) * (0.35 + 0.65 * v), rowH - cellPad * 2);
+            ctx.globalAlpha = 1;
+          }
+        }
+      }
+      ctx.strokeStyle = rule; ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, padT + 0.5, tableW - 3, plotH - 1);
+
+      // ---- middle: the mapping
+      var arrY = padT + plotH / 2;
+      var aFrom = tableW + gap * 0.22, aTo = spaceX - gap * 0.22;
+      ctx.strokeStyle = fig; ctx.lineWidth = 1.25;
+      ctx.beginPath(); ctx.moveTo(aFrom, arrY); ctx.lineTo(aTo, arrY); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(aTo, arrY); ctx.lineTo(aTo - 6, arrY - 3.5); ctx.lineTo(aTo - 6, arrY + 3.5);
+      ctx.closePath(); ctx.fillStyle = fig; ctx.fill();
+      ctx.textAlign = "center"; ctx.fillStyle = css("--ink-3");
+      ctx.fillText("learn_embedding", (aFrom + aTo) / 2, arrY - 9);
+
+      // ---- right: the embedding space
+      ctx.strokeStyle = rule; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(spaceX + 0.5, padT); ctx.lineTo(spaceX + 0.5, padT + plotH);
+      ctx.lineTo(spaceX + spaceW, padT + plotH);
+      ctx.stroke();
+
+      for (var p = 0; p < points.length; p++) {
+        var px = spaceX + 14 + points[p][0] * (spaceW - 30);
+        var py = padT + 10 + points[p][1] * (plotH - 24);
+        ctx.beginPath(); ctx.arc(px, py, 3.4, 0, Math.PI * 2);
+        ctx.fillStyle = fig; ctx.fill();
+      }
+
+      ctx.fillStyle = css("--ink-3"); ctx.textAlign = "left";
+      ctx.fillText("dim 1", spaceX + 4, padT + plotH + 14);
+    }
+
+    draw();
+    window.addEventListener("resize", draw);
+  })();
+</script>
+</body>
+</html>

@@ -13,12 +13,9 @@ Usage:
 import argparse
 import time
 from pathlib import Path
-from typing import Any
 
 
-def run_benchmarks(
-    quick: bool = True, output: Path = Path("benchmark_results")
-) -> None:
+def run_benchmarks(quick: bool = True, output: Path = Path("benchmark_results")) -> None:
     """
     Run performance benchmarks for row2vec methods.
 

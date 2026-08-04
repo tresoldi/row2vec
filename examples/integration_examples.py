@@ -204,9 +204,7 @@ def advanced_integration_examples():
         print(f"   Pandas result shape: {pandas_result.shape}")
         print(f"   Sklearn result shape: {sklearn_result.shape}")
         print(f"   Maximum difference: {max_diff:.2e}")
-        print(
-            f"   Results are {'✅ consistent' if max_diff < 1e-10 else '❌ inconsistent'}"
-        )
+        print(f"   Results are {'✅ consistent' if max_diff < 1e-10 else '❌ inconsistent'}")
 
     except ImportError:
         print("   ⚠️ Sklearn integration not available for comparison")
