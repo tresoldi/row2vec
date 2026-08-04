@@ -2,6 +2,7 @@
 Tests for the logging functionality in Row2Vec.
 """
 
+import logging
 import os
 import tempfile
 from unittest.mock import patch
@@ -12,6 +13,23 @@ import pytest
 
 from row2vec import Row2VecLogger, get_logger, learn_embedding
 from row2vec.utils import generate_synthetic_data
+
+
+def release_log_files(name: str = "row2vec") -> None:
+    """Close every file handler under `name` so the file can be deleted.
+
+    Windows refuses to unlink a file that is still open (WinError 32), so a
+    test that points a logger at a temp file must detach the handler before
+    cleaning up. `learn_embedding` creates its own logger internally, which the
+    caller never sees, hence reaching for it by name here.
+    """
+    names = [n for n in logging.root.manager.loggerDict if n == name or n.startswith(f"{name}.")]
+    for logger_name in [name, *names]:
+        logger = logging.getLogger(logger_name)
+        for handler in list(logger.handlers):
+            if isinstance(handler, logging.FileHandler):
+                handler.close()
+                logger.removeHandler(handler)
 
 
 class TestRow2VecLogger:
@@ -51,6 +69,7 @@ class TestRow2VecLogger:
                 content = f.read()
                 assert "Test message" in content
         finally:
+            logger.close()
             if os.path.exists(log_file):
                 os.unlink(log_file)
 
@@ -151,6 +170,7 @@ class TestLoggingIntegration:
                 assert "Training completed" in content
 
         finally:
+            release_log_files()
             if os.path.exists(log_file):
                 os.unlink(log_file)
 

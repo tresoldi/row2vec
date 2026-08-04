@@ -9,6 +9,7 @@ import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
 import pandas as pd
 from sklearn.impute import KNNImputer, SimpleImputer
 from sklearn.pipeline import Pipeline
@@ -325,12 +326,31 @@ class AdaptiveImputer(BaseEstimator):
         return self.fit(X, y).transform(X)
 
     def _validate_input(self, X: pd.DataFrame) -> pd.DataFrame:
-        """Validate input DataFrame."""
+        """Validate the input DataFrame and normalise its missing values.
+
+        pandas and scikit-learn disagree about ``None``. ``DataFrame.isnull()``
+        counts a bare ``None`` in an object column as missing, but
+        ``SimpleImputer`` looks for ``np.nan`` and detects missingness with a
+        ``x != x`` test, which ``None`` fails. The column is therefore reported
+        as needing imputation and then silently left untouched.
+
+        pandas 3.0 hides this by inferring ``str`` for text columns and
+        normalising ``None`` to ``NaN`` on construction; under pandas 2 the
+        column stays ``object`` and keeps the ``None``. Normalising here makes
+        both libraries agree on what is missing, on either pandas version.
+        """
         if not isinstance(X, pd.DataFrame):
             raise TypeError(f"Expected pandas DataFrame, got {type(X)}")
 
         if X.empty:
             raise ValueError("Input DataFrame is empty")
+
+        object_columns = [col for col in X.columns if X[col].dtype == np.dtype("O")]
+        if any(X[col].isnull().any() for col in object_columns):
+            X = X.copy()
+            for col in object_columns:
+                if X[col].isnull().any():
+                    X[col] = X[col].where(X[col].notna(), np.nan)
 
         return X
 

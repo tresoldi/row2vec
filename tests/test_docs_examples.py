@@ -18,6 +18,7 @@ For a specific failure, the test id names the file and the 1-based block index.
 from __future__ import annotations
 
 import re
+import traceback
 from pathlib import Path
 
 import pytest
@@ -66,8 +67,29 @@ def test_documentation_has_runnable_examples() -> None:
 )
 def test_doc_code_block_runs(doc_file: str, index: int, code: str) -> None:
     """Every ``python`` block in the prose docs must execute without error."""
+    label = f"{doc_file}#block{index}"
     namespace: dict[str, object] = {"__name__": "__doc_example__"}
     try:
-        exec(compile(code, f"{doc_file}#block{index}", "exec"), namespace)
+        exec(compile(code, label, "exec"), namespace)
     except Exception as exc:  # pragma: no cover - the message is the point
-        pytest.fail(f"{doc_file} code block {index} failed: {type(exc).__name__}: {exc}\n\n{code}")
+        # A bare `assert` carries no message, so the exception alone says
+        # nothing about which line failed. Report the offending line from the
+        # traceback — the block is compiled under `label`, so the frames point
+        # back into the documentation.
+        # The block was compiled from a string, so linecache cannot supply the
+        # source; look the line up in `code` by number instead.
+        source_lines = code.splitlines()
+        failing = [
+            f"  line {lineno}: {source_lines[lineno - 1].strip()}"
+            for lineno in (
+                frame.lineno
+                for frame in traceback.extract_tb(exc.__traceback__)
+                if frame.filename == label
+            )
+            if lineno is not None and 0 < lineno <= len(source_lines)
+        ]
+        where = "\n".join(failing) or "  (no line attributed)"
+        pytest.fail(
+            f"{label} failed: {type(exc).__name__}: {exc}\n"
+            f"failing line(s):\n{where}\n\nfull block:\n{code}"
+        )

@@ -74,14 +74,24 @@ class Row2VecLogger:
             self.logger.addHandler(console_handler)
 
         # File handler if specifically requested
+        self._file_handlers: list[logging.FileHandler] = []
         if log_file:
             formatter = logging.Formatter(
                 "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
                 datefmt="%Y-%m-%d %H:%M:%S",
             )
+            # `logging.getLogger` returns the same object for a given name, so a
+            # second run would otherwise stack a second file handler on it: both
+            # files would receive all output, and both would stay open. Retire
+            # any handler left behind by an earlier run before adding ours.
+            for stale in [h for h in self.logger.handlers if isinstance(h, logging.FileHandler)]:
+                stale.close()
+                self.logger.removeHandler(stale)
+
             file_handler = logging.FileHandler(log_file)
             file_handler.setFormatter(formatter)
             self.logger.addHandler(file_handler)
+            self._file_handlers.append(file_handler)
 
         # Performance tracking flags
         self.include_performance = include_performance
@@ -91,6 +101,31 @@ class Row2VecLogger:
         self.training_start_time: float | None = None
         self.epoch_start_time: float | None = None
         self.initial_memory: float | None = None
+
+    def close(self) -> None:
+        """Close and detach the log files this logger opened.
+
+        Call this when you are finished with a file-backed logger. Until you
+        do, the file stays open: on Windows that means it cannot be deleted or
+        renamed, and on every platform the handle is held for the life of the
+        process.
+
+        Safe to call more than once.
+
+        Examples:
+            >>> import tempfile
+            >>> from pathlib import Path
+            >>> from row2vec import get_logger
+            >>> path = Path(tempfile.mkdtemp()) / "run.log"
+            >>> logger = get_logger(name="row2vec.example", log_file=path)
+            >>> logger.close()
+            >>> path.exists()
+            True
+        """
+        for handler in self._file_handlers:
+            handler.close()
+            self.logger.removeHandler(handler)
+        self._file_handlers.clear()
 
     def _should_log(self, level: int) -> bool:
         """Check if logging should occur at the given level.
