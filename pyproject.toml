@@ -75,7 +75,7 @@ dev = [
     "bandit[toml]>=1.7.0",
 
     # Type stubs for the third-party libraries we call into.
-    "pandas-stubs>=2.0.0",
+    "pandas-stubs>=2.3.3.260113",
     "types-psutil",
     "types-PyYAML>=6.0.0",
 
