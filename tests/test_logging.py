@@ -73,6 +73,41 @@ class TestRow2VecLogger:
             if os.path.exists(log_file):
                 os.unlink(log_file)
 
+    def test_log_file_is_utf8_and_keeps_emoji_lines(self) -> None:
+        """Emoji-bearing messages must survive into the log file.
+
+        FileHandler defaults to the locale encoding, which is cp1252 on
+        Windows. Most Row2Vec messages begin with an emoji, which cp1252
+        cannot encode; logging swallows the UnicodeEncodeError and drops the
+        record, so those lines vanished from the file with nothing failing.
+
+        The encoding assertion is what makes this test meaningful off Windows:
+        on a UTF-8 locale the round-trip would pass either way.
+        """
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".log") as f:
+            log_file = f.name
+
+        logger = Row2VecLogger(name="row2vec.utf8_check", log_file=log_file)
+        try:
+            handlers = [
+                h
+                for h in logging.getLogger("row2vec.utf8_check").handlers
+                if isinstance(h, logging.FileHandler)
+            ]
+            assert handlers, "expected a file handler"
+            assert all((h.encoding or "").lower().replace("-", "") == "utf8" for h in handlers)
+
+            logger.logger.info("\U0001f680 Starting training with configuration: mode=pca")
+
+            with open(log_file, encoding="utf-8") as f:
+                content = f.read()
+            assert "Starting training" in content
+            assert "\U0001f680" in content
+        finally:
+            logger.close()
+            if os.path.exists(log_file):
+                os.unlink(log_file)
+
     def test_training_lifecycle_logging(self) -> None:
         """Test the complete training lifecycle logging."""
         logger = Row2VecLogger()

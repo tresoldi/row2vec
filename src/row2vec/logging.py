@@ -88,7 +88,12 @@ class Row2VecLogger:
                 stale.close()
                 self.logger.removeHandler(stale)
 
-            file_handler = logging.FileHandler(log_file)
+            # UTF-8 explicitly: FileHandler otherwise uses the locale encoding,
+            # which is cp1252 on Windows. Most Row2Vec log messages start with
+            # an emoji, and cp1252 cannot encode one — logging catches the
+            # UnicodeEncodeError internally and drops the record, so those lines
+            # went missing from the log file with no failure anywhere.
+            file_handler = logging.FileHandler(log_file, encoding="utf-8")
             file_handler.setFormatter(formatter)
             self.logger.addHandler(file_handler)
             self._file_handlers.append(file_handler)
