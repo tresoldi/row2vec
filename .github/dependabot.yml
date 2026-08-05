@@ -1,7 +1,22 @@
 version: 2
 
 updates:
-  # Python dependencies
+  # Python dependencies — security updates only.
+  #
+  # Row2Vec declares open-ended lower bounds (`numpy>=1.21.0`), as a library
+  # should: they say "at least this", not "exactly this". Dependabot's version
+  # updates raise those floors to the newest release, which drops support for
+  # every user on an older-but-working version and gains nothing, since nothing
+  # in the code requires the newer one. Its first run opened ten such PRs
+  # (numpy 1.21 -> 2.2.6, pandas 1.5.3 -> 2.3.3, and so on).
+  #
+  # Keeping the floors low has already earned its keep: a categorical-imputation
+  # bug reproduced only *below* pandas 3, and the 3.10 CI leg — which resolves
+  # pandas 2 — is what caught it. Raising the floor would have hidden it.
+  #
+  # The ignore rule below suppresses version updates while leaving security
+  # updates, which Dependabot raises regardless, untouched. Upper bounds and
+  # deliberate floor raises belong in pyproject.toml, decided by a human.
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
@@ -14,8 +29,17 @@ updates:
     commit-message:
       prefix: "deps"
       include: "scope"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
 
-  # GitHub Actions
+  # GitHub Actions — full version updates.
+  #
+  # These are pinned to an exact major (`actions/checkout@v7`), so there is a
+  # real answer to "is this current" and staying on it is worth the noise.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
