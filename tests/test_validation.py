@@ -304,7 +304,10 @@ class TestValidInputs:
             max_epochs=1,
             batch_size=4,
         )
-        assert result.shape == (2, 1)  # 2 unique categories
+        # One row per input row since 0.3.0; the per-category matrix is
+        # opt-in via aggregate_by_reference=True.
+        assert result.shape == (4, 1)
+        assert list(result.index) == list(df.index)
 
     def test_edge_case_parameters(self) -> None:
         """Test edge case parameters that should work."""

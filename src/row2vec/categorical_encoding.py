@@ -115,6 +115,30 @@ class CategoricalEncodingConfig:
     """Random state for reproducible results."""
 
 
+def _as_numeric_target(target: pd.Series) -> pd.Series:
+    """Return ``target`` as something that can be averaged.
+
+    A binary target such as ``"survived"``/``"died"`` is a perfectly good
+    target-encoding target, but it has to be mapped onto 0/1 first; averaging
+    the strings themselves just raises.
+
+    Args:
+        target (pd.Series): A numeric, boolean, or two-level target.
+
+    Returns:
+        pd.Series: The same values as floats.
+    """
+    if pd.api.types.is_bool_dtype(target):
+        return target.astype(float)
+    if pd.api.types.is_numeric_dtype(target):
+        return target.astype(float)
+
+    # Two levels only, which _is_target_encodable has already checked. Sorting
+    # makes the 0/1 assignment deterministic across runs.
+    levels = sorted(target.unique(), key=str)
+    return target.map({levels[0]: 0.0, levels[1]: 1.0}).astype(float)
+
+
 def _is_target_encodable(target: "pd.Series | None") -> bool:
     """Whether ``target`` can drive target encoding.
 
@@ -533,7 +557,7 @@ class TargetEncoder:
             raise ValueError("No valid samples for target encoding")
 
         series_clean = series[valid_mask]
-        target_clean = target[valid_mask]
+        target_clean = _as_numeric_target(target[valid_mask])
 
         # Calculate global mean
         self.global_mean_ = float(target_clean.mean())

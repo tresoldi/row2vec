@@ -221,7 +221,7 @@ high-cardinality categorical into a small dense feature.
 import row2vec
 
 df = row2vec.generate_synthetic_data(200)
-country_vectors = row2vec.learn_embedding(
+row_vectors = row2vec.learn_embedding(
     df,
     mode="target",
     reference_column="Country",
@@ -230,7 +230,21 @@ country_vectors = row2vec.learn_embedding(
     verbose=False,
 )
 
-# One row out per distinct country in, not one per input row.
+# Since 0.3.0 target mode returns one row per input row, carrying df's index,
+# so it joins straight back on like every other mode.
+assert len(row_vectors) == len(df)
+assert list(row_vectors.index) == list(df.index)
+
+# For one row per distinct country, ask for it explicitly.
+country_vectors = row2vec.learn_embedding(
+    df,
+    mode="target",
+    reference_column="Country",
+    embedding_dim=2,
+    max_epochs=3,
+    verbose=False,
+    aggregate_by_reference=True,
+)
 assert len(country_vectors) == df["Country"].nunique()
 ```
 

@@ -7,7 +7,9 @@ with adaptive categorical encoding strategies.
 
 from typing import Any
 
+import numpy as np
 import pandas as pd
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
@@ -17,6 +19,34 @@ from .categorical_encoding import CategoricalEncoder, CategoricalEncodingConfig
 from .config import EmbeddingConfig
 from .imputation import AdaptiveImputer, ImputationConfig
 from .utils import categorical_columns, is_categorical_series, numeric_columns
+
+
+class _TolerantMinMaxScaler(BaseEstimator, TransformerMixin):
+    """Min-max scaling that tolerates an input with no columns.
+
+    Every categorical column of a frame can legitimately encode to nothing -
+    a constant column is dropped, for instance - and scikit-learn's
+    MinMaxScaler cannot fit an ``(n, 0)`` array. Scaling nothing is a no-op,
+    so say that rather than failing.
+    """
+
+    def __init__(self) -> None:
+        self.scaler_: MinMaxScaler | None = None
+
+    def fit(self, X: Any, y: Any = None) -> "_TolerantMinMaxScaler":
+        """Fit the underlying scaler unless there is nothing to scale."""
+        values = np.asarray(X)
+        if values.ndim == 2 and values.shape[1] == 0:
+            self.scaler_ = None
+            return self
+        self.scaler_ = MinMaxScaler().fit(values)
+        return self
+
+    def transform(self, X: Any) -> Any:
+        """Scale ``X``, or pass it through when there is nothing to scale."""
+        if self.scaler_ is None:
+            return np.asarray(X)
+        return self.scaler_.transform(np.asarray(X))
 
 
 class PipelineBuilder:
@@ -231,7 +261,7 @@ class PipelineBuilder:
         # embedding. Min-max is used rather than standardisation because
         # standardising a rare one-hot column amplifies it instead.
         if self.config.preprocessing.numeric_scaling != "none":
-            steps.append(("scaler", MinMaxScaler()))
+            steps.append(("scaler", _TolerantMinMaxScaler()))
 
         return Pipeline(steps)
 
