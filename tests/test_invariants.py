@@ -121,9 +121,7 @@ class TestTransformNeverFits:
         whole = model.transform(frame).head(5)
         subset = model.transform(frame.head(5))
 
-        np.testing.assert_allclose(
-            subset.to_numpy(), whole.to_numpy(), rtol=1e-5, atol=1e-6
-        )
+        np.testing.assert_allclose(subset.to_numpy(), whole.to_numpy(), rtol=1e-5, atol=1e-6)
 
     def test_umap_subset_is_close_to_the_full_transform(self, frame: pd.DataFrame) -> None:
         """UMAP's transform is approximate, but it must still be the same map.
@@ -172,9 +170,7 @@ class TestSavedModelsReproduceTraining:
 
         reloaded = load_model(script_path).predict(frame)
 
-        np.testing.assert_allclose(
-            reloaded.to_numpy(), trained.to_numpy(), rtol=1e-5, atol=1e-6
-        )
+        np.testing.assert_allclose(reloaded.to_numpy(), trained.to_numpy(), rtol=1e-5, atol=1e-6)
         assert list(reloaded.index) == list(frame.index)
 
 
@@ -251,9 +247,7 @@ class TestSklearnContract:
         assert transformer.get_params()["embedding_dim"] == 5
         assert transformer.get_params()["max_epochs"] == 9
 
-    def test_classifier_does_not_fit_the_callers_estimator(
-        self, frame: pd.DataFrame
-    ) -> None:
+    def test_classifier_does_not_fit_the_callers_estimator(self, frame: pd.DataFrame) -> None:
         """The wrapped estimator is cloned, not fitted in place."""
         from sklearn.exceptions import NotFittedError
         from sklearn.linear_model import LogisticRegression

@@ -327,9 +327,7 @@ class TestFileFormats:
         )
 
         assert code == 0
-        result = pd.read_csv(
-            out, sep="," if suffix == ".csv" else "\t", index_col=0
-        )
+        result = pd.read_csv(out, sep="," if suffix == ".csv" else "\t", index_col=0)
         assert result.shape == (120, 2)
 
     def test_unsupported_extension_fails(self, workspace: Path) -> None:

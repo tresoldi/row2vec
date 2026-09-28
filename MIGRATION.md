@@ -56,7 +56,9 @@ These are the ones to check your code against.
   ```python
   # 0.2.0 behaviour, now explicit
   country_vectors = row2vec.learn_embedding(
-      df, mode="target", reference_column="Country",
+      df,
+      mode="target",
+      reference_column="Country",
       aggregate_by_reference=True,
   )
   ```

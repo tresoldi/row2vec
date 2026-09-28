@@ -78,9 +78,7 @@ class TestPcaVarianceMethod:
         dataset needing eight was capped at five regardless.
         """
         rng = np.random.default_rng(7)
-        frame = pd.DataFrame(
-            rng.normal(size=(200, 20)), columns=[f"f{i}" for i in range(20)]
-        )
+        frame = pd.DataFrame(rng.normal(size=(200, 20)), columns=[f"f{i}" for i in range(20)])
 
         selector = AutoDimensionSelector(methods=["pca_variance"], verbose=False)
         result = selector._pca_variance_method(frame, [2, 4, 8, 16, 20])
