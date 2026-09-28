@@ -151,8 +151,7 @@ class ArchitectureSearcher:
 
             total_time = time.time() - start_time
 
-            if self.config.verbose:
-                pass
+            self._log(f"Search finished in {total_time:.1f}s")
 
             return ArchitectureSearchResult(
                 best_architecture=self.best_architecture or {},
@@ -162,9 +161,8 @@ class ArchitectureSearcher:
                 trials_completed=len(self.search_history),
             )
 
-        except Exception:
-            if self.config.verbose:
-                pass
+        except Exception as exc:
+            self._log(f"Search aborted: {exc}")
             raise
 
     def _random_search(
@@ -191,8 +189,7 @@ class ArchitectureSearcher:
                 self.best_score = score
                 self.best_architecture = architecture
                 self.trials_without_improvement = 0
-                if self.config.verbose:
-                    pass
+                self._log(f"Trial {trial}: new best score {score:.4f}")
             else:
                 self.trials_without_improvement += 1
 
@@ -214,9 +211,7 @@ class ArchitectureSearcher:
 
         # Generate all combinations
         architectures = self._generate_grid_architectures()
-
-        if self.config.verbose:
-            pass
+        self._log(f"Grid search over {len(architectures)} architectures")
 
         for trial, architecture in enumerate(architectures):
             # Check stopping criteria
@@ -226,12 +221,16 @@ class ArchitectureSearcher:
             # Evaluate architecture
             score = self._evaluate_architecture(df, base_config, architecture, target_column, trial)
 
-            # Update best
-            if score > self.best_score:
+            # Update best. The no-improvement counter has to move in both
+            # directions here; it was only ever reset, never incremented, so
+            # `patience` was inert in grid mode.
+            if score > self.best_score + self.config.min_improvement:
                 self.best_score = score
                 self.best_architecture = architecture
-                if self.config.verbose:
-                    pass
+                self.trials_without_improvement = 0
+                self._log(f"Trial {trial}: new best score {score:.4f}")
+            else:
+                self.trials_without_improvement += 1
 
         return ArchitectureSearchResult(
             best_architecture=self.best_architecture or {},
@@ -265,22 +264,23 @@ class ArchitectureSearcher:
         }
 
     def _generate_grid_architectures(self) -> list[dict[str, Any]]:
-        """Generate all architectures for grid search."""
+        """Enumerate the grid-search architectures.
+
+        Widths come from :meth:`_generate_width_configurations`, which was
+        written for this and then never called; the grid built its own
+        decreasing widths inline instead.
+
+        Returns:
+            list[dict[str, Any]]: One dict per architecture to try.
+        """
         architectures = []
 
-        # Grid over number of layers, widths, dropout, and activation
-        for n_layers in range(
-            1, min(self.config.max_layers + 1, 3)
-        ):  # Limit to 2 layers for grid efficiency
-            for width in self.config.width_options[::2]:  # Use every other width for efficiency
-                for dropout in self.config.dropout_options[::2]:  # Use every other dropout
+        for n_layers in range(self.config.layer_range[0], self.config.layer_range[1] + 1):
+            for widths in self._generate_width_configurations(n_layers):
+                for dropout in self.config.dropout_options[::2]:
                     for activation in self.config.activation_options:
                         hidden_units: int | list[int]
-                        if n_layers == 1:
-                            hidden_units = width
-                        else:
-                            # For multi-layer, create decreasing layer sizes with a floor.
-                            hidden_units = [max(width // (i + 1), 16) for i in range(n_layers)]
+                        hidden_units = widths[0] if n_layers == 1 else list(widths)
 
                         architectures.append(
                             {
@@ -294,8 +294,20 @@ class ArchitectureSearcher:
         return architectures[: self.config.max_trials]  # Limit grid size
 
     def _generate_width_configurations(self, n_layers: int) -> list[list[int]]:
-        """Generate sensible width configurations for a given number of layers."""
-        configs = []
+        """Hand-picked width patterns for a given number of hidden layers.
+
+        Narrowing pyramids rather than the full cartesian product of the width
+        options, which for four layers is 625 combinations of which most are
+        not worth a trial. Falls back to the configured width options when the
+        layer count is outside the curated range.
+
+        Args:
+            n_layers (int): Number of hidden layers.
+
+        Returns:
+            list[list[int]]: Candidate width configurations.
+        """
+        configs: list[list[int]] = []
 
         # Common patterns
         if n_layers == 1:
@@ -324,6 +336,9 @@ class ArchitectureSearcher:
                     [256, 256, 128, 64],
                 ]
             )
+
+        if not configs:
+            configs = [[w] * n_layers for w in self.config.width_options]
 
         return configs
 
@@ -367,7 +382,9 @@ class ArchitectureSearcher:
             training_time = time.time() - start_time
 
             # Compute evaluation metrics
-            metrics = self._compute_evaluation_metrics(df, embeddings, training_time, target_column)
+            metrics = self._compute_evaluation_metrics(
+                df, embeddings, training_time, target_column, architecture
+            )
 
             # Compute weighted score
             score = (
@@ -388,14 +405,13 @@ class ArchitectureSearcher:
             }
             self.search_history.append(trial_record)
 
-            if self.config.verbose and trial_num % 5 == 0:
-                pass
+            if trial_num % 5 == 0:
+                self._log(f"Trial {trial_num}: score {score:.4f} (best {self.best_score:.4f})")
 
             return score
 
         except Exception as e:
-            if self.config.verbose:
-                pass
+            self._log(f"Trial {trial_num} failed: {e}")
 
             # Record failed trial
             trial_record = {
@@ -425,22 +441,34 @@ class ArchitectureSearcher:
         embeddings: pd.DataFrame,
         training_time: float,
         target_column: str | None,
+        architecture: dict[str, Any] | None = None,
     ) -> dict[str, float]:
-        """Compute comprehensive evaluation metrics for embeddings."""
+        """Score one trial's embeddings.
 
-        metrics = {}
+        Args:
+            df (pd.DataFrame): The frame that was embedded.
+            embeddings (pd.DataFrame): The resulting embeddings.
+            training_time (float): Seconds the trial took, recorded but no
+                longer scored: rewarding speed rewarded undertrained models.
+            target_column (str | None): Optional supervised target.
+            architecture (dict[str, Any] | None): The trial architecture, used
+                to score model size.
 
-        # 1. Reconstruction score (inverse of reconstruction error)
+        Returns:
+            dict[str, float]: The individual metric scores.
+        """
+        metrics: dict[str, float] = {"training_time": training_time}
+
+        # 1. Reconstruction score: how much of the original numeric signal a
+        #    linear decoder can recover from the embedding. The previous
+        #    version compared the *variance* of the embedding to the variance
+        #    of the input, which reconstructs nothing: an embedding of pure
+        #    noise with the right spread scored perfectly.
         try:
-            # Use variance preservation as a proxy for reconstruction quality
-            original_var = df.select_dtypes(include=[np.number]).var().mean()
-            embedding_var = embeddings.var().mean()
-            reconstruction_score = (
-                min(1.0, embedding_var / original_var) if original_var > 0 else 0.5
-            )
-            metrics["reconstruction_score"] = reconstruction_score
-        except Exception:
-            metrics["reconstruction_score"] = 0.5
+            metrics["reconstruction_score"] = self._reconstruction_score(df, embeddings)
+        except Exception as exc:
+            self._log(f"Reconstruction score unavailable: {exc}")
+            metrics["reconstruction_score"] = 0.0
 
         # 2. Clustering quality score
         try:
@@ -461,14 +489,15 @@ class ArchitectureSearcher:
         except Exception:
             metrics["clustering_score"] = 0.5
 
-        # 3. Efficiency score (inverse of training time, normalized)
+        # 3. Efficiency score: prefer the smaller model, not the faster run.
+        #    Scoring on wall-clock time rewarded whichever architecture trained
+        #    for the least time, which on an early-stopping budget means the
+        #    one that converged least.
         try:
-            # Normalize by dataset size and dimensionality
-            time_per_sample = training_time / len(df) if len(df) > 0 else training_time
-            efficiency_score = 1.0 / (1.0 + time_per_sample * 1000)  # Scale factor
-            metrics["efficiency_score"] = efficiency_score
-        except Exception:
-            metrics["efficiency_score"] = 0.5
+            metrics["efficiency_score"] = self._efficiency_score(architecture or {})
+        except Exception as exc:
+            self._log(f"Efficiency score unavailable: {exc}")
+            metrics["efficiency_score"] = 0.0
 
         # 4. Stability score (based on embedding variance and outliers)
         try:
@@ -493,6 +522,61 @@ class ArchitectureSearcher:
             metrics["stability_score"] = 0.5
 
         return metrics
+
+    def _reconstruction_score(
+        self,
+        df: pd.DataFrame,
+        embeddings: pd.DataFrame,
+    ) -> float:
+        """How well a linear decoder recovers the numeric columns.
+
+        Args:
+            df (pd.DataFrame): The original frame.
+            embeddings (pd.DataFrame): Its embedding.
+
+        Returns:
+            float: Mean R^2 over the numeric columns, clipped to [0, 1].
+        """
+        from sklearn.linear_model import Ridge
+        from sklearn.preprocessing import StandardScaler
+
+        numeric = df.select_dtypes(include=[np.number])
+        if numeric.empty or len(numeric) < 3:
+            return 0.0
+
+        aligned = numeric.loc[embeddings.index] if len(embeddings) == len(numeric) else numeric
+        targets = StandardScaler().fit_transform(aligned.fillna(aligned.mean()))
+
+        decoder = Ridge(alpha=1.0, random_state=self.config.random_seed)
+        decoder.fit(embeddings.to_numpy(), targets)
+        predicted = decoder.predict(embeddings.to_numpy())
+
+        residual = float(np.sum((targets - predicted) ** 2))
+        total = float(np.sum(targets**2))
+        if total == 0:
+            return 0.0
+        return float(np.clip(1.0 - residual / total, 0.0, 1.0))
+
+    def _efficiency_score(self, architecture: dict[str, Any]) -> float:
+        """Score an architecture on its size, so smaller models win ties.
+
+        Args:
+            architecture (dict[str, Any]): The trial architecture.
+
+        Returns:
+            float: 1.0 for the smallest architecture the space allows,
+            approaching 0.0 for the largest.
+        """
+        hidden_units = architecture.get("hidden_units", [])
+        if isinstance(hidden_units, int):
+            hidden_units = [hidden_units]
+        units = sum(hidden_units) if hidden_units else 0
+
+        smallest = min(self.config.width_options)
+        largest = max(self.config.width_options) * self.config.max_layers
+        if largest <= smallest:
+            return 1.0
+        return float(np.clip(1.0 - (units - smallest) / (largest - smallest), 0.0, 1.0))
 
     def _should_stop(self, current_time: float) -> bool:
         """Whether the search has exhausted its patience or its time budget.
@@ -540,7 +624,17 @@ class ArchitectureSearcher:
         dropout_count = len(self.config.dropout_options)
         activation_count = len(self.config.activation_options)
 
-        total_combinations = layer_count * (width_count**3) * dropout_count * activation_count
+        # One width choice per layer, summed over the permitted layer counts.
+        # The previous formula used width_count ** 3 whatever the layer range
+        # said, so the figure it printed was simply wrong.
+        total_combinations = (
+            sum(
+                width_count**n
+                for n in range(self.config.layer_range[0], self.config.layer_range[1] + 1)
+            )
+            * dropout_count
+            * activation_count
+        )
 
         return (
             f"{layer_count} layer configs x {width_count} width options x "
