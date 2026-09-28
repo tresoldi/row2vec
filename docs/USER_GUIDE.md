@@ -213,9 +213,11 @@ with pytest.raises(ValueError, match="should be less than"):
 
 ### Target-based embeddings
 
-Instead of one vector per row, get one vector per distinct value of a column —
-learned from the rows in which that value appears. Useful for turning a
-high-cardinality categorical into a small dense feature.
+Supervise the encoder with a label column: rows sharing a value are pushed
+together in the embedding space. The result is one vector per row, like every
+other mode, and `aggregate_by_reference=True` collapses it to one vector per
+distinct value — useful for turning a high-cardinality categorical into a small
+dense feature.
 
 ```python
 import row2vec
