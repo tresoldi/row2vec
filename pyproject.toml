@@ -171,6 +171,12 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+# Writing to stdout and stderr is the entire job of a command-line interface.
+# With T201 enforced here, the CLI's output was deleted rather than exempted,
+# which is how `row2vec` came to exit 1 in silence on every error path.
+"src/row2vec/cli.py" = [
+    "T201",    # print() is how a CLI talks to the user
+]
 "tests/**/*.py" = [
     "ARG001",  # Unused function arguments in tests
     "ARG002",  # Unused method arguments in tests

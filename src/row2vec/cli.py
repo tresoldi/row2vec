@@ -23,6 +23,35 @@ from .utils import (
 )
 
 
+def _emit(message: str, *, quiet: bool = False) -> None:
+    """Print a progress message unless the user asked for quiet.
+
+    Args:
+        message (str): What to report.
+        quiet (bool): Suppress the message.
+    """
+    if not quiet:
+        print(message)
+
+
+def _fail(message: str, exc: BaseException | None = None) -> int:
+    """Report a failure on stderr and give the caller an exit code.
+
+    Every command used to answer a failure with a bare ``return 1``, so a bad
+    column name and a missing file were both a silent exit 1.
+
+    Args:
+        message (str): What went wrong, in the user's terms.
+        exc (BaseException, optional): The underlying error, if any.
+
+    Returns:
+        int: 1, for use as the command's exit code.
+    """
+    detail = f": {exc}" if exc is not None else ""
+    print(f"error: {message}{detail}", file=sys.stderr)
+    return 1
+
+
 def _detect_input_format(file_path: Path) -> str:
     """Detect input file format based on extension."""
     suffix = file_path.suffix.lower()
@@ -37,8 +66,19 @@ def _detect_input_format(file_path: Path) -> str:
     )
 
 
-def _load_dataframe(file_path: Path, validate_only: bool = False) -> pd.DataFrame:
-    """Load DataFrame from file with auto-format detection."""
+def _load_dataframe(file_path: Path) -> pd.DataFrame:
+    """Load a DataFrame, detecting the format from the file extension.
+
+    Args:
+        file_path (Path): File to read.
+
+    Returns:
+        pd.DataFrame: The loaded data.
+
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        ValueError: If the format is unsupported or the file cannot be read.
+    """
     if not file_path.exists():
         raise FileNotFoundError(f"Input file not found: {file_path}")
 
@@ -54,17 +94,22 @@ def _load_dataframe(file_path: Path, validate_only: bool = False) -> pd.DataFram
         else:
             raise ValueError(f"Unsupported format: {format_type}")
 
-        if validate_only:
-            pass
-
         return df
 
     except Exception as e:
         raise ValueError(f"Failed to load {file_path}: {e!s}") from e
 
 
-def _save_dataframe(df: pd.DataFrame, file_path: Path) -> None:
-    """Save DataFrame to file with format detection."""
+def _save_dataframe(df: pd.DataFrame, file_path: Path, write_index: bool = True) -> None:
+    """Save a DataFrame, detecting the format from the extension.
+
+    Args:
+        df (pd.DataFrame): Data to write.
+        file_path (Path): Destination; extension picks the format.
+        write_index (bool): Whether to write the index. Embeddings carry the
+            input frame's index, so writing it is what lets the output be
+            joined back to the source rather than matched positionally.
+    """
     file_path.parent.mkdir(parents=True, exist_ok=True)
 
     format_type = _detect_input_format(file_path)
@@ -72,16 +117,33 @@ def _save_dataframe(df: pd.DataFrame, file_path: Path) -> None:
     try:
         if format_type in ["csv", "tsv"]:
             separator = "," if format_type == "csv" else "\t"
-            df.to_csv(file_path, sep=separator, index=False, encoding="utf-8")
+            df.to_csv(file_path, sep=separator, index=write_index, encoding="utf-8")
         elif format_type == "parquet":
-            df.to_parquet(file_path, index=False)
+            df.to_parquet(file_path, index=write_index)
 
     except Exception as e:
         raise ValueError(f"Failed to save to {file_path}: {e!s}") from e
 
 
-def _validate_schema_friendly(df: pd.DataFrame, reference_column: str | None = None) -> bool:
-    """Validate DataFrame schema with user-friendly error messages."""
+def _validate_schema_friendly(
+    df: pd.DataFrame,
+    reference_column: str | None = None,
+) -> tuple[bool, list[str]]:
+    """Check a frame is usable, and say what is wrong when it is not.
+
+    The name promised friendly messages, but the function discarded every one
+    it built and returned a bare bool, which is how the CLI came to exit 1 in
+    silence.
+
+    Args:
+        df (pd.DataFrame): The frame to check.
+        reference_column (str, optional): Target column, when one is required.
+
+    Returns:
+        tuple[bool, list[str]]: Whether the frame is usable, and any messages
+        worth showing - errors when it is not, warnings when it is.
+    """
+    warnings_found: list[str] = []
     try:
         # Create and validate schema
         schema = create_dataframe_schema(df)
@@ -95,7 +157,9 @@ def _validate_schema_friendly(df: pd.DataFrame, reference_column: str | None = N
             raise ValueError("Dataset has no columns")
 
         if len(df) < 10:
-            pass
+            warnings_found.append(
+                f"Only {len(df)} rows; embeddings from very small datasets are unreliable."
+            )
 
         # Mode-specific validation
         if reference_column:
@@ -110,12 +174,16 @@ def _validate_schema_friendly(df: pd.DataFrame, reference_column: str | None = N
                     f"Target column '{reference_column}' must have at least 2 unique values, found {unique_values}"
                 )
             if unique_values > 1000:
-                pass
+                warnings_found.append(
+                    f"Target column '{reference_column}' has {unique_values} distinct "
+                    "values; target mode is intended for a modest number of classes."
+                )
 
         # Check for missing data
         missing_cols = df.columns[df.isnull().any()].tolist()
         if missing_cols:
-            {col: df[col].isnull().sum() for col in missing_cols}
+            counts = ", ".join(f"{col} ({df[col].isnull().sum()})" for col in missing_cols)
+            warnings_found.append(f"Columns with missing values: {counts}. These are imputed.")
 
         # Check data types
         numeric_cols = numeric_columns(df)
@@ -129,10 +197,10 @@ def _validate_schema_friendly(df: pd.DataFrame, reference_column: str | None = N
                 "Dataset must contain at least one numeric or categorical column for embedding"
             )
 
-        return True
+        return True, warnings_found
 
-    except Exception:
-        return False
+    except Exception as exc:
+        return False, [str(exc)]
 
 
 def _generate_model_name(mode: str, timestamp: str | None = None) -> str:
@@ -160,6 +228,15 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
         "--validate-only",
         action="store_true",
         help="Only validate input data schema without processing",
+    )
+    parser.add_argument(
+        "--no-index",
+        action="store_true",
+        help=(
+            "Do not write the input frame's index to the output. Embeddings "
+            "carry that index, so writing it is what lets the output be joined "
+            "back to the source rather than matched positionally."
+        ),
     )
 
 
@@ -325,22 +402,25 @@ def _add_embedding_args(parser: argparse.ArgumentParser) -> None:
 def cmd_train(args: argparse.Namespace) -> int:
     """Train and save a Row2Vec model."""
     try:
-        if not args.quiet:
-            pass
+        _emit(f"Training a {args.mode} model from {args.input}", quiet=args.quiet)
 
         # Load and validate data
-        df = _load_dataframe(Path(args.input), args.validate_only)
+        df = _load_dataframe(Path(args.input))
+
+        ok, messages = _validate_schema_friendly(df, args.target_col)
+        for message in messages:
+            _emit(f"warning: {message}", quiet=args.quiet)
 
         if args.validate_only:
-            success = _validate_schema_friendly(df, args.target_col)
-            return 0 if success else 1
+            _emit("Dataset is valid." if ok else "Dataset is not usable.", quiet=args.quiet)
+            return 0 if ok else 1
 
-        if not _validate_schema_friendly(df, args.target_col):
-            return 1
+        if not ok:
+            return _fail("; ".join(messages) or "dataset failed validation")
 
         # Check mode-specific requirements
         if args.mode == "target" and not args.target_col:
-            return 1
+            return _fail("mode 'target' requires --target-col")
 
         # Load contrastive learning pairs if specified
         similar_pairs = None
@@ -351,32 +431,39 @@ def cmd_train(args: argparse.Namespace) -> int:
                 try:
                     pairs_df = pd.read_csv(args.similar_pairs_file, header=None)
                     if pairs_df.shape[1] != 2:
-                        return 1
+                        return _fail(
+                            f"{args.similar_pairs_file} must have exactly 2 columns, "
+                            f"found {pairs_df.shape[1]}"
+                        )
                     similar_pairs = [(int(row[0]), int(row[1])) for _, row in pairs_df.iterrows()]
-                    if not args.quiet:
-                        pass
-                except Exception:
-                    return 1
+                    _emit(f"Loaded {len(similar_pairs)} similar pairs.", quiet=args.quiet)
+                except Exception as exc:
+                    return _fail(f"could not read {args.similar_pairs_file}", exc)
 
             if args.dissimilar_pairs_file:
                 try:
                     pairs_df = pd.read_csv(args.dissimilar_pairs_file, header=None)
                     if pairs_df.shape[1] != 2:
-                        return 1
+                        return _fail(
+                            f"{args.dissimilar_pairs_file} must have exactly 2 columns, "
+                            f"found {pairs_df.shape[1]}"
+                        )
                     dissimilar_pairs = [
                         (int(row[0]), int(row[1])) for _, row in pairs_df.iterrows()
                     ]
-                    if not args.quiet:
-                        pass
-                except Exception:
-                    return 1
+                    _emit(f"Loaded {len(dissimilar_pairs)} dissimilar pairs.", quiet=args.quiet)
+                except Exception as exc:
+                    return _fail(f"could not read {args.dissimilar_pairs_file}", exc)
 
             # Validate contrastive learning requirements
             if not similar_pairs and not dissimilar_pairs and not args.auto_pairs:
-                return 1
+                return _fail(
+                    "contrastive mode needs --similar-pairs-file, "
+                    "--dissimilar-pairs-file, or --auto-pairs"
+                )
 
             if args.auto_pairs == "categorical" and not args.target_col:
-                return 1
+                return _fail("--auto-pairs categorical requires --target-col")
 
         # Convert scale range to tuple if provided
         scale_range = tuple(args.scale_range) if args.scale_range else None
@@ -390,8 +477,7 @@ def cmd_train(args: argparse.Namespace) -> int:
             if model_path.suffix != ".py":
                 model_path = model_path.with_suffix(".py")
 
-        if not args.quiet:
-            pass
+        _emit(f"Writing model to {model_path}", quiet=args.quiet)
 
         # Train and save model
         start_time = time.time()
@@ -427,86 +513,95 @@ def cmd_train(args: argparse.Namespace) -> int:
             overwrite=True,  # CLI should overwrite existing files
         )
 
-        time.time() - start_time
-
-        if not args.quiet:
-            pass
+        elapsed = time.time() - start_time
+        _emit(
+            f"Trained on {len(df)} rows in {elapsed:.1f}s; saved {model_path} "
+            f"and {model_path.with_suffix('.pkl')}",
+            quiet=args.quiet,
+        )
 
         return 0
 
-    except Exception:
-        return 1
+    except Exception as exc:
+        return _fail("training failed", exc)
 
 
 def cmd_predict(args: argparse.Namespace) -> int:
     """Make predictions using a saved Row2Vec model."""
     try:
-        if not args.quiet:
-            pass
+        _emit(f"Predicting with {args.model} on {args.input}", quiet=args.quiet)
 
         # Load and validate data
-        df = _load_dataframe(Path(args.input), args.validate_only)
+        df = _load_dataframe(Path(args.input))
+
+        ok, messages = _validate_schema_friendly(df)
+        for message in messages:
+            _emit(f"warning: {message}", quiet=args.quiet)
 
         if args.validate_only:
-            success = _validate_schema_friendly(df)
-            return 0 if success else 1
+            _emit("Dataset is valid." if ok else "Dataset is not usable.", quiet=args.quiet)
+            return 0 if ok else 1
 
-        if not _validate_schema_friendly(df):
-            return 1
+        if not ok:
+            return _fail("; ".join(messages) or "dataset failed validation")
 
         # Load model
         model_path = Path(args.model)
         if not model_path.exists():
-            return 1
+            return _fail(f"model script not found: {model_path}")
 
-        if not args.quiet:
-            pass
-
+        _emit(f"Loading model from {model_path}", quiet=args.quiet)
         model = load_model(str(model_path))
 
-        if not args.quiet:
-            model.metadata.to_dict()
-
-        # Make predictions
-        if not args.quiet:
-            pass
+        metadata = model.metadata
+        if metadata is not None:
+            _emit(
+                f"Model: {metadata.mode} mode, {metadata.embedding_dim}D, "
+                f"trained {metadata.created_at}",
+                quiet=args.quiet,
+            )
 
         start_time = time.time()
         embeddings = model.predict(df)
-        time.time() - start_time
+        elapsed = time.time() - start_time
 
         # Save results
         output_path = Path(args.output)
-        _save_dataframe(embeddings, output_path)
+        _save_dataframe(embeddings, output_path, write_index=not args.no_index)
 
-        if not args.quiet:
-            pass
+        _emit(
+            f"Embedded {len(embeddings)} rows in {elapsed:.1f}s -> {output_path}",
+            quiet=args.quiet,
+        )
 
         return 0
 
-    except Exception:
-        return 1
+    except Exception as exc:
+        return _fail("prediction failed", exc)
 
 
 def cmd_annotate(args: argparse.Namespace) -> int:
     """Generate embeddings directly without saving a model."""
     try:
-        if not args.quiet:
-            pass
+        _emit(f"Annotating {args.input} with {args.mode} embeddings", quiet=args.quiet)
 
         # Load and validate data
-        df = _load_dataframe(Path(args.input), args.validate_only)
+        df = _load_dataframe(Path(args.input))
+
+        ok, messages = _validate_schema_friendly(df, args.target_col)
+        for message in messages:
+            _emit(f"warning: {message}", quiet=args.quiet)
 
         if args.validate_only:
-            success = _validate_schema_friendly(df, args.target_col)
-            return 0 if success else 1
+            _emit("Dataset is valid." if ok else "Dataset is not usable.", quiet=args.quiet)
+            return 0 if ok else 1
 
-        if not _validate_schema_friendly(df, args.target_col):
-            return 1
+        if not ok:
+            return _fail("; ".join(messages) or "dataset failed validation")
 
         # Check mode-specific requirements
         if args.mode == "target" and not args.target_col:
-            return 1
+            return _fail("mode 'target' requires --target-col")
 
         # Load contrastive learning pairs if specified
         similar_pairs = None
@@ -517,38 +612,44 @@ def cmd_annotate(args: argparse.Namespace) -> int:
                 try:
                     pairs_df = pd.read_csv(args.similar_pairs_file, header=None)
                     if pairs_df.shape[1] != 2:
-                        return 1
+                        return _fail(
+                            f"{args.similar_pairs_file} must have exactly 2 columns, "
+                            f"found {pairs_df.shape[1]}"
+                        )
                     similar_pairs = [(int(row[0]), int(row[1])) for _, row in pairs_df.iterrows()]
-                    if not args.quiet:
-                        pass
-                except Exception:
-                    return 1
+                    _emit(f"Loaded {len(similar_pairs)} similar pairs.", quiet=args.quiet)
+                except Exception as exc:
+                    return _fail(f"could not read {args.similar_pairs_file}", exc)
 
             if args.dissimilar_pairs_file:
                 try:
                     pairs_df = pd.read_csv(args.dissimilar_pairs_file, header=None)
                     if pairs_df.shape[1] != 2:
-                        return 1
+                        return _fail(
+                            f"{args.dissimilar_pairs_file} must have exactly 2 columns, "
+                            f"found {pairs_df.shape[1]}"
+                        )
                     dissimilar_pairs = [
                         (int(row[0]), int(row[1])) for _, row in pairs_df.iterrows()
                     ]
-                    if not args.quiet:
-                        pass
-                except Exception:
-                    return 1
+                    _emit(f"Loaded {len(dissimilar_pairs)} dissimilar pairs.", quiet=args.quiet)
+                except Exception as exc:
+                    return _fail(f"could not read {args.dissimilar_pairs_file}", exc)
 
             # Validate contrastive learning requirements
             if not similar_pairs and not dissimilar_pairs and not args.auto_pairs:
-                return 1
+                return _fail(
+                    "contrastive mode needs --similar-pairs-file, "
+                    "--dissimilar-pairs-file, or --auto-pairs"
+                )
 
             if args.auto_pairs == "categorical" and not args.target_col:
-                return 1
+                return _fail("--auto-pairs categorical requires --target-col")
 
         # Convert scale range to tuple if provided
         scale_range = tuple(args.scale_range) if args.scale_range else None
 
-        if not args.quiet:
-            pass
+        _emit(f"Learning {args.dim}D embeddings for {len(df)} rows", quiet=args.quiet)
 
         # Generate embeddings
         start_time = time.time()
@@ -582,42 +683,41 @@ def cmd_annotate(args: argparse.Namespace) -> int:
             margin=args.margin,
         )
 
-        time.time() - start_time
+        elapsed = time.time() - start_time
 
         # Save results
         output_path = Path(args.output)
-        _save_dataframe(embeddings, output_path)
+        _save_dataframe(embeddings, output_path, write_index=not args.no_index)
 
-        if not args.quiet:
-            pass
+        _emit(
+            f"Embedded {len(embeddings)} rows in {elapsed:.1f}s -> {output_path}",
+            quiet=args.quiet,
+        )
 
         return 0
 
-    except Exception:
-        return 1
+    except Exception as exc:
+        return _fail("annotation failed", exc)
 
 
 def cmd_search_architecture(args: argparse.Namespace) -> int:
     """Architecture search command: Find optimal neural architecture."""
-    if not args.quiet:
-        pass
+    _emit(f"Searching for an architecture on {args.input}", quiet=args.quiet)
 
     # Load and validate input data
     input_path = Path(args.input)
     try:
         df = _load_dataframe(input_path)
-        if not args.quiet:
-            pass
-
-    except Exception:
-        return 1
+        _emit(f"Loaded {df.shape[0]} rows, {df.shape[1]} columns", quiet=args.quiet)
+    except Exception as exc:
+        return _fail(f"could not load {input_path}", exc)
 
     # Import architecture search components
     try:
         from .architecture_search import ArchitectureSearchConfig, search_architecture
         from .config import EmbeddingConfig
-    except ImportError:
-        return 1
+    except ImportError as exc:
+        return _fail("architecture search requires the full install", exc)
 
     # Create base embedding config
     try:
@@ -635,39 +735,48 @@ def cmd_search_architecture(args: argparse.Namespace) -> int:
             verbose=not args.quiet,
         )
 
-        if not args.quiet:
-            pass
-
-    except Exception:
-        return 1
+        _emit(
+            f"Search: {search_config.method}, up to {search_config.max_trials} trials"
+            + (f", {search_config.max_time}s budget" if search_config.max_time else ""),
+            quiet=args.quiet,
+        )
+    except Exception as exc:
+        return _fail("invalid search configuration", exc)
 
     # Perform architecture search
     try:
-        time.time()
+        started = time.time()
         best_architecture, search_result = search_architecture(
             df=df,
             base_config=base_config,
             search_config=search_config,
             target_column=getattr(args, "target_col", None),
         )
-        time.time()
+        elapsed = time.time() - started
 
-        # Display results
         summary = search_result.summary()
 
-        if not args.quiet:
-            # Handle both single layer (int) and multi-layer (list) formats
-            hidden_units = best_architecture["hidden_units"]
-            if isinstance(hidden_units, list):
-                pass
-            else:
-                pass
-
-            if summary["improvement_over_baseline"] > 0:
-                pass
-
-    except Exception:
-        return 1
+        hidden_units = best_architecture["hidden_units"]
+        layers = (
+            " x ".join(str(u) for u in hidden_units)
+            if isinstance(hidden_units, list)
+            else str(hidden_units)
+        )
+        _emit(
+            f"Best architecture after {summary['trials_completed']} trials "
+            f"in {elapsed:.1f}s: layers {layers}, "
+            f"dropout {best_architecture['dropout_rate']}, "
+            f"activation {best_architecture['activation']} "
+            f"(score {search_result.best_score:.4f})",
+            quiet=args.quiet,
+        )
+        if summary["improvement_over_baseline"] > 0:
+            _emit(
+                f"Improvement over baseline: {summary['improvement_over_baseline']:.4f}",
+                quiet=args.quiet,
+            )
+    except Exception as exc:
+        return _fail("architecture search failed", exc)
 
     # Save results if output specified
     if hasattr(args, "output") and args.output:
@@ -698,11 +807,9 @@ def cmd_search_architecture(args: argparse.Namespace) -> int:
                 with open(output_path, "w") as f:
                     yaml.dump(results_dict, f, default_flow_style=False)
 
-            if not args.quiet:
-                pass
-
-        except Exception:
-            return 1
+            _emit(f"Wrote search results to {output_path}", quiet=args.quiet)
+        except Exception as exc:
+            return _fail(f"could not write results to {args.output}", exc)
 
     return 0
 
@@ -898,17 +1005,16 @@ def main() -> int:
 
     # Set up quiet mode
     if args.quiet and args.verbose:
-        return 1
+        return _fail("--quiet and --verbose cannot be combined")
 
     # Execute the subcommand
     try:
         return int(args.func(args))
     except KeyboardInterrupt:
-        if not args.quiet:
-            pass
-        return 1
-    except Exception:
-        return 1
+        print("interrupted", file=sys.stderr)
+        return 130
+    except Exception as exc:
+        return _fail(f"{args.command} failed", exc)
 
 
 if __name__ == "__main__":
