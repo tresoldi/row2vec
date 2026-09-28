@@ -6,7 +6,7 @@ neural network configurations for embedding generation tasks.
 
 import random
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import numpy as np
@@ -16,6 +16,7 @@ from sklearn.metrics import silhouette_score
 
 from .api import learn_embedding_v2
 from .config import EmbeddingConfig, NeuralConfig
+from .logging import get_logger
 
 
 @dataclass
@@ -115,6 +116,7 @@ class ArchitectureSearcher:
         self.best_score = float("-inf")
         self.best_architecture: dict[str, Any] | None = None
         self.trials_without_improvement = 0
+        self._start_time: float | None = None
 
         if config.random_seed is not None:
             random.seed(config.random_seed)
@@ -136,10 +138,8 @@ class ArchitectureSearcher:
         Returns:
             ArchitectureSearchResult containing the best architecture and metadata
         """
-        if self.config.verbose:
-            pass
-
         start_time = time.time()
+        self._start_time = start_time
 
         try:
             if self.config.method == "random":
@@ -354,12 +354,12 @@ class ArchitectureSearcher:
                 early_stopping=True,
             )
 
-            # Create embedding config with the same mode as base_config
-            config = EmbeddingConfig(
-                mode=base_config.mode,
-                embedding_dim=base_config.embedding_dim,
-                neural=neural_config,
-            )
+            # Start from the caller's configuration and vary only the
+            # architecture. Rebuilding it from scratch dropped the contrastive
+            # settings, reference_column, scaling and seed, so for contrastive
+            # mode every trial raised, every failure was swallowed, and the
+            # caller got an empty best-architecture dict.
+            config = replace(base_config, neural=neural_config)
 
             # Generate embeddings
             start_time = time.time()
@@ -495,21 +495,43 @@ class ArchitectureSearcher:
         return metrics
 
     def _should_stop(self, current_time: float) -> bool:
-        """Check if search should be stopped based on stopping criteria."""
+        """Whether the search has exhausted its patience or its time budget.
 
-        # Check patience
+        Args:
+            current_time (float): Wall-clock time, as ``time.time()``.
+
+        Returns:
+            bool: True when the search should stop.
+        """
         if self.trials_without_improvement >= self.config.patience:
-            if self.config.verbose:
-                pass
+            self._log(
+                f"Stopping: no improvement in {self.trials_without_improvement} trials",
+            )
             return True
 
-        # Check time limit
-        if self.config.max_time and (current_time - time.time()) > self.config.max_time:
-            if self.config.verbose:
-                pass
-            return True
+        # Elapsed time is measured from when the search began. Comparing
+        # against time.time() measured ~0 seconds, so this never fired.
+        if self.config.max_time is not None and self._start_time is not None:
+            elapsed = current_time - self._start_time
+            if elapsed > self.config.max_time:
+                self._log(
+                    f"Stopping: {elapsed:.1f}s elapsed exceeds the {self.config.max_time}s budget",
+                )
+                return True
 
         return False
+
+    def _log(self, message: str) -> None:
+        """Emit a progress message when the search was asked to be verbose.
+
+        ``verbose`` previously guarded half a dozen empty ``pass`` statements,
+        so it did nothing at all.
+
+        Args:
+            message (str): The message to emit.
+        """
+        if self.config.verbose:
+            get_logger().log_debug_info(f"[architecture search] {message}")
 
     def _describe_search_space(self) -> str:
         """Generate a human-readable description of the search space."""
