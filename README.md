@@ -89,7 +89,7 @@ assert model.predict(df).shape == embeddings.shape
 | `unsupervised` | non-linear structure, via an autoencoder | `hidden_units`, `max_epochs` |
 | `tsne` | 2-D/3-D plots that show local structure and clusters | `perplexity` |
 | `umap` | preserving local *and* global structure | `n_neighbors`, `min_dist` |
-| `target` | one vector per *category* of a column, not per row | `reference_column` |
+| `target` | supervision from a label column; `aggregate_by_reference=True` for one vector per category | `reference_column` |
 | `contrastive` | supervision from pairs known to be alike or unalike | `auto_pairs`, `margin` |
 
 Start with `pca`. It costs nothing to run and tells you whether the structure
@@ -100,9 +100,12 @@ you are after is linear; if it isn't, `unsupervised` is the next step.
 - **Missing values** — the pattern of missingness is analysed per column and an
   imputation strategy chosen to match (`AdaptiveImputer`).
 - **Categorical columns** — encoded by a strategy picked from the column's
-  cardinality: one-hot, ordinal, target encoding, or learned entity embeddings.
-- **Scaling** — numeric columns are standardised before the projection, and the
-  output can be rescaled (`minmax`, `standard`, `l2`, `tanh`).
+  cardinality: one-hot for low cardinality, learned entity embeddings above it,
+  and target encoding where a usable target makes it meaningful.
+- **Scaling** — numeric *and* encoded columns are brought onto comparable
+  scales before the projection, so no single column decides the result, and the
+  output can be rescaled (`minmax`, `standard`, `l2`, `tanh`). The scaler is
+  kept with the model, so a saved model reproduces its training output.
 - **Architecture** — for the neural modes, layer widths and even the embedding
   dimension can be searched rather than guessed (`search_architecture`,
   `auto_select_dimension`).

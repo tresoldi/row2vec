@@ -7,6 +7,96 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-28
+
+Correctness release. An independent audit of 0.2.0 found nine data-integrity
+defects that the 278-test suite did not catch, because they changed values
+rather than raising. **Embeddings will differ numerically from 0.2.0's** — see
+[MIGRATION.md](MIGRATION.md) for everything that changed and why.
+
+### Fixed
+
+- **Mid-cardinality categoricals no longer dominate the embedding.** Columns
+  with roughly 100–1000 distinct values were encoded as raw, unscaled ordinal
+  codes while numeric features were standardised. With a 150-level identifier
+  the first principal component correlated 1.0000 with the alphabetical rank of
+  that identifier string. The categorical branch is now scaled, and the
+  strategy selector no longer picks target encoding when no usable target
+  exists.
+- **`mode="target"` returns results on any index.** It built its frame with a
+  fresh `RangeIndex` and then grouped by a label-indexed Series, so on any
+  non-default index every group key was NaN and the result came back empty.
+- **Output carries `df`'s index.** `pd.concat([df, embeddings], axis=1)`
+  previously duplicated every row for a non-default index.
+- **One unseen category no longer zeroes a whole column.** The entity-embedding
+  transform assigned into a temporary copy, so an unknown value left every row
+  at the all-zero default.
+- **Columns clean at fit time are imputed.** Missing values arriving later
+  passed straight through into the model as NaN.
+- **`Row2VecTransformer.transform` projects instead of retraining.** Inside
+  cross-validation each fold previously learned its embedding from its own test
+  fold.
+- **Saved models reproduce training exactly.** `scale_method` was recorded and
+  then never applied at inference.
+- **Target encoding no longer leaks the row's own label.** Cross-fitted values
+  were computed and discarded.
+- **Contrastive pairing uses positions, not index labels**, so a shifted index
+  no longer raises `IndexError` and a permuted one no longer pairs wrong rows.
+- **Integer column names work.** They raised `KeyError` for every mode.
+- **`auto_architecture=True` works for contrastive mode**, and the architecture
+  search enforces `max_time`, varies `activation`, scores reconstruction by
+  actually reconstructing, and prefers smaller models rather than faster runs.
+- **Auto-dimension selection abstains rather than inventing a recommendation**,
+  fits PCA over the full component range, uses a real knee construction, and
+  cross-validates without leakage.
+- **The CLI reports what it did and what went wrong**, rather than exiting 1 in
+  silence.
+- **t-SNE runs on scikit-learn 1.7+** (`n_iter` → `max_iter`).
+- `make quality` is green again; `pandas-stubs` is now pinned like ruff and
+  mypy.
+
+### Changed
+
+- **Breaking:** `learn_embedding_with_model` returns `(embeddings, model)`
+  rather than a four-tuple.
+- **Breaking:** `mode="target"` returns one row per input row;
+  `aggregate_by_reference=True` asks for the per-category matrix.
+- **Breaking:** `Row2VecTransformer` takes explicit parameters instead of
+  `**kwargs`, so `get_params`/`set_params`/`clone` round-trip.
+- **Breaking:** `Row2VecTransformer(mode="tsne")` and `Row2VecModel.transform`
+  for t-SNE raise; t-SNE has no out-of-sample extension.
+- **Breaking:** `create_config_for_mode("target")` requires `reference_column`.
+- **Breaking:** a missing value in `reference_column` is an error rather than a
+  silent row drop.
+- **Breaking:** models saved by 0.2.0 cannot be loaded.
+- Preprocessing is fitted on the training split only, so validation loss and
+  early stopping are no longer inflated.
+- The CLI writes the index by default; `--no-index` opts out.
+- `generate_synthetic_data` no longer seeds the global `random` module.
+
+### Added
+
+- `row2vec.model.Row2VecModel`, the single object holding fitted state: the
+  preprocessor, the projector, the encoder, and the embedding scaler. Every
+  entry point is now a thin facade over it.
+- `aggregate_by_reference` for target mode.
+- `activation` as a parameter of `learn_embedding`; it was previously hardcoded
+  to `"relu"` whatever the configuration said.
+- `--no-index` for the CLI.
+- `tests/test_regressions.py` and `tests/test_invariants.py`: a failing-first
+  test per audited defect, plus properties checked across every mode and
+  scikit-learn's full `check_estimator` conformance suite over both adapters.
+- Working `slow` and `neural` pytest markers, so `make test-fast` deselects
+  something.
+
+### Removed
+
+- The duplicate training implementation in `core.py`. `learn_embedding_with_model`
+  trained a second, divergent model after already calling `learn_embedding`, at
+  roughly 1.8x the cost; `core.py` goes from 1919 lines to 355.
+- `row2vec.api._config_to_legacy_params`, the flattening bridge that silently
+  dropped `activation` and every contrastive setting.
+
 ## [0.2.0] - 2026-07-31
 
 Structural release: the repository, its tooling, and its documentation were
@@ -184,6 +274,7 @@ shape. **The public API is unchanged** — see [MIGRATION.md](MIGRATION.md).
 - Logging infrastructure with configurable levels
 - Memory monitoring for large datasets
 
-[Unreleased]: https://github.com/tresoldi/row2vec/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/tresoldi/row2vec/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/tresoldi/row2vec/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/tresoldi/row2vec/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/tresoldi/row2vec/releases/tag/v0.1.0
