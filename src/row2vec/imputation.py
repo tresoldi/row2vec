@@ -254,6 +254,7 @@ class AdaptiveImputer(BaseEstimator):
         self.imputation_pipelines_: dict[str, Any] | None = None
         self.feature_names_in_: list[str] | None = None
         self.missing_indicators_: dict[str, Any] | None = None
+        self.missing_indicator_columns_: list[str] = []
 
     def fit(self, X: pd.DataFrame, y: Any = None) -> "AdaptiveImputer":
         """Fit the adaptive imputer to the data.
@@ -273,6 +274,16 @@ class AdaptiveImputer(BaseEstimator):
             self.analysis_report_ = self.analyzer.analyze(X)
             if self.config.warn_high_missingness:
                 self._warn_about_high_missingness()
+
+        # Which indicator columns exist is fixed here, at fit time. Deriving
+        # them per batch in transform() made the output width depend on the
+        # batch, which breaks every estimator downstream.
+        if self.config.preserve_missing_patterns:
+            self.missing_indicator_columns_ = [
+                str(col) for col in X.columns if X[col].isnull().any()
+            ]
+        else:
+            self.missing_indicator_columns_ = []
 
         # Create column-specific imputation strategies
         self.imputation_pipelines_ = self._create_imputation_pipelines(X)
@@ -296,13 +307,15 @@ class AdaptiveImputer(BaseEstimator):
         X = self._validate_input(X)
         result = X.copy()
 
-        # Store missing indicators if requested
+        # Store missing indicators for exactly the columns chosen at fit time.
         if self.config.preserve_missing_patterns:
             self.missing_indicators_ = {}
-            for col in X.columns:
-                if X[col].isnull().any():
-                    indicator_name = f"{col}{self.config.missing_indicator_suffix}"
+            for col in self.missing_indicator_columns_:
+                indicator_name = f"{col}{self.config.missing_indicator_suffix}"
+                if col in X.columns:
                     self.missing_indicators_[indicator_name] = X[col].isnull()
+                else:
+                    self.missing_indicators_[indicator_name] = pd.Series(False, index=X.index)
 
         # Apply column-specific imputation
         if self.imputation_pipelines_:
@@ -364,17 +377,30 @@ class AdaptiveImputer(BaseEstimator):
         return X
 
     def _create_imputation_pipelines(self, X: pd.DataFrame) -> dict[str, Pipeline | None]:
-        """Create column-specific imputation pipelines."""
+        """Create a pipeline for every column, not only the dirty ones.
+
+        A column that happens to be complete in the training sample can still
+        arrive with missing values at inference. Skipping it here used to leave
+        those NaN untouched, and they flowed straight into PCA or Keras and
+        came back out as NaN embeddings.
+
+        Args:
+            X (pd.DataFrame): Training data.
+
+        Returns:
+            dict[str, Pipeline | None]: One pipeline per column. ``None`` only
+            where a column offers nothing to learn an imputation value from.
+        """
         pipelines: dict[str, Pipeline | None] = {}
 
         for col in X.columns:
-            if not X[col].isnull().any():
-                pipelines[col] = None  # No imputation needed
+            if X[col].isnull().all():
+                # Nothing observed, so nothing to impute from.
+                pipelines[col] = None
                 continue
 
             strategy = self._get_column_strategy(col, X[col])
-            pipeline = self._create_column_pipeline(col, strategy, X[col])
-            pipelines[col] = pipeline
+            pipelines[col] = self._create_column_pipeline(col, strategy, X[col])
 
         return pipelines
 

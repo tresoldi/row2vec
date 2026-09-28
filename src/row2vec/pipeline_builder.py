@@ -225,6 +225,14 @@ class PipelineBuilder:
         categorical_config = self._build_categorical_config(categorical_df, target)
         steps.append(("encoder", CategoricalEncoder(categorical_config)))
 
+        # Bound the encoded columns. The numeric branch is standardised to
+        # roughly unit variance; leaving encoded columns unscaled let an
+        # ordinal or entity column with a range in the hundreds dominate every
+        # embedding. Min-max is used rather than standardisation because
+        # standardising a rare one-hot column amplifies it instead.
+        if self.config.preprocessing.numeric_scaling != "none":
+            steps.append(("scaler", MinMaxScaler()))
+
         return Pipeline(steps)
 
     def _build_categorical_config(

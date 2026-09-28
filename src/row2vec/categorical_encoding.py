@@ -115,6 +115,35 @@ class CategoricalEncodingConfig:
     """Random state for reproducible results."""
 
 
+def _is_target_encodable(target: "pd.Series | None") -> bool:
+    """Whether ``target`` can drive target encoding.
+
+    Target encoding averages the target within each category, so it needs
+    something that can be averaged: a numeric target, or a binary one that maps
+    cleanly onto 0/1. A multi-class string target cannot, and averaging its
+    label codes would just reintroduce an arbitrary ordering.
+
+    Args:
+        target (pd.Series | None): The candidate target.
+
+    Returns:
+        bool: True when target encoding is meaningful.
+    """
+    if target is None:
+        return False
+
+    observed = target.dropna()
+    if observed.empty:
+        return False
+
+    if pd.api.types.is_bool_dtype(observed):
+        return True
+    if pd.api.types.is_numeric_dtype(observed):
+        return True
+    # A two-level non-numeric target is still a clean 0/1 problem.
+    return bool(observed.nunique() == 2)
+
+
 class CategoricalAnalyzer:
     """Analyzes categorical data to recommend optimal encoding strategies."""
 
@@ -145,6 +174,7 @@ class CategoricalAnalyzer:
 
         # Target correlation analysis
         target_correlation = 0.0
+        target_usable = _is_target_encodable(target)
         if target is not None and not target.isna().all():
             try:
                 # Calculate mutual information between categorical feature and target
@@ -163,6 +193,7 @@ class CategoricalAnalyzer:
             target_correlation,
             missing_rate,
             imbalance_ratio,
+            target_usable=target_usable,
         )
 
         # Embedding dimension recommendation (for entity embeddings)
@@ -197,9 +228,26 @@ class CategoricalAnalyzer:
         target_correlation: float,
         missing_rate: float,
         imbalance_ratio: float,
+        *,
+        target_usable: bool = False,
     ) -> str:
-        """Recommend encoding strategy based on data characteristics."""
+        """Recommend an encoding strategy from the column's characteristics.
 
+        ``target_usable`` says whether a target suitable for target encoding
+        (numeric, or binary) is actually available. Without it, ``"target"`` is
+        never recommended: the encoder would warn and silently fall back to raw
+        ordinal codes, which are unbounded and go on to dominate the embedding.
+
+        Args:
+            cardinality (int): Number of distinct values.
+            target_correlation (float): Mutual information with the target.
+            missing_rate (float): Fraction of missing values.
+            imbalance_ratio (float): Share of the most frequent value.
+            target_usable (bool): Whether target encoding is possible at all.
+
+        Returns:
+            str: One of ``"drop"``, ``"onehot"``, ``"target"``, ``"entity"``.
+        """
         # Handle edge cases
         if cardinality <= 1:
             return "drop"  # Constant column
@@ -211,23 +259,26 @@ class CategoricalAnalyzer:
         high_correlation = target_correlation > self.config.correlation_threshold
 
         if cardinality <= self.config.onehot_threshold:
-            # Low cardinality: prefer OneHot unless high correlation
-            if high_correlation and not self.config.preserve_interpretability:
+            # Low cardinality: prefer OneHot unless strongly target-correlated
+            if target_usable and high_correlation and not self.config.preserve_interpretability:
                 return "target"
             return "onehot"
 
         if cardinality <= self.config.target_threshold:
-            # Medium cardinality: prefer target encoding if correlated
-            if high_correlation:
+            # Medium cardinality: target encoding when it is available and the
+            # column carries signal, otherwise a bounded encoding.
+            if target_usable and high_correlation:
                 return "target"
             if self.config.prefer_speed:
-                return "onehot"  # Fallback to onehot if speed preferred
-            return "entity"  # Use embeddings for better representation
-
-        # High cardinality: prefer entity embeddings
-        if high_correlation and not self.config.prefer_speed:
+                return "onehot"
             return "entity"
-        return "target"  # Fallback to target encoding
+
+        # Above target_threshold the documented behaviour is entity embeddings.
+        # This branch used to return "target" regardless, which without a target
+        # degraded to unscaled ordinal codes.
+        if target_usable and high_correlation and self.config.prefer_speed:
+            return "target"
+        return "entity"
 
     def _calculate_embedding_dim(self, cardinality: int) -> int:
         """Calculate optimal embedding dimension for entity embeddings."""
@@ -468,6 +519,13 @@ class TargetEncoder:
         """
         if target is None:
             raise ValueError("Target variable is required for target encoding")
+        if not _is_target_encodable(target):
+            raise TypeError(
+                "Target encoding needs a numeric or binary target; got dtype "
+                f"{target.dtype} with {target.nunique()} distinct values. "
+                "Averaging the label codes of a multi-class target would impose "
+                "an arbitrary ordering on the categories.",
+            )
 
         # Handle missing values in target
         valid_mask = ~(series.isna() | target.isna())
@@ -568,6 +626,8 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
         self.column_strategies_: dict[str, str] = {}
         self.fitted_encoders_: dict[str, Any] = {}
         self.entity_embeddings_: dict[str, Any] = {}
+        # Cross-fitted target encodings for the training rows, keyed by column.
+        self.cv_encodings_: dict[str, pd.Series] = {}
         self.feature_names_in_: list[str] | None = None
         self.feature_names_out_: list[str] | None = None
         self.analysis_report_: dict[str, Any] = {}
@@ -610,6 +670,38 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
         self._calculate_output_features(X)
 
         return self
+
+    def fit_transform(
+        self,
+        X: pd.DataFrame,
+        y: pd.Series | None = None,
+        **fit_params: Any,
+    ) -> pd.DataFrame:
+        """Fit on ``X`` and encode it without leaking the target.
+
+        ``TransformerMixin`` would give us ``fit(X, y).transform(X)``, and
+        ``transform`` deliberately uses the full-data category means - correct
+        for rows the encoder has never seen, badly leaky for the rows it was
+        just fitted on. Target-encoded columns therefore take their
+        cross-fitted values here, matching
+        :class:`sklearn.preprocessing.TargetEncoder`.
+
+        Args:
+            X (pd.DataFrame): Categorical features to encode.
+            y (pd.Series, optional): Target for supervised strategies.
+            **fit_params: Ignored; present for the sklearn signature.
+
+        Returns:
+            pd.DataFrame: Encoded training features.
+        """
+        self.fit(X, y)
+        encoded = self.transform(X)
+
+        for col, cv_values in self.cv_encodings_.items():
+            if col in encoded.columns:
+                encoded[col] = cv_values.to_numpy()
+
+        return encoded
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """Transform categorical data using fitted encoders.
@@ -690,7 +782,10 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
                 self.fitted_encoders_[col] = encoder
             else:
                 encoder = TargetEncoder(self.config)
-                encoder.fit_transform(series, target)  # Fit during transform
+                # Keep the cross-fitted values: these are what the training
+                # rows must receive. Discarding them and re-reading the
+                # full-data map is how each row got handed its own label back.
+                self.cv_encodings_[col] = encoder.fit_transform(series, target)
                 self.fitted_encoders_[col] = encoder
 
         elif strategy == "entity":
@@ -752,43 +847,28 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
             embeddings = embedding_info["embeddings"]
             embedding_dim = embedding_info["embedding_dim"]
 
-            # Handle unknown categories
-            valid_mask = ~series.isna()
-            encoded_series = np.full(len(series), -1, dtype=int)
+            # Look categories up positionally. The previous implementation
+            # assigned into `arr[mask][i]`, which is a temporary copy, so as
+            # soon as one unknown category raised, nothing was written at all
+            # and every row fell through to the all-zero default.
+            known = pd.Index(label_encoder.classes_)
+            codes = known.get_indexer(series.to_numpy())  # -1 for unknown/NaN
 
-            if valid_mask.any():
-                valid_categories = series[valid_mask]
-                try:
-                    encoded_valid = label_encoder.transform(valid_categories)
-                    encoded_series[valid_mask] = encoded_valid
-                except ValueError:
-                    # Handle unknown categories
-                    known_categories = set(label_encoder.classes_)
-                    for i, cat in enumerate(valid_categories):
-                        if cat in known_categories:
-                            encoded_series[valid_mask.to_numpy()[valid_mask]][i] = (
-                                label_encoder.transform([cat])[0]
-                            )
-                        else:
-                            encoded_series[valid_mask.to_numpy()[valid_mask]][i] = (
-                                0  # Default to first category
-                            )
+            # Unknown and missing values get the mean of the learned
+            # embeddings: the least-committal known point, rather than the
+            # origin, which is a real location in the embedding space.
+            fallback = np.asarray(embeddings).mean(axis=0)
 
-            # Map to embeddings
-            result_data = {}
-            for dim in range(embedding_dim):
-                col_name = f"{col}_emb_{dim}"
-                embedding_values = np.zeros(len(series))
+            matrix = np.empty((len(series), embedding_dim), dtype=float)
+            recognised = (codes >= 0) & (codes < len(embeddings))
+            matrix[recognised] = np.asarray(embeddings)[codes[recognised]]
+            matrix[~recognised] = fallback
 
-                for i, encoded_cat in enumerate(encoded_series):
-                    if encoded_cat >= 0 and encoded_cat < len(embeddings):
-                        embedding_values[i] = embeddings[encoded_cat, dim]
-                    else:
-                        embedding_values[i] = 0.0  # Default value for unknown
-
-                result_data[col_name] = embedding_values
-
-            return pd.DataFrame(result_data, index=series.index)
+            return pd.DataFrame(
+                matrix,
+                columns=[f"{col}_emb_{dim}" for dim in range(embedding_dim)],
+                index=series.index,
+            )
 
         if strategy == "ordinal":
             encoder = self.fitted_encoders_[col]
