@@ -111,7 +111,7 @@ class PipelineBuilder:
     ) -> dict[str, Any]:
         """Analyze dataset characteristics to inform pipeline construction."""
 
-        analysis = {
+        analysis: dict[str, Any] = {
             "dataset_shape": df.shape,
             "total_missing": df.isnull().sum().sum(),
             "missing_percentage": (df.isnull().sum().sum() / df.size) * 100,
@@ -129,9 +129,9 @@ class PipelineBuilder:
                 analysis["target_type"] = "regression"
 
         # Column-specific analysis
-        analysis["column_analysis"] = {}
+        column_analysis: dict[str, dict[str, Any]] = {}
         for col in df.columns:
-            col_analysis = {
+            col_analysis: dict[str, Any] = {
                 "dtype": str(df[col].dtype),
                 "missing_count": df[col].isnull().sum(),
                 "missing_percentage": (df[col].isnull().sum() / len(df)) * 100,
@@ -151,7 +151,9 @@ class PipelineBuilder:
                 col_analysis["min"] = df[col].min() if not df[col].isnull().all() else None
                 col_analysis["max"] = df[col].max() if not df[col].isnull().all() else None
 
-            analysis["column_analysis"][col] = col_analysis
+            column_analysis[col] = col_analysis
+
+        analysis["column_analysis"] = column_analysis
 
         return analysis
 

@@ -15,6 +15,8 @@ from sklearn.impute import KNNImputer, SimpleImputer
 from sklearn.pipeline import Pipeline
 
 if TYPE_CHECKING:
+    from collections.abc import Hashable
+
     from sklearn.base import BaseEstimator
 else:
     try:
@@ -144,32 +146,39 @@ class MissingPatternAnalyzer:
         Returns:
             Dict containing analysis results and recommendations
         """
-        analysis = {
-            "total_missing": df.isnull().sum().sum(),
-            "missing_percentage": (df.isnull().sum().sum() / df.size) * 100,
-            "columns_with_missing": df.isnull().any().sum(),
-            "column_missing_percentages": (df.isnull().sum() / len(df) * 100).to_dict(),
-            "rows_with_missing": df.isnull().any(axis=1).sum(),
-            "completely_missing_columns": df.columns[df.isnull().all()].tolist(),
-            "high_missing_columns": [],
-            "recommendations": {},
+        # Keys stay as the DataFrame's own column labels, which need not be str.
+        column_missing_percentages: dict[Hashable, float] = {
+            col: float(pct) for col, pct in (df.isnull().sum() / len(df) * 100).items()
         }
 
         # Identify high missing columns
-        for col, pct in analysis["column_missing_percentages"].items():
-            if pct > self.config.missing_threshold * 100:
-                analysis["high_missing_columns"].append(col)
+        high_missing_columns: list[Hashable] = [
+            col
+            for col, pct in column_missing_percentages.items()
+            if pct > self.config.missing_threshold * 100
+        ]
 
         # Generate column-specific recommendations
+        recommendations: dict[str, dict[str, Any]] = {}
         for col in df.columns:
-            missing_pct = analysis["column_missing_percentages"][col]
-            dtype = df[col].dtype
-
+            missing_pct = column_missing_percentages[col]
             if missing_pct == 0:
                 continue
 
-            recommendation = self._recommend_strategy(col, missing_pct, dtype, df[col])
-            analysis["recommendations"][col] = recommendation
+            recommendations[col] = self._recommend_strategy(
+                col, missing_pct, df[col].dtype, df[col]
+            )
+
+        analysis: dict[str, Any] = {
+            "total_missing": df.isnull().sum().sum(),
+            "missing_percentage": (df.isnull().sum().sum() / df.size) * 100,
+            "columns_with_missing": df.isnull().any().sum(),
+            "column_missing_percentages": column_missing_percentages,
+            "rows_with_missing": df.isnull().any(axis=1).sum(),
+            "completely_missing_columns": df.columns[df.isnull().all()].tolist(),
+            "high_missing_columns": high_missing_columns,
+            "recommendations": recommendations,
+        }
 
         return analysis
 
