@@ -38,9 +38,13 @@ table contains.
    different import. Adding a method must not add a second way to call the
    library.
 2. **Preprocessing belongs to the model.** An embedding is only reproducible if
-   the encoders, imputers, and scalers that produced it are reproducible too. A
-   saved model therefore carries its whole pipeline; `predict` on new rows
-   replays exactly what training did.
+   the encoders, imputers, and scalers that produced it are reproducible too.
+   `Row2VecModel` is the object that holds them — the fitted preprocessor, the
+   fitted projector, and the fitted embedding scaler — and a saved model
+   carries all three, so `predict` on new rows replays exactly what training
+   did. `transform` never fits. The exception is `mode="tsne"`, which is
+   non-parametric and raises rather than pretending it can embed unseen
+   rows.
 3. **Sensible defaults over configuration.** Every parameter has a default that
    works. `EmbeddingConfig` exists for when you need to be explicit, not as the
    price of entry.
@@ -126,8 +130,11 @@ embeddings = row2vec.learn_embedding(df, mode=..., embedding_dim=...)
 ```
 
 - The return value is a `DataFrame` with the same index as `df` and
-  `embedding_dim` columns — except in `target` mode, which returns one row per
-  distinct value of `reference_column`.
+  `embedding_dim` columns. This holds for every mode: `target` mode returns one
+  row per input row like the rest, and `aggregate_by_reference=True` asks for
+  the per-category matrix instead. Before 0.3.0 the index was a fresh
+  `RangeIndex`, so the promise above was true only for input that already had
+  one.
 - `seed` makes a run reproducible.
 - Invalid parameters raise `ValueError`/`TypeError` before any training starts.
 

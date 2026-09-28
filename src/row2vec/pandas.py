@@ -4,6 +4,7 @@ This module provides a pandas accessor that allows direct embedding
 generation from DataFrames using the `.row2vec` accessor.
 """
 
+import warnings
 from typing import Any
 
 import pandas as pd
@@ -58,22 +59,12 @@ class Row2VecAccessor:
             (60, 2)
         """
         if config is None:
-            # Create config with specified parameters
             config = create_config_for_mode(mode)
             config.embedding_dim = dim
 
-            # Apply any additional kwargs
-            for key, value in kwargs.items():
-                if hasattr(config, key):
-                    setattr(config, key, value)
-                elif "." in key:
-                    # Handle nested parameters like neural.max_epochs
-                    section, param = key.split(".", 1)
-                    if hasattr(config, section):
-                        section_config = getattr(config, section)
-                        if hasattr(section_config, param):
-                            setattr(section_config, param, value)
-
+        # Overrides are applied once, by learn_embedding_v2. Applying them here
+        # as well meant every key was consumed twice, and an unrecognised one
+        # reached EmbeddingConfig.from_dict as a constructor argument.
         return learn_embedding_v2(self._obj, config, **kwargs)
 
     def unsupervised(
@@ -156,9 +147,8 @@ class Row2VecAccessor:
             >>> list(vectors.index) == list(df.index)
             True
         """
-        config = create_config_for_mode("target")
+        config = create_config_for_mode("target", reference_column=target_column)
         config.embedding_dim = dim
-        config.reference_column = target_column
         config.neural.max_epochs = max_epochs
         config.neural.batch_size = batch_size
 
@@ -336,7 +326,12 @@ class Row2VecAccessor:
                 else:
                     # Try to use it as a mode directly
                     results[method] = self.embed(dim=dim, mode=method)
-            except Exception:
-                continue
+            except Exception as exc:
+                warnings.warn(
+                    f"Method '{method}' failed and was left out of the "
+                    f"comparison: {type(exc).__name__}: {exc}",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
 
         return results

@@ -369,6 +369,8 @@ class TestIntegrationWithAPI:
 
         config = EmbeddingConfig(mode="unsupervised", embedding_dim=2)
         config.neural.max_epochs = 2
+        # The fixture has 30 rows; the default batch size of 64 is rejected.
+        config.neural.batch_size = 8
         config.logging.enabled = False
 
         search_config = ArchitectureSearchConfig(

@@ -130,6 +130,7 @@ class PipelineBuilder:
             numeric_cols,
             categorical_cols,
             data_analysis,
+            df,
         )
 
         return preprocessor, data_analysis
@@ -323,8 +324,22 @@ class PipelineBuilder:
         numeric_cols: list[str],
         categorical_cols: list[str],
         analysis: dict[str, Any],
+        df: pd.DataFrame,
     ) -> dict[str, Any]:
-        """Create human-readable description of the constructed pipeline."""
+        """Describe the pipeline that was just built.
+
+        Args:
+            numeric_cols (list[str]): Numeric column names.
+            categorical_cols (list[str]): Categorical column names.
+            analysis (dict[str, Any]): The dataset analysis.
+            df (pd.DataFrame): The frame the pipeline was built for. Needed
+                because the description used to report the strategy for an
+                *empty* frame, which always answers "none", so the report said
+                "none" while the pipeline actually used, say, knn.
+
+        Returns:
+            dict[str, Any]: A human-readable description.
+        """
 
         description: dict[str, Any] = {
             "dataset_summary": {
@@ -341,7 +356,7 @@ class PipelineBuilder:
 
         # Numeric processing description
         if numeric_cols:
-            missing_strategy = self._determine_numeric_missing_strategy(pd.DataFrame())
+            missing_strategy = self._determine_numeric_missing_strategy(df[numeric_cols])
             description["numeric_processing"] = [
                 f"Missing value imputation: {missing_strategy}",
                 f"Scaling method: {self.config.preprocessing.numeric_scaling}",

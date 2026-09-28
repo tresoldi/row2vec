@@ -269,12 +269,16 @@ class TestConfigFactories:
         assert contrastive_config.neural.batch_size == 32  # Smaller batches
         assert contrastive_config.contrastive.auto_pairs == "cluster"  # Default auto_pairs
 
-        # Test target mode gets optimized settings
-        target_config = create_config_for_mode("target")
+        # Target mode requires the column that supervises it, rather than
+        # being built invalid behind a placeholder and nulled afterwards.
+        target_config = create_config_for_mode("target", reference_column="Country")
         assert target_config.mode == "target"
-        assert target_config.reference_column is None  # Starts as None, user must set
+        assert target_config.reference_column == "Country"
         assert target_config.neural.max_epochs == 75  # More epochs for target
         assert target_config.neural.batch_size == 64  # Standard batch size
+
+        with pytest.raises(ValueError, match="reference_column"):
+            create_config_for_mode("target")
 
         # Test classical modes
         pca_config = create_config_for_mode("pca")

@@ -296,13 +296,20 @@ class EmbeddingConfig:
 
 def create_config_for_mode(mode: str, **overrides: Any) -> EmbeddingConfig:
     """Create a pre-configured EmbeddingConfig for common use cases."""
-    # Handle target mode specially since it requires reference_column
+    # Target mode needs a reference column, and this helper is for building a
+    # config the caller will finish. Rather than constructing an invalid object
+    # behind a "__placeholder__" string and then nulling it, require the caller
+    # to name the column - or to pass it later, explicitly.
     if mode == "target":
-        # Create with dummy reference_column to pass validation
-        base_config = EmbeddingConfig(mode=mode, reference_column="__placeholder__")
+        reference_column = overrides.pop("reference_column", None)
+        if reference_column is None:
+            raise ValueError(
+                "create_config_for_mode('target') needs reference_column: the "
+                "column whose labels supervise the encoder. Pass it here, e.g. "
+                "create_config_for_mode('target', reference_column='Country').",
+            )
+        base_config = EmbeddingConfig(mode=mode, reference_column=reference_column)
         base_config.neural.max_epochs = 75  # Supervised learning often converges faster
-        # Clear the placeholder - user will need to set proper reference_column
-        base_config.reference_column = None
     else:
         base_config = EmbeddingConfig(mode=mode)
 
@@ -322,12 +329,6 @@ def create_config_for_mode(mode: str, **overrides: Any) -> EmbeddingConfig:
         for key, value in overrides.items():
             if key in config_dict:
                 config_dict[key] = value
-        # Recreate with overrides, handling target mode validation
-        if mode == "target" and "reference_column" not in overrides:
-            config_dict["reference_column"] = "__placeholder__"
-            base_config = EmbeddingConfig.from_dict(config_dict)
-            base_config.reference_column = None
-        else:
-            base_config = EmbeddingConfig.from_dict(config_dict)
+        base_config = EmbeddingConfig.from_dict(config_dict)
 
     return base_config

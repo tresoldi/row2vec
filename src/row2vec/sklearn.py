@@ -138,7 +138,15 @@ class Row2VecTransformer(TransformerMixin, BaseEstimator):
         if self.config is not None:
             return self.config
 
-        config = create_config_for_mode(self.mode)
+        if self.mode == "target":
+            if self.reference_column is None:
+                raise ValueError(
+                    "mode='target' requires reference_column: the column whose "
+                    "labels supervise the encoder.",
+                )
+            config = create_config_for_mode(self.mode, reference_column=self.reference_column)
+        else:
+            config = create_config_for_mode(self.mode)
         config.embedding_dim = self.embedding_dim
         config.seed = self.seed
         config.neural.max_epochs = self.max_epochs
@@ -146,9 +154,6 @@ class Row2VecTransformer(TransformerMixin, BaseEstimator):
         config.neural.dropout_rate = self.dropout_rate
         config.neural.hidden_units = self.hidden_units
         config.neural.activation = self.activation
-
-        if self.reference_column is not None:
-            config.reference_column = self.reference_column
 
         return config
 

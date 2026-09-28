@@ -91,7 +91,9 @@ def generate_synthetic_data(num_records: int, seed: int = 1305) -> pd.DataFrame:
     Returns:
         pd.DataFrame: A synthetic DataFrame with mixed data types.
     """
-    random.seed(seed)
+    # A private Random instance: seeding the global `random` module mutated
+    # the caller's process state as a side effect of asking for sample data.
+    py_random = random.Random(seed)
     rng = np.random.default_rng(seed)
 
     countries: list[str] = ["USA", "Canada", "Mexico", "Brazil", "Italy"]
@@ -99,8 +101,8 @@ def generate_synthetic_data(num_records: int, seed: int = 1305) -> pd.DataFrame:
 
     data: list[dict[str, Any]] = []
     for _ in range(num_records):
-        country: str = random.choice(countries)
-        product: str = random.choice(products)
+        country: str = py_random.choice(countries)
+        product: str = py_random.choice(products)
 
         sales: float
         if country in ["USA", "Canada"]:
