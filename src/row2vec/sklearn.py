@@ -17,7 +17,13 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from sklearn.base import BaseEstimator, ClassifierMixin, TransformerMixin, clone
+from scipy.sparse import issparse  # type: ignore[import-untyped]
+from sklearn.base import (
+    BaseEstimator,
+    ClassifierMixin,
+    TransformerMixin,
+    clone,
+)
 from sklearn.utils.validation import check_is_fitted
 
 from .config import EmbeddingConfig, create_config_for_mode
@@ -26,12 +32,17 @@ from .model import MODES, Row2VecModel
 __all__ = ["Row2VecClassifier", "Row2VecTransformer"]
 
 
-def _as_dataframe(X: Any, feature_names: np.ndarray[Any, Any] | None) -> pd.DataFrame:
+def _as_dataframe(
+    X: Any,
+    feature_names: np.ndarray[Any, Any] | None,
+    estimator_name: str = "Row2VecTransformer",
+) -> pd.DataFrame:
     """Coerce sklearn's assorted input types to a DataFrame.
 
     Args:
         X: Input data: DataFrame, ndarray, or anything array-like.
         feature_names: Column names seen during ``fit``, if fitted.
+        estimator_name: Name used in the feature-count mismatch message.
 
     Returns:
         pd.DataFrame: ``X`` as a DataFrame with usable column names.
@@ -43,20 +54,38 @@ def _as_dataframe(X: Any, feature_names: np.ndarray[Any, Any] | None) -> pd.Data
     if isinstance(X, pd.DataFrame):
         return X.copy()
 
+    if issparse(X):
+        raise TypeError(
+            "Sparse input is not supported: row2vec embeds tabular data with "
+            "named, possibly categorical columns. Convert to a dense DataFrame "
+            "or array first.",
+        )
+
     if not isinstance(X, np.ndarray):
         try:
             X = np.asarray(X)
         except Exception as exc:
             raise TypeError(f"Cannot convert input to DataFrame: {exc}") from exc
 
-    if X.ndim == 1:
-        X = X.reshape(-1, 1)
+    if X.ndim != 2:
+        raise ValueError(
+            "Expected a 2D array, got a 1D array instead. Reshape your data "
+            "with X.reshape(-1, 1) for a single feature, or X.reshape(1, -1) "
+            "for a single sample.",
+        )
+
+    if X.size == 0 or 0 in X.shape:
+        raise ValueError(
+            f"0 feature(s) (shape={X.shape}) while a minimum of 1 is required.",
+        )
 
     if feature_names is not None:
         if X.shape[1] != len(feature_names):
+            # Wording matched to scikit-learn's own, which its conformance
+            # suite looks for.
             raise ValueError(
-                f"X has {X.shape[1]} features, but transformer was fitted with "
-                f"{len(feature_names)} features",
+                f"X has {X.shape[1]} features, but {estimator_name} "
+                f"is expecting {len(feature_names)} features as input.",
             )
         return pd.DataFrame(X, columns=feature_names)
 
@@ -197,7 +226,7 @@ class Row2VecTransformer(TransformerMixin, BaseEstimator):
             ndarray of shape (n_samples, embedding_dim).
         """
         check_is_fitted(self, ["model_"])
-        frame = _as_dataframe(X, self.feature_names_in_)
+        frame = _as_dataframe(X, self.feature_names_in_, type(self).__name__)
         return self.model_.transform(frame).to_numpy()
 
     def fit_transform(self, X: Any, y: Any = None, **fit_params: Any) -> np.ndarray[Any, Any]:
@@ -212,8 +241,23 @@ class Row2VecTransformer(TransformerMixin, BaseEstimator):
             ndarray of shape (n_samples, embedding_dim).
         """
         self.fit(X, y)
-        frame = _as_dataframe(X, self.feature_names_in_)
+        frame = _as_dataframe(X, self.feature_names_in_, type(self).__name__)
         return self.model_.transform(frame).to_numpy()
+
+    def __sklearn_tags__(self) -> Any:
+        """Declare what kind of input this estimator accepts.
+
+        row2vec embeds *tabular* data: mixed numeric and categorical columns,
+        with missing values imputed as part of the pipeline. Saying so here is
+        what stops scikit-learn's conformance suite testing it as though it
+        were a dense-numeric-array estimator.
+        """
+        tags = super().__sklearn_tags__()
+        tags.input_tags.sparse = False  # categorical columns are not sparse data
+        tags.input_tags.allow_nan = True  # missing values are imputed, not rejected
+        tags.input_tags.categorical = True
+        tags.input_tags.string = True
+        return tags
 
     def get_feature_names_out(
         self,
@@ -304,9 +348,29 @@ class Row2VecClassifier(ClassifierMixin, BaseEstimator):
             self.classifier_ = clone(self.classifier)
 
         embedded = self.transformer_.fit_transform(X)
+        self.n_features_in_ = self.transformer_.n_features_in_
+        self.feature_names_in_ = self.transformer_.feature_names_in_
         self.classifier_.fit(embedded, y)
-        self.classes_ = getattr(self.classifier_, "classes_", np.unique(y))
+        if hasattr(self.classifier_, "classes_"):
+            self.classes_ = self.classifier_.classes_
+        else:
+            self.classes_ = np.unique(y)
         return self
+
+    def __sklearn_tags__(self) -> Any:
+        """Declare what kind of input this estimator accepts.
+
+        row2vec embeds *tabular* data: mixed numeric and categorical columns,
+        with missing values imputed as part of the pipeline. Saying so here is
+        what stops scikit-learn's conformance suite testing it as though it
+        were a dense-numeric-array estimator.
+        """
+        tags = super().__sklearn_tags__()
+        tags.input_tags.sparse = False  # categorical columns are not sparse data
+        tags.input_tags.allow_nan = True  # missing values are imputed, not rejected
+        tags.input_tags.categorical = True
+        tags.input_tags.string = True
+        return tags
 
     def predict(self, X: Any) -> np.ndarray[Any, Any]:
         """Predict labels for ``X``.

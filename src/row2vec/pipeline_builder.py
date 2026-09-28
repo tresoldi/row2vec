@@ -5,6 +5,7 @@ analyzes data characteristics and builds optimal preprocessing pipelines
 with adaptive categorical encoding strategies.
 """
 
+from collections.abc import Hashable
 from typing import Any
 
 import numpy as np
@@ -188,11 +189,11 @@ class PipelineBuilder:
 
         return analysis
 
-    def _get_numeric_columns(self, df: pd.DataFrame) -> list[str]:
+    def _get_numeric_columns(self, df: pd.DataFrame) -> list[Hashable]:
         """Get list of numeric columns."""
         return numeric_columns(df)
 
-    def _get_categorical_columns(self, df: pd.DataFrame) -> list[str]:
+    def _get_categorical_columns(self, df: pd.DataFrame) -> list[Hashable]:
         """Get list of categorical columns."""
         return categorical_columns(df)
 
@@ -321,16 +322,16 @@ class PipelineBuilder:
 
     def _describe_pipeline(
         self,
-        numeric_cols: list[str],
-        categorical_cols: list[str],
+        numeric_cols: list[Hashable],
+        categorical_cols: list[Hashable],
         analysis: dict[str, Any],
         df: pd.DataFrame,
     ) -> dict[str, Any]:
         """Describe the pipeline that was just built.
 
         Args:
-            numeric_cols (list[str]): Numeric column names.
-            categorical_cols (list[str]): Categorical column names.
+            numeric_cols (list[Hashable]): Numeric column labels.
+            categorical_cols (list[Hashable]): Categorical column labels.
             analysis (dict[str, Any]): The dataset analysis.
             df (pd.DataFrame): The frame the pipeline was built for. Needed
                 because the description used to report the strategy for an

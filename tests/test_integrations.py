@@ -337,33 +337,3 @@ class TestIntegrationCompatibility:
             pandas_embeddings.values,
             rtol=1e-10,
         )
-
-
-def test_integrations_manually() -> None:
-    """Manual test function for integration testing."""
-    sample_data = generate_synthetic_data(50, seed=1305)
-
-    print("Testing pandas integration...")
-    try:
-        embeddings = sample_data.row2vec.embed(dim=3, mode="pca")
-        print(f"✅ Pandas integration works! Embeddings shape: {embeddings.shape}")
-    except Exception as e:
-        print(f"❌ Pandas integration failed: {e}")
-
-    print("\nTesting sklearn integration...")
-    try:
-        from row2vec import Row2VecTransformer
-
-        transformer = Row2VecTransformer(embedding_dim=3, mode="pca")
-        X_embedded = transformer.fit_transform(sample_data)
-        print(f"✅ Sklearn integration works! Embeddings shape: {X_embedded.shape}")
-    except ImportError:
-        print("⚠️  Sklearn integration not available")
-    except Exception as e:
-        print(f"❌ Sklearn integration failed: {e}")
-
-    print("\nAll tests completed!")
-
-
-if __name__ == "__main__":
-    test_integrations_manually()

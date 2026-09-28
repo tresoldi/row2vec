@@ -74,11 +74,14 @@ def validate_inputs(
         )
 
     if len(df.columns) == 0:
-        raise ValueError("DataFrame must have at least one column.")
+        raise ValueError(
+            "DataFrame must have at least one column: "
+            f"0 feature(s) (shape=({df.shape[0]}, 0)) while a minimum of 1 is required.",
+        )
 
     if df.shape[0] < 2:
         raise ValueError(
-            f"DataFrame must have at least 2 rows for training. Got {df.shape[0]} rows.",
+            f"DataFrame must have at least 2 rows for training, got n_samples={df.shape[0]}.",
         )
 
     # 2. Validate embedding dimension

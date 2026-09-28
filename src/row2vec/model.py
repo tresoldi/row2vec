@@ -46,6 +46,8 @@ from .utils import create_dataframe_schema
 from .validation import validate_inputs
 
 if TYPE_CHECKING:
+    from collections.abc import Hashable
+
     from sklearn.compose import ColumnTransformer
 
 try:  # pragma: no cover - exercised implicitly wherever Keras is present
@@ -275,8 +277,8 @@ class Row2VecModel:
             embedding. ``None`` for classical modes.
         embedding_scaler_ (EmbeddingScaler):
             The fitted embedding scaler.
-        feature_names_in_ (list[str]):
-            Column names seen during ``fit``.
+        feature_names_in_ (list[Hashable]):
+            Column labels seen during ``fit``.
         metadata (object or None):
             Populated by :mod:`row2vec.serialization` on save/load.
 
@@ -308,7 +310,7 @@ class Row2VecModel:
         self.projector_: Any = None
         self.encoder_: Any = None
         self.embedding_scaler_: EmbeddingScaler | None = None
-        self.feature_names_in_: list[str] = []
+        self.feature_names_in_: list[Hashable] = []
         self.n_features_in_: int = 0
 
         # Training record
@@ -554,7 +556,9 @@ class Row2VecModel:
                 ],
             )
 
-        self.feature_names_in_ = [str(c) for c in df.columns]
+        # The labels themselves: a DataFrame may have integer column names,
+        # and comparing str() of them against the real labels never matches.
+        self.feature_names_in_ = list(df.columns)
         self.training_columns_ = list(df.columns)
         self.training_shape_ = df.shape
         self.training_dtypes_ = {str(c): str(dt) for c, dt in df.dtypes.items()}
@@ -964,8 +968,8 @@ class Row2VecModel:
         if dim > n_features:
             message = (
                 f"embedding_dim ({dim}) cannot be larger than the number of features "
-                f"after preprocessing ({n_features}). Consider reducing embedding_dim "
-                "or adding more features."
+                f"after preprocessing (n_features={n_features}). Consider reducing "
+                "embedding_dim or adding more features."
             )
             if logger is not None:
                 logger.log_validation_issue(message)
