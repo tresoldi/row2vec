@@ -1,5 +1,6 @@
 """Configuration classes for Row2Vec embedding methods."""
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -195,7 +196,15 @@ class EmbeddingConfig:
 
     @classmethod
     def from_dict(cls, config_dict: dict[str, Any]) -> "EmbeddingConfig":
-        """Create config from dictionary (e.g., from YAML)."""
+        """Create config from dictionary (e.g., from YAML).
+
+        The caller's dictionary is left untouched; an earlier version popped
+        keys straight out of it, so reusing a config dict silently produced a
+        different config the second time.
+        """
+        # Work on a copy: `pop` below must not reach the caller's dictionary.
+        config_dict = deepcopy(config_dict)
+
         # Extract sub-configs
         neural_dict = config_dict.pop("neural", {})
         classical_dict = config_dict.pop("classical", {})
@@ -237,6 +246,7 @@ class EmbeddingConfig:
             "batch_size": self.neural.batch_size,
             "dropout_rate": self.neural.dropout_rate,
             "hidden_units": self.neural.hidden_units,
+            "activation": self.neural.activation,
             "early_stopping": self.neural.early_stopping,
         }
 

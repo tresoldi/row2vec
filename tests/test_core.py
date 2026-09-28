@@ -45,8 +45,21 @@ def test_target_embedding(synthetic_data: pd.DataFrame) -> None:
         max_epochs=2,  # Keep it fast
     )
 
-    assert embeddings.shape[0] == num_unique_countries
-    assert embeddings.shape[1] == embedding_dim
+    # Since 0.3.0 target mode returns one row per input row, indexed by
+    # df.index. The per-category matrix is available via
+    # aggregate_by_reference=True.
+    assert embeddings.shape == (len(df), embedding_dim)
+    assert list(embeddings.index) == list(df.index)
+
+    aggregated = learn_embedding(
+        df,
+        mode="target",
+        reference_column=reference_column,
+        embedding_dim=embedding_dim,
+        max_epochs=2,
+        aggregate_by_reference=True,
+    )
+    assert aggregated.shape == (num_unique_countries, embedding_dim)
     assert list(embeddings.columns) == [f"embedding_{i}" for i in range(embedding_dim)]
 
 

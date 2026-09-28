@@ -230,7 +230,8 @@ class TestLoggingIntegration:
             log_level="DEBUG",
         )
 
-        assert result.shape == (3, 2)  # 3 categories
+        # One row per input row since 0.3.0, not one per category.
+        assert result.shape == (len(df), 2)
 
     def test_performance_warnings(self) -> None:
         """Test that performance warnings are logged appropriately."""

@@ -12,10 +12,23 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from sklearn.base import BaseEstimator
-from sklearn.compose import ColumnTransformer
 
-from .utils import validate_dataframe_schema
+from .core import learn_embedding_with_model
+from .model import Row2VecModel, get_feature_names
+
+
+def _package_version() -> str:
+    """The running package version.
+
+    Imported lazily: ``row2vec/__init__.py`` is the single source of truth for
+    the version (pyproject reads it from there), and it imports this module, so
+    a module-level import would be circular. This used to be the string
+    "0.1.0", hardcoded, which meant every saved model misreported the version
+    that produced it.
+    """
+    from row2vec import __version__
+
+    return __version__
 
 
 class Row2VecModelMetadata:
@@ -30,7 +43,7 @@ class Row2VecModelMetadata:
         max_epochs: int = 50,
         batch_size: int = 64,
         dropout_rate: float = 0.2,
-        hidden_units: int = 128,
+        hidden_units: int | list[int] = 128,
         early_stopping: bool = True,
         seed: int = 1305,
         scale_method: str | None = None,
@@ -89,7 +102,7 @@ class Row2VecModelMetadata:
 
         # Metadata
         self.created_at = datetime.now().isoformat()
-        self.row2vec_version = "0.1.0"  # This should be imported from package metadata
+        self.row2vec_version = _package_version()
 
     def to_dict(self) -> dict[str, Any]:
         """Convert metadata to dictionary for serialization."""
@@ -174,133 +187,55 @@ class Row2VecModelMetadata:
         return instance
 
 
-class Row2VecModel:
-    """Complete Row2Vec model with preprocessing pipeline and metadata.
+def describe_model(
+    model: Row2VecModel,
+    *,
+    include_training_history: bool = True,
+) -> Row2VecModelMetadata:
+    """Describe a fitted model for the saved loader script.
 
-    This class encapsulates the trained model, preprocessing pipeline,
-    and all metadata needed for inference.
+    Everything needed is recorded on the model during ``fit``, so the training
+    frame does not have to be kept around or passed in again.
+
+    Args:
+        model (Row2VecModel): The fitted model.
+        include_training_history (bool): Whether to keep the per-epoch history.
+            Dropping it makes the saved script considerably smaller.
+
+    Returns:
+        Row2VecModelMetadata: Metadata describing the training run.
     """
+    config = model.config
+    if not model.is_fitted:
+        raise ValueError("Cannot describe an unfitted Row2VecModel.")
+    assert model.preprocessor_ is not None
 
-    def __init__(
-        self,
-        model: Any
-        | BaseEstimator
-        | None = None,  # Using Any for Keras models to avoid import issues
-        preprocessor: ColumnTransformer | None = None,
-        metadata: Row2VecModelMetadata | None = None,
-    ):
-        self.model = model
-        self.preprocessor = preprocessor
-        self.metadata = metadata or Row2VecModelMetadata(embedding_dim=10, mode="unsupervised")
-
-    def validate_input_schema(self, df: pd.DataFrame, strict: bool = True) -> bool:
-        """Validate input DataFrame schema against expected schema.
-
-        Args:
-            df: Input DataFrame to validate
-            strict: If True, fails on any schema mismatch. If False, warns only.
-
-        Returns:
-            bool: True if schema is valid
-
-        Raises:
-            ValueError: If strict=True and schema validation fails
-        """
-        if not self.metadata.expected_schema:
-            if strict:
-                raise ValueError("No expected schema defined in model metadata")
-            return False
-
-        try:
-            validate_dataframe_schema(df, self.metadata.expected_schema)
-            return True
-        except Exception as e:
-            if strict:
-                raise ValueError(f"Schema validation failed: {e!s}") from e
-            return False
-
-    def predict(self, df: pd.DataFrame, validate_schema: bool = True) -> pd.DataFrame:
-        """Generate embeddings for new data.
-
-        Args:
-            df: Input DataFrame
-            validate_schema: Whether to validate input schema
-
-        Returns:
-            DataFrame with embeddings
-
-        Raises:
-            ValueError: If model is not loaded or schema validation fails
-        """
-        if self.model is None:
-            raise ValueError("Model not loaded. Use Row2VecModel.load() first.")
-
-        if self.preprocessor is None:
-            raise ValueError("Preprocessor not loaded. Use Row2VecModel.load() first.")
-
-        # Validate schema if requested
-        if validate_schema:
-            self.validate_input_schema(df, strict=True)
-
-        # For classical ML methods, we need to handle them differently
-        if self.metadata.mode in ["pca", "tsne", "umap"]:
-            # Preprocess the data
-            X_processed = self.preprocessor.transform(df)
-
-            # Apply the classical ML model - check if it's a sklearn estimator
-            if hasattr(self.model, "transform"):
-                embeddings = self.model.transform(X_processed)
-            else:
-                raise ValueError(
-                    f"Classical ML model for {self.metadata.mode} doesn't support transform"
-                )
-
-            # Create DataFrame with appropriate column names
-            embedding_df = pd.DataFrame(
-                embeddings,
-                columns=[f"embedding_{i}" for i in range(self.metadata.embedding_dim)],
-                index=df.index,
-            )
-
-        else:
-            # Neural network models (unsupervised, target)
-            # Preprocess the data (exclude reference column if target mode)
-            if self.metadata.mode == "target" and self.metadata.reference_column:
-                # For target mode prediction, we use all data but ignore the reference column if present
-                input_df = df.drop(columns=[self.metadata.reference_column], errors="ignore")
-            else:
-                input_df = df
-
-            X_processed = self.preprocessor.transform(input_df)
-
-            # Check if model is a Keras model (has the attributes we need)
-            if hasattr(self.model, "input") and hasattr(self.model, "get_layer"):
-                # Get embeddings from the encoder part of the model
-                # Import here to avoid circular imports and typing issues
-                try:
-                    from tensorflow.keras.models import Model as KerasModel
-
-                    # Create encoder from the trained model
-                    encoder = KerasModel(
-                        inputs=self.model.input,
-                        outputs=self.model.get_layer("embedding").output,
-                    )
-                    embeddings = encoder.predict(X_processed, verbose=0)
-                except Exception as e:
-                    raise ValueError(
-                        f"Failed to extract embeddings from neural network model: {e}"
-                    ) from e
-            else:
-                raise ValueError("Neural network model doesn't have expected Keras structure")
-
-            # Create DataFrame
-            embedding_df = pd.DataFrame(
-                embeddings,
-                columns=[f"embedding_{i}" for i in range(self.metadata.embedding_dim)],
-                index=df.index,
-            )
-
-        return embedding_df
+    return Row2VecModelMetadata(
+        embedding_dim=config.embedding_dim,
+        mode=config.mode,
+        reference_column=config.reference_column,
+        max_epochs=config.neural.max_epochs,
+        batch_size=config.neural.batch_size,
+        dropout_rate=config.neural.dropout_rate,
+        hidden_units=config.neural.hidden_units,
+        early_stopping=config.neural.early_stopping,
+        seed=config.seed,
+        scale_method=config.scaling.method,
+        scale_range=config.scaling.range,
+        n_neighbors=config.classical.n_neighbors,
+        perplexity=config.classical.perplexity,
+        min_dist=config.classical.min_dist,
+        n_iter=config.classical.n_iter,
+        training_history=model.training_history_ if include_training_history else {},
+        final_loss=model.final_loss_,
+        epochs_trained=model.epochs_trained_,
+        training_time=model.training_time_,
+        original_columns=[str(c) for c in model.training_columns_],
+        preprocessed_feature_names=get_feature_names(model.preprocessor_),
+        data_shape=model.training_shape_,
+        data_types=model.training_dtypes_,
+        expected_schema=model.training_schema_,
+    )
 
 
 def save_model(
@@ -334,18 +269,16 @@ def save_model(
             raise FileExistsError(f"Binary file already exists: {binary_path}")
 
     # Validate model completeness
-    if model.model is None:
-        raise ValueError("Model cannot be None")
-    if model.preprocessor is None:
-        raise ValueError("Preprocessor cannot be None")
+    if not model.is_fitted:
+        raise ValueError("Model must be fitted before saving")
     if model.metadata is None:
-        raise ValueError("Metadata cannot be None")
+        # Everything metadata needs was recorded during fit.
+        model.metadata = describe_model(model)
 
-    # Save binary components (model + preprocessor)
-    binary_data = {
-        "model": model.model,
-        "preprocessor": model.preprocessor,
-    }
+    # Persist the entire fitted state. Saving only the projector and the
+    # preprocessor is what left the embedding scaler behind, so a reloaded
+    # model returned differently scaled values than training had.
+    binary_data = {"state": model.to_state()}
 
     with open(binary_path, "wb") as f:
         pickle.dump(binary_data, f)
@@ -481,7 +414,8 @@ from typing import Any, Dict
 
 # Import Row2Vec components (assumes row2vec is installed)
 try:
-    from row2vec.serialization import Row2VecModel, Row2VecModelMetadata
+    from row2vec.serialization import Row2VecModelMetadata
+    from row2vec.model import Row2VecModel
 except ImportError:
     raise ImportError(
         "row2vec package not found. Please install it first: pip install row2vec"
@@ -531,15 +465,9 @@ def load_model() -> Row2VecModel:
         with open(binary_path, "rb") as f:
             binary_data = pickle.load(f)
 
-        # Create metadata object
-        metadata = Row2VecModelMetadata.from_dict(METADATA)
-
-        # Create and return model
-        model = Row2VecModel(
-            model=binary_data["model"],
-            preprocessor=binary_data["preprocessor"],
-            metadata=metadata,
-        )
+        # Rebuild the fitted model and reattach its metadata
+        model = Row2VecModel.from_state(binary_data["state"])
+        model.metadata = Row2VecModelMetadata.from_dict(METADATA)
 
         return model
 
@@ -651,10 +579,9 @@ def train_and_save_model(
         Tuple of (embeddings, script_path, binary_path)
     """
     # Import here to avoid circular imports
-    from .core import learn_embedding_with_model
 
-    # Train the model and get all components
-    embeddings, model, preprocessor, metadata = learn_embedding_with_model(
+    # One training pass produces both the embeddings and the fitted model.
+    embeddings, model = learn_embedding_with_model(
         df=df,
         embedding_dim=embedding_dim,
         mode=mode,
@@ -675,7 +602,6 @@ def train_and_save_model(
         perplexity=perplexity,
         min_dist=min_dist,
         n_iter=n_iter,
-        # Contrastive learning parameters
         similar_pairs=similar_pairs,
         dissimilar_pairs=dissimilar_pairs,
         auto_pairs=auto_pairs,
@@ -684,18 +610,9 @@ def train_and_save_model(
         margin=margin,
     )
 
-    # Optionally remove training history to reduce file size
-    if not include_training_history:
-        metadata["training_history"] = {}
-
-    # Create Row2VecModel
-    row2vec_model = Row2VecModel(
-        model=model,
-        preprocessor=preprocessor,
-        metadata=Row2VecModelMetadata.from_dict(metadata),
-    )
+    model.metadata = describe_model(model, include_training_history=include_training_history)
 
     # Save the model
-    script_path, binary_path = save_model(row2vec_model, base_path, overwrite=overwrite)
+    script_path, binary_path = save_model(model, base_path, overwrite=overwrite)
 
     return embeddings, script_path, binary_path

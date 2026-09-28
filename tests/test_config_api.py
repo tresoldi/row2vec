@@ -161,17 +161,20 @@ class TestConfigBasedAPI:
         assert embeddings.shape == (100, 3)
 
     def test_learn_embedding_with_model_v2(self) -> None:
-        """Test learn_embedding_with_model_v2 returns all artifacts."""
+        """learn_embedding_with_model_v2 returns embeddings and a fitted model."""
         df = generate_synthetic_data(80)
         config = EmbeddingConfig(embedding_dim=4)
 
-        embeddings, model, preprocessor, metadata = learn_embedding_with_model_v2(df, config)
+        embeddings, model = learn_embedding_with_model_v2(df, config)
 
         assert embeddings.shape == (80, 4)
         assert model is not None
-        assert preprocessor is not None
-        assert isinstance(metadata, dict)
-        assert "embedding_dim" in metadata
+        assert model.preprocessor_ is not None
+        assert model.projector_ is not None
+        assert model.config.embedding_dim == 4
+
+        # The returned model projects new rows without refitting.
+        assert model.transform(df.head(3)).shape == (3, 4)
 
     def test_convenience_functions(self) -> None:
         """Test the convenience functions for common use cases."""

@@ -129,10 +129,10 @@ class TestRealDatasetIntegration:
             batch_size=batch_size,
         )
 
-        # Should have embeddings for each unique value of Survived
-        unique_survived = df_sample["Survived"].nunique()
-        assert embeddings.shape[0] == unique_survived
-        assert embeddings.shape[1] == 3
+        # One embedding per passenger, indexed like the source frame. The
+        # per-class matrix is available via aggregate_by_reference=True.
+        assert embeddings.shape == (len(df_sample), 3)
+        assert list(embeddings.index) == list(df_sample.index)
 
     def test_housing_classical_methods(self, housing_data: pd.DataFrame) -> None:
         """Test classical methods on housing dataset."""

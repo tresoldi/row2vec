@@ -347,7 +347,7 @@ def test_c7_saved_model_reproduces_training_embeddings(
     coordinates on reload.
     """
     base_path = tmp_path / "model"
-    trained, _script_path, _binary_path = train_and_save_model(
+    trained, script_path, _binary_path = train_and_save_model(
         labelled_frame,
         base_path,
         mode="pca",
@@ -357,7 +357,7 @@ def test_c7_saved_model_reproduces_training_embeddings(
         enable_logging=False,
     )
 
-    reloaded = load_model(base_path)
+    reloaded = load_model(script_path)
     predicted = reloaded.predict(labelled_frame)
 
     np.testing.assert_allclose(
@@ -373,16 +373,15 @@ def test_c7_metadata_records_the_real_version(labelled_frame: pd.DataFrame, tmp_
     """Metadata must record the running version, not a hardcoded literal."""
     import row2vec
 
-    base_path = tmp_path / "model"
-    train_and_save_model(
+    _embeddings, script_path, _binary_path = train_and_save_model(
         labelled_frame,
-        base_path,
+        tmp_path / "model",
         mode="pca",
         embedding_dim=2,
         enable_logging=False,
     )
 
-    assert load_model(base_path).metadata.row2vec_version == row2vec.__version__
+    assert load_model(script_path).metadata.row2vec_version == row2vec.__version__
 
 
 # --------------------------------------------------------------------------- #
@@ -390,27 +389,52 @@ def test_c7_metadata_records_the_real_version(labelled_frame: pd.DataFrame, tmp_
 # --------------------------------------------------------------------------- #
 
 
-def test_c8_target_encoding_does_not_leak_at_transform() -> None:
-    """On a noise target with unique categories the encoding must carry no signal.
+def test_c8_target_encoding_does_not_leak_through_fit_transform() -> None:
+    """Training rows must get cross-fitted encodings, not their own label.
 
-    ``fit_transform`` computed leak-free cross-validated values and then threw
-    them away; ``transform`` returned the full-data mean per category, which for
-    a unique category *is* that row's own label.
+    ``TargetEncoder`` does compute leak-free cross-validated values, but
+    ``CategoricalEncoder`` never defined ``fit_transform``, so it inherited
+    ``fit().transform()`` from ``TransformerMixin`` and the training rows came
+    back from the full-data map. With one row per category that map *is* the
+    row's own target.
+
+    This asserts at the ``CategoricalEncoder`` level deliberately: that is what
+    ``ColumnTransformer`` calls, so it is the path real data travels. Matching
+    scikit-learn, ``transform`` keeps using the full-data map - it is meant for
+    unseen rows, and its docs say to use ``fit_transform`` on training data.
     """
     rng = np.random.default_rng(11)
     n = 50
-    series = pd.Series([f"cat_{i}" for i in range(n)])  # every category unique
+    frame = pd.DataFrame({"cat": [f"cat_{i}" for i in range(n)]})  # all unique
     target = pd.Series(rng.normal(size=n))  # pure noise
+
+    # encoding_strategy="target" forces the strategy under test, rather than
+    # relying on the adaptive thresholds to pick it.
+    config = CategoricalEncodingConfig(encoding_strategy="target", target_noise=0.0)
+    encoded = CategoricalEncoder(config).fit_transform(frame, target)
+
+    corr = _abs_corr(
+        np.asarray(encoded).astype(float).ravel(),
+        target.to_numpy(dtype=float),
+    )
+    assert corr < 0.3, (
+        f"training encodings correlate {corr:.4f} with a pure-noise target; "
+        "each row is being handed back its own label"
+    )
+
+
+def test_c8_target_encoder_falls_back_for_unseen_categories() -> None:
+    """A category not seen during fit gets the global mean, not a NaN."""
+    rng = np.random.default_rng(12)
+    series = pd.Series([f"c{i % 5}" for i in range(50)])
+    target = pd.Series(rng.normal(size=50))
 
     encoder = TargetEncoder(CategoricalEncodingConfig())
     encoder.fit_transform(series, target)
-    encoded = encoder.transform(series)
 
-    corr = _abs_corr(encoded.to_numpy(dtype=float), target.to_numpy(dtype=float))
-    assert corr < 0.3, (
-        f"encoded values correlate {corr:.4f} with a pure-noise target; "
-        "the encoder is returning each row's own label"
-    )
+    unseen = encoder.transform(pd.Series(["brand_new"]))
+    assert not unseen.isna().any()
+    assert unseen.iloc[0] == pytest.approx(encoder.global_mean_)
 
 
 # --------------------------------------------------------------------------- #

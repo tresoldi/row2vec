@@ -142,13 +142,18 @@ class Row2VecAccessor:
 
         Returns:
             embeddings (DataFrame):
-                DataFrame with supervised embeddings.
+                One row per input row, indexed like the source frame. For the
+                per-category matrix, call
+                :func:`row2vec.learn_embedding` with
+                ``aggregate_by_reference=True``.
 
         Examples:
             >>> import row2vec
             >>> df = row2vec.generate_synthetic_data(80)
             >>> vectors = df.row2vec.supervised("Country", dim=2, max_epochs=2)
-            >>> len(vectors) == df["Country"].nunique()
+            >>> len(vectors) == len(df)
+            True
+            >>> list(vectors.index) == list(df.index)
             True
         """
         config = create_config_for_mode("target")
