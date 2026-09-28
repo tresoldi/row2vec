@@ -292,3 +292,43 @@ class TestTrainingProgressCallback:
 
 if __name__ == "__main__":
     pytest.main([__file__])
+
+
+def test_per_epoch_metrics_are_logged() -> None:
+    """Each epoch must report its loss, not a warning.
+
+    The training callback implemented on_epoch_end but never on_epoch_begin,
+    so the logger never learned when an epoch started and log_epoch_metrics
+    returned early every time. Per-epoch metrics were therefore never logged
+    at all, and every training run emitted one WARNING per epoch instead.
+    """
+    import logging as _logging
+
+    df = generate_synthetic_data(120)
+
+    logger = _logging.getLogger("row2vec")
+    records: list[_logging.LogRecord] = []
+
+    class _Collect(_logging.Handler):
+        def emit(self, record: _logging.LogRecord) -> None:
+            records.append(record)
+
+    handler = _Collect()
+    logger.addHandler(handler)
+    try:
+        learn_embedding(
+            df,
+            mode="unsupervised",
+            embedding_dim=2,
+            max_epochs=3,
+            enable_logging=True,
+            log_level="INFO",
+        )
+    finally:
+        logger.removeHandler(handler)
+
+    messages = [r.getMessage() for r in records]
+
+    assert not any("Epoch start time not recorded" in m for m in messages)
+    assert sum("Epoch" in m and "completed in" in m for m in messages) >= 1
+    assert any("loss=" in m for m in messages)

@@ -66,11 +66,27 @@ __all__ = [
 
 
 class Row2VecTrainingCallback(Callback):
-    """Keras callback for Row2Vec training progress logging."""
+    """Keras callback for Row2Vec training progress logging.
 
-    def __init__(self, logger: Row2VecLogger):
+    Args:
+        logger (Row2VecLogger): Where to report progress.
+        total_epochs (int): The epoch ceiling, for "epoch 3/50" messages.
+    """
+
+    def __init__(self, logger: Row2VecLogger, total_epochs: int = 0):
         super().__init__()
         self.logger = logger
+        self.total_epochs = total_epochs
+
+    def on_epoch_begin(self, epoch: int, logs: Any = None) -> None:
+        """Start the epoch clock.
+
+        Without this the logger never learned when an epoch began, so
+        ``log_epoch_metrics`` returned early with a warning every single
+        epoch - meaning per-epoch metrics were never actually logged, and
+        every training run emitted one warning per epoch instead.
+        """
+        self.logger.start_epoch(epoch, self.total_epochs)
 
     def on_epoch_end(self, epoch: int, logs: Any = None) -> None:
         """Called at the end of each epoch."""
@@ -796,7 +812,7 @@ class Row2VecModel:
                 EarlyStopping(monitor="val_loss", patience=5, restore_best_weights=True),
             )
         if logger is not None:
-            callbacks.append(Row2VecTrainingCallback(logger))
+            callbacks.append(Row2VecTrainingCallback(logger, neural.max_epochs))
 
         history = model.fit(
             X_train,
@@ -869,7 +885,7 @@ class Row2VecModel:
                 EarlyStopping(monitor="loss", patience=5, restore_best_weights=True),
             )
         if logger is not None:
-            callbacks.append(Row2VecTrainingCallback(logger))
+            callbacks.append(Row2VecTrainingCallback(logger, config.neural.max_epochs))
 
         history = model.fit(
             dataset,

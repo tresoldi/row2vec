@@ -8,11 +8,8 @@ capabilities in Row2Vec with different strategies and configurations.
 import numpy as np
 import pandas as pd
 
-from row2vec.config import (
-    CategoricalEncodingConfig,
-    EmbeddingConfig,
-    PreprocessingConfig,
-)
+from row2vec.categorical_encoding import CategoricalEncodingConfig
+from row2vec.config import EmbeddingConfig, PreprocessingConfig
 from row2vec.core import learn_embedding
 from row2vec.pipeline_builder import build_adaptive_pipeline
 
@@ -103,9 +100,12 @@ def example_target_encoding():
     config.preprocessing.categorical_encoding_strategy = "target"
     config.preprocessing.categorical_target_threshold = 50  # Use target encoding for <50 categories
 
+    # Target encoding collapses each categorical column to a single numeric
+    # column, so the preprocessed feature space is small - the embedding has to
+    # fit inside it.
     embeddings = learn_embedding(
         df,
-        embedding_dim=10,
+        embedding_dim=4,
         mode="target",
         reference_column="target",
         config=config,
@@ -163,9 +163,10 @@ def example_mixed_strategies():
     # - Target encoding for 'city' (20 categories, 5 < 20 <= 15 would be target if supervised)
     # - Entity embeddings for 'product_id' (200 categories > 100)
 
+    # Mixed strategies leave a modest feature space; the embedding fits inside it.
     embeddings = learn_embedding(
         df,
-        embedding_dim=15,
+        embedding_dim=8,
         mode="target",
         reference_column="target",
         config=config,
