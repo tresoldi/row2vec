@@ -112,8 +112,10 @@ def generate_synthetic_data(num_records: int, seed: int = 1305) -> pd.DataFrame:
         if country in ["USA", "Canada"]:
             sales = rng.normal(100, 10)
         else:
-            sales = rng.choice(
-                [rng.normal(500, 50), rng.normal(20, 5)],
+            sales = float(
+                rng.choice(
+                    [rng.normal(500, 50), rng.normal(20, 5)],
+                )
             )
 
         data.append({"Country": country, "Product": product, "Sales": max(0, sales)})
