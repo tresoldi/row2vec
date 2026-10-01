@@ -87,6 +87,7 @@ src/row2vec/
 │                          # -- tuning --
 ├── auto_dimension.py      # auto_select_dimension
 ├── architecture_search.py # search_architecture
+├── evaluation.py          # compare_modes
 │
 │                          # -- boundaries --
 ├── serialization.py       # save/load a fitted model with its pipeline

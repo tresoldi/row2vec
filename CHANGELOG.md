@@ -26,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`row2vec.compare_modes`**: fits several modes on one table and scores them
+  on held-out rows, returning a table of trustworthiness, a downstream k-NN score
+  when a `target` column is given, and fit time, alongside a no-embedding
+  baseline. The target is withheld from every mode except `mode="target"`;
+  t-SNE is scored on all rows without a downstream score because it has no
+  out-of-sample extension; modes needing TensorFlow are reported `unavailable`
+  rather than raising.
 - A `light` CI job that runs the suite without TensorFlow, and
   `tests/test_optional_neural.py`, which checks in a fresh interpreter that the
   classical modes work and the neural ones fail helpfully when TensorFlow is

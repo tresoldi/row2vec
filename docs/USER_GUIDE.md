@@ -135,6 +135,41 @@ When-to-use, in one line each:
 - **`contrastive`** — supervised by pairs. Use it when you know that certain rows
   should be close (same customer, same cluster, same label).
 
+### Comparing modes on your own data
+
+The tables above are rules of thumb. To see which mode suits *your* table, ask:
+
+```python
+import row2vec
+
+df = row2vec.generate_synthetic_data(150)
+
+report = row2vec.compare_modes(df, target="Country", modes=["pca", "tsne"])
+
+assert report.loc["pca", "status"] == "ok"
+assert 0.0 < report.loc["pca", "trustworthiness"] <= 1.0
+print(report[["trustworthiness", "downstream_score", "fit_seconds"]])
+```
+
+`compare_modes` fits each mode on the same training rows and scores it on rows
+it did not see, so a mode that memorises its training data gains nothing:
+
+- **`trustworthiness`** — whether a row's nearest neighbours in the embedding are
+  its nearest neighbours in the preprocessed table. 1.0 means the neighbourhood
+  structure survived.
+- **`downstream_score`** — given a `target` column, how well a k-nearest-neighbour
+  model on the embedding predicts it: accuracy for a categorical target, R² for
+  a numeric one. The `target` column is withheld from every mode as an input
+  (only `mode="target"` uses it, as its label).
+- A **`baseline`** row gives the same score on the preprocessed features with no
+  embedding, which is the number an embedding has to justify itself against.
+
+t-SNE cannot embed unseen rows, so it is scored on trustworthiness alone, over
+all rows. Modes that need TensorFlow show up as `unavailable` when it is not
+installed, and a mode that raises is reported as `failed` with the error, so one
+bad mode never hides the rest. Pass `max_epochs=20` (or any other
+`learn_embedding` argument) to keep the neural modes quick.
+
 ---
 
 ## The methods

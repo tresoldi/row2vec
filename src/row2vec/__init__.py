@@ -40,6 +40,7 @@ from .config import (
     ScalingConfig,
 )
 from .core import learn_embedding, learn_embedding_with_model
+from .evaluation import compare_modes
 from .imputation import AdaptiveImputer, ImputationConfig, MissingPatternAnalyzer
 from .logging import Row2VecLogger, get_logger
 from .pipeline_builder import (
@@ -107,6 +108,7 @@ __all__ = [
     "TargetEncoder",
     "auto_select_dimension",
     "build_adaptive_pipeline",
+    "compare_modes",
     "create_dataframe_schema",
     "generate_synthetic_data",
     # Utilities
