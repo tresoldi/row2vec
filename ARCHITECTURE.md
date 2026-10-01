@@ -74,6 +74,7 @@ src/row2vec/
 ├── core.py                # learn_embedding + every mode's implementation
 ├── api.py                 # config-object entry points (learn_embedding_v2, ...)
 ├── config.py              # EmbeddingConfig and its component dataclasses
+├── _backend.py            # lazy, optional TensorFlow: require_tensorflow()
 ├── utils.py               # dtype classification, synthetic data, schema helpers
 ├── logging.py             # structured training/progress logging
 │

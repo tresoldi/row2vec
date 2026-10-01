@@ -5,19 +5,23 @@ fitted :class:`row2vec.model.Row2VecModel` can use them without importing each
 other.
 """
 
-from typing import Any
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import numpy.typing as npt
-import pandas as pd
-import tensorflow as tf
 from sklearn.cluster import KMeans
 from sklearn.neighbors import NearestNeighbors
-from tensorflow.keras.layers import Dense, Dropout, Input
-from tensorflow.keras.models import Model
 
-from .logging import Row2VecLogger
+from ._backend import require_tensorflow
 from .utils import categorical_columns
+
+if TYPE_CHECKING:
+    import pandas as pd
+    from tensorflow.keras.models import Model
+
+    from .logging import Row2VecLogger
 
 __all__ = [
     "build_contrastive_model",
@@ -159,6 +163,7 @@ def generate_contrastive_pairs(
 
 def create_contrastive_loss_function(loss_type: str, margin: float) -> Any:
     """Create the contrastive loss function."""
+    tf = require_tensorflow("mode='contrastive'")
 
     if loss_type == "triplet":
 
@@ -223,6 +228,10 @@ def build_contrastive_model(
     seed: int,
 ) -> Model:
     """Build the contrastive learning model."""
+    tf = require_tensorflow("mode='contrastive'")
+    from tensorflow.keras.layers import Dense, Dropout, Input
+    from tensorflow.keras.models import Model
+
     tf.random.set_seed(seed)
 
     # Shared encoder network
@@ -308,6 +317,7 @@ def create_contrastive_dataset(
     seed: int,
 ) -> Any:
     """Create a TensorFlow dataset for contrastive learning."""
+    tf = require_tensorflow("mode='contrastive'")
     np.random.seed(seed)
 
     all_pairs = []

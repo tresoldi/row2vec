@@ -263,6 +263,7 @@ class TestSearchArchitecture:
     @pytest.mark.slow
     def test_writes_json_results(self, workspace: Path) -> None:
         """The search command runs and serialises its results."""
+        pytest.importorskip("tensorflow", reason="architecture search needs the [neural] extra")
         out = workspace / "search.json"
 
         code = run_cli(

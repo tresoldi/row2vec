@@ -14,6 +14,7 @@ import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 
+from ._backend import require_tensorflow
 from .api import learn_embedding_v2
 from .config import EmbeddingConfig, NeuralConfig
 from .logging import get_logger
@@ -138,6 +139,8 @@ class ArchitectureSearcher:
         Returns:
             ArchitectureSearchResult containing the best architecture and metadata
         """
+        require_tensorflow("Architecture search")
+
         start_time = time.time()
         self._start_time = start_time
 

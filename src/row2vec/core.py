@@ -13,17 +13,26 @@ The keyword signature is kept so existing code and documentation keep working.
 What changed is the semantics, and all of it is documented in MIGRATION.md.
 """
 
+from typing import Any
+
 import pandas as pd
 
+from . import model as _model
 from .config import EmbeddingConfig
-from .model import Row2VecModel, Row2VecTrainingCallback, get_feature_names
+from .model import Row2VecModel, get_feature_names
 
 __all__ = [
-    "Row2VecTrainingCallback",
     "get_feature_names",
     "learn_embedding",
     "learn_embedding_with_model",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    # Row2VecTrainingCallback subclasses a Keras class, so it is built lazily.
+    if name == "Row2VecTrainingCallback":
+        return getattr(_model, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def _build_config(

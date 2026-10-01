@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** TensorFlow is no longer a hard dependency. `pip install row2vec`
+  gives PCA, t-SNE and UMAP; the autoencoder, target and contrastive modes,
+  architecture search, and entity-embedding categorical encoding need
+  `pip install "row2vec[neural]"`. Using one without it raises
+  `row2vec._backend.NeuralBackendMissing` (an `ImportError`) naming the extra.
+- `import row2vec` no longer imports TensorFlow, and fitting PCA, t-SNE or UMAP
+  never loads it.
+- Without TensorFlow, a high-cardinality categorical column that would get
+  entity embeddings uses target encoding when a usable target exists (with a
+  warning), and otherwise raises rather than falling back to an unbounded
+  encoding.
+- `Row2VecTrainingCallback` is built on first use; it is still available as
+  `row2vec.model.Row2VecTrainingCallback` and `row2vec.core.Row2VecTrainingCallback`.
+- `row2vec[dev]` and `row2vec[all]` include the `neural` extra.
+
+### Added
+
+- A `light` CI job that runs the suite without TensorFlow, and
+  `tests/test_optional_neural.py`, which checks in a fresh interpreter that the
+  classical modes work and the neural ones fail helpfully when TensorFlow is
+  blocked.
+
 ## [0.3.0] - 2026-09-28
 
 Correctness release. An independent audit of 0.2.0 found nine data-integrity

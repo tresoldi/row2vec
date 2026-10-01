@@ -34,8 +34,14 @@ itself behind one consistent interface.
 ## Install
 
 ```bash
-pip install row2vec
+pip install row2vec            # PCA, t-SNE, UMAP
+pip install "row2vec[neural]"  # adds the autoencoder, target and contrastive modes (TensorFlow)
 ```
+
+The default install is light and has no TensorFlow. The neural modes
+(`unsupervised`, `target`, `contrastive`), architecture search, and entity
+embeddings for very high-cardinality columns need the `neural` extra; asking for
+one without it raises an error that says so.
 
 ## The interface
 

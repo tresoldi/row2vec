@@ -15,9 +15,8 @@ from numpy.typing import NDArray
 from sklearn.metrics import mutual_info_score
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder, OrdinalEncoder
-from tensorflow import keras
-from tensorflow.keras import layers
 
+from ._backend import NeuralBackendMissing, neural_available, require_tensorflow
 from .utils import is_categorical_series
 
 if TYPE_CHECKING:
@@ -255,6 +254,48 @@ class CategoricalAnalyzer:
         *,
         target_usable: bool = False,
     ) -> str:
+        """Recommend a strategy, never one that needs a backend that is absent.
+
+        Entity embeddings train a Keras model. Without TensorFlow a column that
+        would get them uses target encoding when a target allows it (with a
+        warning), and otherwise raises, because the remaining encodings either
+        blow up the width (one-hot) or are the unbounded ordinal codes 0.3.0
+        removed.
+        """
+        strategy = self._ideal_strategy(
+            cardinality,
+            target_correlation,
+            missing_rate,
+            imbalance_ratio,
+            target_usable=target_usable,
+        )
+        if strategy != "entity" or neural_available():
+            return strategy
+        if target_usable:
+            warnings.warn(
+                f"A column with {cardinality} distinct values would get entity "
+                "embeddings, which need TensorFlow (pip install "
+                '"row2vec[neural]"); using target encoding instead.',
+                stacklevel=2,
+            )
+            return "target"
+        raise NeuralBackendMissing(
+            f"A column with {cardinality} distinct values needs entity "
+            "embeddings, which need TensorFlow and are not installed: "
+            'pip install "row2vec[neural]". Alternatively pass a numeric or '
+            "binary target for target encoding, or set "
+            'categorical_encoding_strategy="onehot" or drop the column.'
+        )
+
+    def _ideal_strategy(
+        self,
+        cardinality: int,
+        target_correlation: float,
+        missing_rate: float,
+        imbalance_ratio: float,
+        *,
+        target_usable: bool = False,
+    ) -> str:
         """Recommend an encoding strategy from the column's characteristics.
 
         ``target_usable`` says whether a target suitable for target encoding
@@ -389,6 +430,9 @@ class EntityEmbeddingTrainer:
         embedding_dim: int,
     ) -> NDArray[Any]:
         """Train supervised entity embeddings using target variable."""
+        require_tensorflow("Entity-embedding categorical encoding")
+        from tensorflow import keras
+        from tensorflow.keras import layers
 
         # Determine task type
         if is_categorical_series(target) or target.nunique() < 20:
@@ -468,6 +512,9 @@ class EntityEmbeddingTrainer:
         embedding_dim: int,
     ) -> NDArray[Any]:
         """Train unsupervised entity embeddings using autoencoder approach."""
+        require_tensorflow("Entity-embedding categorical encoding")
+        from tensorflow import keras
+        from tensorflow.keras import layers
 
         # Create one-hot representation for autoencoder
         onehot = np.eye(cardinality)[categories]

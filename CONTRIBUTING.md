@@ -21,7 +21,7 @@ pre-commit install
 
 Installing with the `dev` extra pulls in everything the test suite and the
 tooling need: `pytest`, `ruff`, `mypy`, `bandit`, `build`, and the type stubs. If
-you only want to run the tests, the lighter `pip install -e ".[test]"` is enough.
+you only want to run the tests, the lighter `pip install -e ".[test,neural]"` is enough. `pip install -e ".[test]"` alone installs no TensorFlow; that is the configuration the `light` CI job runs, and the tests that need TensorFlow skip themselves there.
 The `docs` extra adds MkDocs and mkdocstrings for the documentation site.
 
 The package lives under `src/row2vec/`. An editable install puts it on the path;
