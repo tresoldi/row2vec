@@ -1,6 +1,6 @@
 # Row2Vec Architecture
 
-> Status: **describes the delivered architecture as of 0.2.0.**
+> Status: **describes the delivered architecture as of 0.3.0.**
 > This document defines the structure, boundaries, and design principles of
 > Row2Vec. New modules should fit within it; changes that move away from it
 > should update it in the same PR. Key design decisions are recorded in §8.
@@ -71,7 +71,8 @@ is transparent to users.
 ```
 src/row2vec/
 ├── __init__.py            # public API surface (stable import path)
-├── core.py                # learn_embedding + every mode's implementation
+├── core.py                # learn_embedding and friends: thin facades over Row2VecModel
+├── model.py               # Row2VecModel: the one object that owns fitted state
 ├── api.py                 # config-object entry points (learn_embedding_v2, ...)
 ├── config.py              # EmbeddingConfig and its component dataclasses
 ├── utils.py               # dtype classification, synthetic data, schema helpers
@@ -96,9 +97,12 @@ src/row2vec/
 
 **Rationale for the boundaries**
 
-- `core.py` holds the modes themselves. They share so much preprocessing and
-  validation that splitting them per method would mean either duplicating that
-  work or inventing an abstraction nobody asked for (YAGNI, §2.5).
+- `model.py` holds the modes themselves, as `Row2VecModel`. They share so much
+  preprocessing and validation that splitting them per method would mean either
+  duplicating that work or inventing an abstraction nobody asked for (YAGNI,
+  §2.5). `core.py` and `api.py` only translate arguments into a model and call
+  `fit`/`transform`; before 0.3.0 `core.py` also carried a second, divergent
+  training implementation, which is why it shrank from 1919 lines to 355.
 - The **preprocessing** modules form a stack: `pipeline_builder` composes
   `imputation` and `categorical_encoding` into a single fitted transformer. That
   transformer is the object `serialization` persists.
@@ -148,6 +152,12 @@ embeddings = row2vec.learn_embedding_v2(df, EmbeddingConfig(...))
 `EmbeddingConfig` composes `NeuralConfig`, `ClassicalConfig`,
 `ContrastiveConfig`, `ScalingConfig`, `PreprocessingConfig`, and `LoggingConfig`
 — one per concern, so a caller sets only what they care about.
+
+**The fitted model.** `learn_embedding_with_model` returns `(embeddings, model)`;
+the `model` is a `Row2VecModel` with `fit`, `transform`, `predict`, and
+`fit_transform`. `transform` never fits. The one exception is `mode="tsne"`,
+which has no out-of-sample extension and raises. The scikit-learn adapter's
+`transform` projects through this object rather than retraining.
 
 **Persistence.** A fitted model can be saved and restored with its preprocessing:
 
@@ -203,6 +213,10 @@ documented in `MIGRATION.md` and flagged in the `CHANGELOG`.
 0.2.0 moved the package to a `src/` layout and rebuilt the documentation and
 tooling. The import path did not change, so no user code needed editing.
 
+0.3.0 is a correctness release and **does** change numerical output and some
+signatures (`learn_embedding_with_model`, `Row2VecTransformer`, target mode);
+models saved by 0.2.0 cannot be loaded. See `MIGRATION.md`.
+
 ---
 
 ## 8. Decisions (resolved)
@@ -226,3 +240,7 @@ tooling. The import path did not change, so no user code needed editing.
    either convention (§3).
 7. **Docs tooling:** MkDocs-Material + mkdocstrings, published to GitHub Pages,
    with every example executed in CI (§6).
+8. **One fitted object behind every entry point (0.3.0).** `Row2VecModel` owns
+   the preprocessor, projector, encoder view, and embedding scaler. The
+   alternative — each entry point assembling its own pipeline — produced three
+   divergent implementations and the defects the 0.3.0 audit found (§2.2, §3).
