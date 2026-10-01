@@ -5,9 +5,12 @@ analyzes data characteristics and builds optimal preprocessing pipelines
 with adaptive categorical encoding strategies.
 """
 
+from collections.abc import Hashable
 from typing import Any
 
+import numpy as np
 import pandas as pd
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
@@ -17,6 +20,34 @@ from .categorical_encoding import CategoricalEncoder, CategoricalEncodingConfig
 from .config import EmbeddingConfig
 from .imputation import AdaptiveImputer, ImputationConfig
 from .utils import categorical_columns, is_categorical_series, numeric_columns
+
+
+class _TolerantMinMaxScaler(BaseEstimator, TransformerMixin):
+    """Min-max scaling that tolerates an input with no columns.
+
+    Every categorical column of a frame can legitimately encode to nothing -
+    a constant column is dropped, for instance - and scikit-learn's
+    MinMaxScaler cannot fit an ``(n, 0)`` array. Scaling nothing is a no-op,
+    so say that rather than failing.
+    """
+
+    def __init__(self) -> None:
+        self.scaler_: MinMaxScaler | None = None
+
+    def fit(self, X: Any, y: Any = None) -> "_TolerantMinMaxScaler":
+        """Fit the underlying scaler unless there is nothing to scale."""
+        values = np.asarray(X)
+        if values.ndim == 2 and values.shape[1] == 0:
+            self.scaler_ = None
+            return self
+        self.scaler_ = MinMaxScaler().fit(values)
+        return self
+
+    def transform(self, X: Any) -> Any:
+        """Scale ``X``, or pass it through when there is nothing to scale."""
+        if self.scaler_ is None:
+            return np.asarray(X)
+        return self.scaler_.transform(np.asarray(X))
 
 
 class PipelineBuilder:
@@ -100,6 +131,7 @@ class PipelineBuilder:
             numeric_cols,
             categorical_cols,
             data_analysis,
+            df,
         )
 
         return preprocessor, data_analysis
@@ -111,7 +143,7 @@ class PipelineBuilder:
     ) -> dict[str, Any]:
         """Analyze dataset characteristics to inform pipeline construction."""
 
-        analysis = {
+        analysis: dict[str, Any] = {
             "dataset_shape": df.shape,
             "total_missing": df.isnull().sum().sum(),
             "missing_percentage": (df.isnull().sum().sum() / df.size) * 100,
@@ -129,9 +161,9 @@ class PipelineBuilder:
                 analysis["target_type"] = "regression"
 
         # Column-specific analysis
-        analysis["column_analysis"] = {}
+        column_analysis: dict[str, dict[str, Any]] = {}
         for col in df.columns:
-            col_analysis = {
+            col_analysis: dict[str, Any] = {
                 "dtype": str(df[col].dtype),
                 "missing_count": df[col].isnull().sum(),
                 "missing_percentage": (df[col].isnull().sum() / len(df)) * 100,
@@ -151,15 +183,17 @@ class PipelineBuilder:
                 col_analysis["min"] = df[col].min() if not df[col].isnull().all() else None
                 col_analysis["max"] = df[col].max() if not df[col].isnull().all() else None
 
-            analysis["column_analysis"][col] = col_analysis
+            column_analysis[col] = col_analysis
+
+        analysis["column_analysis"] = column_analysis
 
         return analysis
 
-    def _get_numeric_columns(self, df: pd.DataFrame) -> list[str]:
+    def _get_numeric_columns(self, df: pd.DataFrame) -> list[Hashable]:
         """Get list of numeric columns."""
         return numeric_columns(df)
 
-    def _get_categorical_columns(self, df: pd.DataFrame) -> list[str]:
+    def _get_categorical_columns(self, df: pd.DataFrame) -> list[Hashable]:
         """Get list of categorical columns."""
         return categorical_columns(df)
 
@@ -223,6 +257,14 @@ class PipelineBuilder:
         categorical_config = self._build_categorical_config(categorical_df, target)
         steps.append(("encoder", CategoricalEncoder(categorical_config)))
 
+        # Bound the encoded columns. The numeric branch is standardised to
+        # roughly unit variance; leaving encoded columns unscaled let an
+        # ordinal or entity column with a range in the hundreds dominate every
+        # embedding. Min-max is used rather than standardisation because
+        # standardising a rare one-hot column amplifies it instead.
+        if self.config.preprocessing.numeric_scaling != "none":
+            steps.append(("scaler", _TolerantMinMaxScaler()))
+
         return Pipeline(steps)
 
     def _build_categorical_config(
@@ -280,11 +322,25 @@ class PipelineBuilder:
 
     def _describe_pipeline(
         self,
-        numeric_cols: list[str],
-        categorical_cols: list[str],
+        numeric_cols: list[Hashable],
+        categorical_cols: list[Hashable],
         analysis: dict[str, Any],
+        df: pd.DataFrame,
     ) -> dict[str, Any]:
-        """Create human-readable description of the constructed pipeline."""
+        """Describe the pipeline that was just built.
+
+        Args:
+            numeric_cols (list[Hashable]): Numeric column labels.
+            categorical_cols (list[Hashable]): Categorical column labels.
+            analysis (dict[str, Any]): The dataset analysis.
+            df (pd.DataFrame): The frame the pipeline was built for. Needed
+                because the description used to report the strategy for an
+                *empty* frame, which always answers "none", so the report said
+                "none" while the pipeline actually used, say, knn.
+
+        Returns:
+            dict[str, Any]: A human-readable description.
+        """
 
         description: dict[str, Any] = {
             "dataset_summary": {
@@ -301,7 +357,7 @@ class PipelineBuilder:
 
         # Numeric processing description
         if numeric_cols:
-            missing_strategy = self._determine_numeric_missing_strategy(pd.DataFrame())
+            missing_strategy = self._determine_numeric_missing_strategy(df[numeric_cols])
             description["numeric_processing"] = [
                 f"Missing value imputation: {missing_strategy}",
                 f"Scaling method: {self.config.preprocessing.numeric_scaling}",

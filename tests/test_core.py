@@ -1,3 +1,5 @@
+import logging
+
 import pandas as pd
 import pytest
 
@@ -45,8 +47,21 @@ def test_target_embedding(synthetic_data: pd.DataFrame) -> None:
         max_epochs=2,  # Keep it fast
     )
 
-    assert embeddings.shape[0] == num_unique_countries
-    assert embeddings.shape[1] == embedding_dim
+    # Since 0.3.0 target mode returns one row per input row, indexed by
+    # df.index. The per-category matrix is available via
+    # aggregate_by_reference=True.
+    assert embeddings.shape == (len(df), embedding_dim)
+    assert list(embeddings.index) == list(df.index)
+
+    aggregated = learn_embedding(
+        df,
+        mode="target",
+        reference_column=reference_column,
+        embedding_dim=embedding_dim,
+        max_epochs=2,
+        aggregate_by_reference=True,
+    )
+    assert aggregated.shape == (num_unique_countries, embedding_dim)
     assert list(embeddings.columns) == [f"embedding_{i}" for i in range(embedding_dim)]
 
 
@@ -309,44 +324,58 @@ def test_classical_methods_different_dimensions(synthetic_data: pd.DataFrame) ->
             assert umap_emb.shape[1] == dim
 
 
-def test_pca_explained_variance_logging(synthetic_data: pd.DataFrame) -> None:
-    """
-    Tests that PCA logs explained variance information.
+def test_pca_explained_variance_logging(
+    synthetic_data: pd.DataFrame, caplog: pytest.LogCaptureFixture
+) -> None:
+    """PCA must actually report the variance it explains.
+
+    This asserted only `embeddings.shape`, so it passed whether or not a single
+    line was logged - which is how the logging calls came to be dropped
+    unnoticed during a refactor.
     """
     df = synthetic_data
 
-    # This test mainly ensures PCA runs without errors
-    # and logs meaningful information
-    embeddings = learn_embedding(
-        df,
-        mode="pca",
-        embedding_dim=3,
-        enable_logging=True,
-        log_level="DEBUG",
-        verbose=False,
-    )
+    with caplog.at_level(logging.DEBUG, logger="row2vec"):
+        embeddings = learn_embedding(
+            df,
+            mode="pca",
+            embedding_dim=3,
+            enable_logging=True,
+            log_level="DEBUG",
+            verbose=False,
+        )
 
     assert embeddings.shape == (df.shape[0], 3)
+    assert any("explained variance" in record.message.lower() for record in caplog.records), (
+        "PCA did not log its explained variance ratio"
+    )
 
 
-def test_tsne_high_dimension_warning(synthetic_data: pd.DataFrame) -> None:
-    """
-    Tests that t-SNE warns for high embedding dimensions.
+def test_tsne_high_dimension_warning(
+    synthetic_data: pd.DataFrame, caplog: pytest.LogCaptureFixture
+) -> None:
+    """t-SNE must warn when asked for more than three dimensions.
+
+    The name promised a warning test; the body asserted a shape, so the warning
+    could disappear without anything failing.
     """
     df = synthetic_data
 
-    # This should work but might log a warning
-    embeddings = learn_embedding(
-        df,
-        mode="tsne",
-        embedding_dim=5,  # Higher than recommended
-        perplexity=5,
-        n_iter=250,  # Keep it fast but above minimum
-        enable_logging=True,
-        verbose=False,
-    )
+    with caplog.at_level(logging.WARNING, logger="row2vec"):
+        embeddings = learn_embedding(
+            df,
+            mode="tsne",
+            embedding_dim=5,  # Higher than recommended
+            perplexity=5,
+            n_iter=250,  # Keep it fast but above minimum
+            enable_logging=True,
+            verbose=False,
+        )
 
     assert embeddings.shape == (df.shape[0], 5)
+    assert any("t-SNE" in record.message for record in caplog.records), (
+        "t-SNE did not warn about an embedding_dim above 3"
+    )
 
 
 def test_invalid_classical_mode_raises_error(synthetic_data: pd.DataFrame) -> None:

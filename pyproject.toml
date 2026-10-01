@@ -42,7 +42,8 @@ requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.21.0",
     "pandas>=1.5.3",
-    "scikit-learn>=1.0.0",
+    # >=1.5 for TSNE's `max_iter`; `n_iter` was deprecated there and removed in 1.7.
+    "scikit-learn>=1.5",
     "tensorflow>=2.8.0",
     "umap-learn>=0.5.0",
     "psutil>=5.8.0",
@@ -74,8 +75,11 @@ dev = [
     "mypy==2.3.0",
     "bandit[toml]>=1.7.0",
 
-    # Type stubs for the third-party libraries we call into.
-    "pandas-stubs>=2.0.0",
+    # Type stubs for the third-party libraries we call into. pandas-stubs is
+    # pinned exactly for the same reason ruff/mypy are: a stub release changes
+    # what mypy reports without a line of our code changing. Leaving it open
+    # is what turned `make quality` red between 0.2.0 and 0.3.0.
+    "pandas-stubs==3.0.5",
     "types-psutil",
     "types-PyYAML>=6.0.0",
 
@@ -167,6 +171,12 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+# Writing to stdout and stderr is the entire job of a command-line interface.
+# With T201 enforced here, the CLI's output was deleted rather than exempted,
+# which is how `row2vec` came to exit 1 in silence on every error path.
+"src/row2vec/cli.py" = [
+    "T201",    # print() is how a CLI talks to the user
+]
 "tests/**/*.py" = [
     "ARG001",  # Unused function arguments in tests
     "ARG002",  # Unused method arguments in tests
@@ -238,7 +248,7 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",
-    "--cov-fail-under=70",
+    "--cov-fail-under=75",
 ]
 testpaths = ["tests"]
 markers = [

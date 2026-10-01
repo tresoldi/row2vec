@@ -161,17 +161,20 @@ class TestConfigBasedAPI:
         assert embeddings.shape == (100, 3)
 
     def test_learn_embedding_with_model_v2(self) -> None:
-        """Test learn_embedding_with_model_v2 returns all artifacts."""
+        """learn_embedding_with_model_v2 returns embeddings and a fitted model."""
         df = generate_synthetic_data(80)
         config = EmbeddingConfig(embedding_dim=4)
 
-        embeddings, model, preprocessor, metadata = learn_embedding_with_model_v2(df, config)
+        embeddings, model = learn_embedding_with_model_v2(df, config)
 
         assert embeddings.shape == (80, 4)
         assert model is not None
-        assert preprocessor is not None
-        assert isinstance(metadata, dict)
-        assert "embedding_dim" in metadata
+        assert model.preprocessor_ is not None
+        assert model.projector_ is not None
+        assert model.config.embedding_dim == 4
+
+        # The returned model projects new rows without refitting.
+        assert model.transform(df.head(3)).shape == (3, 4)
 
     def test_convenience_functions(self) -> None:
         """Test the convenience functions for common use cases."""
@@ -266,12 +269,16 @@ class TestConfigFactories:
         assert contrastive_config.neural.batch_size == 32  # Smaller batches
         assert contrastive_config.contrastive.auto_pairs == "cluster"  # Default auto_pairs
 
-        # Test target mode gets optimized settings
-        target_config = create_config_for_mode("target")
+        # Target mode requires the column that supervises it, rather than
+        # being built invalid behind a placeholder and nulled afterwards.
+        target_config = create_config_for_mode("target", reference_column="Country")
         assert target_config.mode == "target"
-        assert target_config.reference_column is None  # Starts as None, user must set
+        assert target_config.reference_column == "Country"
         assert target_config.neural.max_epochs == 75  # More epochs for target
         assert target_config.neural.batch_size == 64  # Standard batch size
+
+        with pytest.raises(ValueError, match="reference_column"):
+            create_config_for_mode("target")
 
         # Test classical modes
         pca_config = create_config_for_mode("pca")

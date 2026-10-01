@@ -14,7 +14,9 @@ if __name__ == "__main__":
     # 1. Generate synthetic data
     df = generate_synthetic_data(1000)
 
-    # 2. Learn target-based embeddings for the 'Country' column
+    # 2. Learn target-based embeddings, one row per country.
+    #    aggregate_by_reference indexes the result by the country itself, so
+    #    there are no category codes to map back.
     print("Target-based embedding (Country):")
     target_emb = learn_embedding(
         df,
@@ -22,14 +24,22 @@ if __name__ == "__main__":
         reference_column="Country",
         embedding_dim=2,
         verbose=True,
+        aggregate_by_reference=True,
     )
+    print(target_emb.to_string())
+    print("-" * 50)
 
-    # Map category codes back to country names for inspection
-    code_to_country = dict(enumerate(df["Country"].astype("category").cat.categories))
-    target_emb = target_emb.reset_index().rename(columns={"category": "CountryCode"})
-    target_emb["Country"] = target_emb["CountryCode"].map(code_to_country)
-    target_emb = target_emb.drop(columns=["CountryCode"])
-    print(target_emb.to_string(index=False))
+    # 2b. Without aggregation, target mode gives one row per input row,
+    #     carrying df's index, so it joins straight back on.
+    per_row = learn_embedding(
+        df,
+        mode="target",
+        reference_column="Country",
+        embedding_dim=2,
+        verbose=False,
+    )
+    print("Per-row target embedding joined back onto the source:")
+    print(df.join(per_row).head().to_string())
     print("-" * 50)
 
     # 3. Learn unsupervised embeddings for each row

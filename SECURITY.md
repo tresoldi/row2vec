@@ -29,10 +29,12 @@ Because Row2Vec is a data-science library with no network or authentication
 surface, the most likely concerns are around untrusted input. Two areas are
 worth calling out:
 
-- **Model deserialization.** `load_model()` restores a saved pipeline, which
-  includes unpickling preprocessing objects. Only load models from sources you
-  trust; a malicious model file can execute arbitrary code, as with any
-  pickle-based format.
+- **Model deserialization.** A saved model is two files: a readable Python
+  loader script and a binary blob. `load_model()` **executes that script** and
+  then unpickles the blob, so loading a model runs whatever code the script
+  contains - this is not only a pickle concern. Only load models from sources
+  you trust, and read the `.py` file first if you are unsure: it is plain
+  Python, written to be inspected.
 - **Untrusted DataFrames and configuration files.** Adversarial column names,
   dtypes, or YAML configuration passed to the CLI.
 

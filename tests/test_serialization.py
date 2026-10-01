@@ -17,7 +17,7 @@ from row2vec import (
     save_model,
     train_and_save_model,
 )
-from row2vec.serialization import Row2VecModelMetadata
+from row2vec.serialization import describe_model
 
 
 class TestModelSerialization:
@@ -36,7 +36,7 @@ class TestModelSerialization:
 
     def test_learn_embedding_with_model_unsupervised(self, sample_data: pd.DataFrame) -> None:
         """Test learn_embedding_with_model with unsupervised mode."""
-        embeddings, model, preprocessor, metadata = learn_embedding_with_model(
+        embeddings, model = learn_embedding_with_model(
             sample_data,
             embedding_dim=5,
             mode="unsupervised",
@@ -50,10 +50,10 @@ class TestModelSerialization:
         assert embeddings.shape[1] == 5
         assert embeddings.shape[0] == 100
         assert model is not None
-        assert preprocessor is not None
-        assert isinstance(metadata, dict)
+        assert model.preprocessor_ is not None
 
         # Check metadata contents
+        metadata = describe_model(model).to_dict()
         assert metadata["embedding_dim"] == 5
         assert metadata["mode"] == "unsupervised"
         assert metadata["data_shape"] == (100, 3)
@@ -62,7 +62,7 @@ class TestModelSerialization:
 
     def test_learn_embedding_with_model_target(self, sample_data: pd.DataFrame) -> None:
         """Test learn_embedding_with_model with target mode."""
-        embeddings, model, preprocessor, metadata = learn_embedding_with_model(
+        embeddings, model = learn_embedding_with_model(
             sample_data,
             embedding_dim=3,
             mode="target",
@@ -72,21 +72,37 @@ class TestModelSerialization:
             enable_logging=False,
         )
 
-        # Check return types and shapes
+        # Since 0.3.0 target mode returns one row per input row, indexed by
+        # df.index, like every other mode. The per-category matrix is opt-in.
         assert isinstance(embeddings, pd.DataFrame)
-        # In target mode, we get grouped embeddings (one per category), not per row
-        # The shape should be (n_categories, embedding_dim) - no extra category column
-        # since the categories become the index after grouping
-        assert embeddings.shape[1] == 3  # Just the embeddings
-        assert embeddings.shape[0] <= 5  # Number of unique countries
+        assert embeddings.shape == (len(sample_data), 3)
+        assert list(embeddings.index) == list(sample_data.index)
         assert model is not None
-        assert preprocessor is not None
+        assert model.preprocessor_ is not None
+        metadata = describe_model(model).to_dict()
         assert metadata["mode"] == "target"
         assert metadata["reference_column"] == "Country"
 
+    def test_target_mode_can_aggregate_by_reference(self, sample_data: pd.DataFrame) -> None:
+        """The old per-category output is still available, on request."""
+        embeddings, _model = learn_embedding_with_model(
+            sample_data,
+            embedding_dim=3,
+            mode="target",
+            reference_column="Country",
+            max_epochs=10,
+            verbose=False,
+            enable_logging=False,
+            aggregate_by_reference=True,
+        )
+
+        n_countries = sample_data["Country"].nunique()
+        assert embeddings.shape == (n_countries, 3)
+        assert sorted(embeddings.index) == sorted(sample_data["Country"].unique())
+
     def test_learn_embedding_with_model_pca(self, sample_data: pd.DataFrame) -> None:
         """Test learn_embedding_with_model with PCA mode."""
-        embeddings, model, preprocessor, metadata = learn_embedding_with_model(
+        embeddings, model = learn_embedding_with_model(
             sample_data,
             embedding_dim=2,
             mode="pca",
@@ -98,7 +114,8 @@ class TestModelSerialization:
         assert isinstance(embeddings, pd.DataFrame)
         assert embeddings.shape[1] == 2
         assert model is not None  # Should be a PCA estimator
-        assert preprocessor is not None
+        assert model.preprocessor_ is not None
+        metadata = describe_model(model).to_dict()
         assert metadata["mode"] == "pca"
 
     def test_save_and_load_model_unsupervised(
@@ -106,7 +123,7 @@ class TestModelSerialization:
     ) -> None:
         """Test saving and loading an unsupervised model."""
         # Train a model
-        _embeddings, model, preprocessor, metadata = learn_embedding_with_model(
+        _embeddings, model = learn_embedding_with_model(
             sample_data,
             embedding_dim=3,
             mode="unsupervised",
@@ -116,11 +133,7 @@ class TestModelSerialization:
         )
 
         # Create Row2Vec model
-        row2vec_model = Row2VecModel(
-            model=model,
-            preprocessor=preprocessor,
-            metadata=Row2VecModelMetadata.from_dict(metadata),
-        )
+        row2vec_model = model
 
         # Save the model
         base_path = temp_dir / "test_model"
@@ -137,8 +150,8 @@ class TestModelSerialization:
 
         # Check loaded model
         assert isinstance(loaded_model, Row2VecModel)
-        assert loaded_model.model is not None
-        assert loaded_model.preprocessor is not None
+        assert loaded_model.projector_ is not None
+        assert loaded_model.preprocessor_ is not None
         assert loaded_model.metadata is not None
 
         # Test prediction with loaded model
@@ -152,7 +165,7 @@ class TestModelSerialization:
     def test_save_and_load_model_pca(self, sample_data: pd.DataFrame, temp_dir: Path) -> None:
         """Test saving and loading a PCA model."""
         # Train a PCA model
-        _embeddings, model, preprocessor, metadata = learn_embedding_with_model(
+        _embeddings, model = learn_embedding_with_model(
             sample_data,
             embedding_dim=2,
             mode="pca",
@@ -161,11 +174,7 @@ class TestModelSerialization:
         )
 
         # Create Row2Vec model
-        row2vec_model = Row2VecModel(
-            model=model,
-            preprocessor=preprocessor,
-            metadata=Row2VecModelMetadata.from_dict(metadata),
-        )
+        row2vec_model = model
 
         # Save the model
         base_path = temp_dir / "test_pca_model"
@@ -249,7 +258,7 @@ class TestModelSerialization:
     def test_schema_validation(self, sample_data: pd.DataFrame, temp_dir: Path) -> None:
         """Test schema validation functionality."""
         # Train and save a model
-        _embeddings, model, preprocessor, metadata = learn_embedding_with_model(
+        _embeddings, model = learn_embedding_with_model(
             sample_data,
             embedding_dim=2,
             mode="unsupervised",
@@ -258,11 +267,7 @@ class TestModelSerialization:
             enable_logging=False,
         )
 
-        row2vec_model = Row2VecModel(
-            model=model,
-            preprocessor=preprocessor,
-            metadata=Row2VecModelMetadata.from_dict(metadata),
-        )
+        row2vec_model = model
 
         base_path = temp_dir / "schema_test_model"
         script_path, _binary_path = save_model(row2vec_model, base_path)

@@ -56,9 +56,13 @@ class TestAnnotate:
 
         assert code == 0
         assert out.exists()
-        result = pd.read_csv(out)
+        # Since 0.3.0 the input frame's index is written alongside the
+        # embedding columns, so the output can be joined back to the input
+        # rather than matched positionally. --no-index opts out.
+        result = pd.read_csv(out, index_col=0)
         assert len(result) == 120
         assert result.shape[1] == 3
+        assert list(result.columns) == ["embedding_0", "embedding_1", "embedding_2"]
 
     def test_tsne_mode(self, workspace: Path) -> None:
         out = workspace / "tsne.csv"
@@ -79,7 +83,56 @@ class TestAnnotate:
         )
 
         assert code == 0
-        assert pd.read_csv(out).shape == (120, 2)
+        assert pd.read_csv(out, index_col=0).shape == (120, 2)
+
+    def test_output_index_matches_the_input_rows(self, workspace: Path) -> None:
+        """The written index is what lets the output be joined back on."""
+        source = pd.read_csv(workspace / "data.csv")
+        out = workspace / "indexed.csv"
+
+        code = run_cli(
+            "annotate",
+            "--input",
+            str(workspace / "data.csv"),
+            "--output",
+            str(out),
+            "--mode",
+            "pca",
+            "--dim",
+            "2",
+            "--quiet",
+        )
+
+        assert code == 0
+        result = pd.read_csv(out, index_col=0)
+        assert list(result.index) == list(source.index)
+        # The whole point: a positional join is no longer required.
+        joined = source.join(result)
+        assert len(joined) == len(source)
+        assert joined.isnull().sum().sum() == 0
+
+    def test_no_index_omits_the_index_column(self, workspace: Path) -> None:
+        """--no-index restores the pre-0.3.0 output shape."""
+        out = workspace / "no_index.csv"
+
+        code = run_cli(
+            "annotate",
+            "--input",
+            str(workspace / "data.csv"),
+            "--output",
+            str(out),
+            "--mode",
+            "pca",
+            "--dim",
+            "2",
+            "--no-index",
+            "--quiet",
+        )
+
+        assert code == 0
+        result = pd.read_csv(out)
+        assert result.shape == (120, 2)
+        assert list(result.columns) == ["embedding_0", "embedding_1"]
 
     def test_target_mode_without_target_column_fails(self, workspace: Path) -> None:
         code = run_cli(
@@ -274,7 +327,7 @@ class TestFileFormats:
         )
 
         assert code == 0
-        result = pd.read_csv(out, sep="," if suffix == ".csv" else "\t")
+        result = pd.read_csv(out, sep="," if suffix == ".csv" else "\t", index_col=0)
         assert result.shape == (120, 2)
 
     def test_unsupported_extension_fails(self, workspace: Path) -> None:

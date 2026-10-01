@@ -1,162 +1,169 @@
-"""
-Test: Basic categorical encoding system validation
+"""Tests for the categorical encoding pipeline.
 
-This script tests the basic functionality of the categorical encoding
-system without requiring TensorFlow or heavy dependencies.
+This file previously consisted of three print-driven scripts that wrapped their
+own bodies in `try/except Exception: print(...)`, so a total failure of the
+encoder was reported as a pass. It carried three assertions across 162 lines.
+Each test below now asserts the behaviour the corresponding script printed.
 """
 
 import numpy as np
 import pandas as pd
+import pytest
 
-from row2vec.config import EmbeddingConfig
-from row2vec.pipeline_builder import build_adaptive_pipeline
-
-# Test categorical analyzer (without TensorFlow-dependent parts)
-try:
-    from row2vec.categorical_encoding import (
-        CategoricalAnalyzer,
-        CategoricalEncodingConfig,
-    )
-
-    print("✅ Categorical encoding system loaded successfully")
-except ImportError as e:
-    print(f"❌ Categorical encoding import failed: {e}")
-    print("This might be due to TensorFlow not being available")
+from row2vec import (
+    CategoricalAnalyzer,
+    CategoricalEncoder,
+    CategoricalEncodingConfig,
+    EmbeddingConfig,
+    build_adaptive_pipeline,
+)
 
 
-def test_basic_functionality() -> None:
-    """Test basic functionality without TensorFlow dependencies."""
-    print("\n=== Testing Basic Functionality ===")
-
-    # Create test data
-    np.random.seed(42)
-    df = pd.DataFrame(
+@pytest.fixture
+def mixed_frame() -> pd.DataFrame:
+    """A frame with low, medium and high cardinality categoricals."""
+    rng = np.random.default_rng(42)
+    n = 100
+    return pd.DataFrame(
         {
-            "color": np.random.choice(["red", "blue", "green"], 100),
-            "size": np.random.choice(["S", "M", "L", "XL"], 100),
-            "brand": np.random.choice([f"brand_{i}" for i in range(10)], 100),
-            "price": np.random.normal(100, 20, 100),
-            "rating": np.random.normal(4.0, 0.5, 100),
-            "target": np.random.choice([0, 1], 100),
+            "color": rng.choice(["red", "blue", "green"], n),
+            "size": rng.choice(["S", "M", "L", "XL"], n),
+            "brand": rng.choice([f"brand_{i}" for i in range(10)], n),
+            "price": rng.normal(100, 20, n),
+            "rating": rng.normal(4.0, 0.5, n),
         }
     )
 
-    print(f"Test data shape: {df.shape}")
-    print(f"Categorical columns: {df.select_dtypes(include=['object']).columns.tolist()}")
 
-    # Test configuration
-    config = EmbeddingConfig()
-    print(
-        f"Default categorical encoding strategy: {config.preprocessing.categorical_encoding_strategy}"
-    )
+class TestStrategySelection:
+    """What the analyzer recommends, and why."""
 
-    # Test categorical analyzer
-    try:
-        encoding_config = CategoricalEncodingConfig()
-        analyzer = CategoricalAnalyzer(encoding_config)
+    def test_low_cardinality_gets_onehot(self, mixed_frame: pd.DataFrame) -> None:
+        """Three distinct values is well under the one-hot threshold."""
+        analyzer = CategoricalAnalyzer(CategoricalEncodingConfig())
+        analysis = analyzer.analyze_column(mixed_frame["color"])
 
-        # Test analysis without target
-        analysis = {}
-        categorical_cols = df.select_dtypes(include=["object"]).columns
-        for col in categorical_cols:
-            if col != "target":
-                col_analysis = analyzer.analyze_column(df[col])
-                analysis[col] = col_analysis
+        assert analysis["cardinality"] == 3
+        assert analysis["recommended_strategy"] == "onehot"
 
-        print(f"Analysis completed for {len(analysis)} categorical columns")
+    def test_target_encoding_is_never_chosen_without_a_target(self) -> None:
+        """Without a target, target encoding degrades to raw ordinal codes.
 
-        for col, info in analysis.items():
-            print(
-                f"- {col}: cardinality={info['cardinality']}, strategy={info['recommended_strategy']}"
-            )
+        Those codes are unbounded, and before 0.3.0 they went on to dominate
+        the embedding. The analyzer must not select a strategy it cannot carry
+        out.
+        """
+        rng = np.random.default_rng(0)
+        # 150 levels: the band that used to return "target" unconditionally.
+        column = pd.Series([f"id_{i % 150:04d}" for i in range(600)])
 
-    except Exception as e:
-        print(f"Categorical analysis failed: {e}")
+        analyzer = CategoricalAnalyzer(CategoricalEncodingConfig())
+        assert analyzer.analyze_column(column)["recommended_strategy"] != "target"
 
-    # Test pipeline builder
-    try:
-        pipeline, report = build_adaptive_pipeline(df.drop(columns=["target"]))
-        print("Pipeline built successfully")
-        print(
-            f"Dataset analysis: {report['dataset_shape'][0]} rows, {report['dataset_shape'][1]} columns"
+        # With a numeric target it becomes available again.
+        target = pd.Series(rng.normal(size=600))
+        with_target = analyzer.analyze_column(column, target)["recommended_strategy"]
+        assert with_target in {"target", "entity", "onehot"}
+
+    def test_constant_column_is_dropped(self) -> None:
+        """A column with one value carries no information."""
+        analyzer = CategoricalAnalyzer(CategoricalEncodingConfig())
+        analysis = analyzer.analyze_column(pd.Series(["same"] * 50))
+
+        assert analysis["recommended_strategy"] == "drop"
+
+
+class TestEncoderOutput:
+    """What the encoder actually produces."""
+
+    def test_onehot_output_is_indicator_columns(self) -> None:
+        """One column per category, exactly one of them set per row."""
+        frame = pd.DataFrame({"color": ["red", "blue", "green", "red"]})
+        encoder = CategoricalEncoder(CategoricalEncodingConfig(encoding_strategy="onehot"))
+
+        encoded = encoder.fit_transform(frame)
+
+        assert encoded.shape == (4, 3)
+        np.testing.assert_array_equal(encoded.to_numpy().sum(axis=1), np.ones(4))
+        # Rows 0 and 3 are both "red", so they must encode identically.
+        np.testing.assert_array_equal(encoded.to_numpy()[0], encoded.to_numpy()[3])
+
+    def test_transform_is_stable_across_calls(self, mixed_frame: pd.DataFrame) -> None:
+        """The same rows must encode the same way every time."""
+        categorical = mixed_frame[["color", "size", "brand"]]
+        encoder = CategoricalEncoder(CategoricalEncodingConfig()).fit(categorical)
+
+        first = encoder.transform(categorical)
+        second = encoder.transform(categorical)
+
+        pd.testing.assert_frame_equal(first, second)
+
+    def test_output_width_does_not_depend_on_the_batch(self, mixed_frame: pd.DataFrame) -> None:
+        """A batch missing some categories must still encode to full width."""
+        categorical = mixed_frame[["color", "size", "brand"]]
+        encoder = CategoricalEncoder(CategoricalEncodingConfig()).fit(categorical)
+
+        full_width = encoder.transform(categorical).shape[1]
+        single_row_width = encoder.transform(categorical.head(1)).shape[1]
+
+        assert single_row_width == full_width
+
+
+class TestPipelineIntegration:
+    """The encoder as the preprocessing pipeline uses it."""
+
+    def test_pipeline_produces_finite_numeric_features(self, mixed_frame: pd.DataFrame) -> None:
+        """Whatever the strategy, the model must receive usable numbers."""
+        pipeline, report = build_adaptive_pipeline(mixed_frame, config=EmbeddingConfig())
+        transformed = np.asarray(pipeline.fit_transform(mixed_frame), dtype=float)
+
+        assert report["dataset_shape"] == mixed_frame.shape
+        assert transformed.shape[0] == len(mixed_frame)
+        assert np.isfinite(transformed).all()
+
+    def test_no_encoded_feature_dominates(self, mixed_frame: pd.DataFrame) -> None:
+        """Encoded columns must be on the same scale as the numeric ones.
+
+        Without this the embedding is decided by whichever column happens to
+        have the widest range, which for ordinal codes is the identifier.
+        """
+        pipeline, _report = build_adaptive_pipeline(mixed_frame, config=EmbeddingConfig())
+        transformed = np.asarray(pipeline.fit_transform(mixed_frame), dtype=float)
+
+        stds = transformed.std(axis=0)
+        informative = stds[stds > 0]
+        assert informative.size > 0
+        assert informative.max() < 10.0
+
+    def test_missing_categories_are_imputed(self) -> None:
+        """NaN must not reach the model."""
+        frame = pd.DataFrame(
+            {
+                "category_with_missing": ["A", "B", np.nan, "A", "C", np.nan, "B"],
+                "complete_category": ["X", "Y", "Z", "X", "Y", "Z", "X"],
+                "numeric": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+            }
         )
 
-        # Test pipeline fitting
-        X_transformed = pipeline.fit_transform(df.drop(columns=["target"]))
-        print(f"Transformed data shape: {X_transformed.shape}")
+        pipeline, _report = build_adaptive_pipeline(frame, config=EmbeddingConfig())
+        transformed = np.asarray(pipeline.fit_transform(frame), dtype=float)
 
-    except Exception as e:
-        print(f"Pipeline building failed: {e}")
-
-    print("✅ Basic functionality test completed")
+        assert transformed.shape[0] == len(frame)
+        assert not np.isnan(transformed).any()
 
 
-def test_configuration_serialization() -> None:
-    """Test configuration serialization and deserialization."""
-    print("\n=== Testing Configuration Serialization ===")
+class TestConfigurationRoundTrip:
+    """Encoding settings must survive serialization."""
 
-    try:
-        # Create custom configuration
+    def test_preprocessing_settings_round_trip(self) -> None:
+        """to_dict/from_dict must preserve every threshold."""
         config = EmbeddingConfig()
         config.preprocessing.categorical_encoding_strategy = "adaptive"
         config.preprocessing.categorical_onehot_threshold = 15
         config.preprocessing.categorical_target_threshold = 50
 
-        # Test to_dict and from_dict
-        config_dict = config.to_dict()
-        print("Configuration serialized to dictionary")
+        restored = EmbeddingConfig.from_dict(config.to_dict())
 
-        restored_config = EmbeddingConfig.from_dict(config_dict)
-        print("Configuration restored from dictionary")
-
-        # Verify values
-        assert restored_config.preprocessing.categorical_encoding_strategy == "adaptive"
-        assert restored_config.preprocessing.categorical_onehot_threshold == 15
-        assert restored_config.preprocessing.categorical_target_threshold == 50
-
-        print("✅ Configuration serialization test passed")
-
-    except Exception as e:
-        print(f"❌ Configuration serialization failed: {e}")
-
-
-def test_missing_value_handling() -> None:
-    """Test missing value handling in categorical encoding."""
-    print("\n=== Testing Missing Value Handling ===")
-
-    try:
-        # Create data with missing values
-        df = pd.DataFrame(
-            {
-                "category_with_missing": ["A", "B", np.nan, "A", "C", np.nan, "B"],
-                "complete_category": ["X", "Y", "Z", "X", "Y", "Z", "X"],
-                "numeric": [1, 2, 3, 4, 5, 6, 7],
-                "target": [0, 1, 0, 1, 0, 1, 0],
-            }
-        )
-
-        print(f"Data with missing values created: {df.isnull().sum().sum()} missing values")
-
-        # Test pipeline with missing data
-        pipeline, _report = build_adaptive_pipeline(df.drop(columns=["target"]))
-        X_transformed = pipeline.fit_transform(df.drop(columns=["target"]))
-
-        print("Pipeline handled missing data successfully")
-        print(f"Output shape: {X_transformed.shape}")
-        print("✅ Missing value handling test passed")
-
-    except Exception as e:
-        print(f"❌ Missing value handling failed: {e}")
-
-
-if __name__ == "__main__":
-    print("Row2Vec Categorical Encoding System - Basic Validation")
-    print("=" * 60)
-
-    test_basic_functionality()
-    test_configuration_serialization()
-    test_missing_value_handling()
-
-    print("\n🎉 All basic tests completed!")
-    print("\nNote: Some TensorFlow-dependent features may not be fully tested")
-    print("if TensorFlow is not available in the current environment.")
+        assert restored.preprocessing.categorical_encoding_strategy == "adaptive"
+        assert restored.preprocessing.categorical_onehot_threshold == 15
+        assert restored.preprocessing.categorical_target_threshold == 50

@@ -1,6 +1,7 @@
 """Utility helpers for synthetic data, dtype classification, and DataFrame schemas."""
 
 import random
+from collections.abc import Hashable
 from typing import Any
 
 import numpy as np
@@ -42,14 +43,14 @@ def is_categorical_series(series: pd.Series) -> bool:
     )
 
 
-def categorical_columns(df: pd.DataFrame) -> list[str]:
+def categorical_columns(df: pd.DataFrame) -> list[Hashable]:
     """Return the names of the categorical columns of a DataFrame.
 
     Args:
         df (pd.DataFrame): The DataFrame to inspect.
 
     Returns:
-        list[str]: Column names classified as categorical, in column order.
+        list[Hashable]: Column labels classified as categorical, in column order.
 
     Examples:
         >>> import pandas as pd
@@ -57,10 +58,10 @@ def categorical_columns(df: pd.DataFrame) -> list[str]:
         >>> categorical_columns(pd.DataFrame({"n": [1], "c": ["x"]}))
         ['c']
     """
-    return [str(col) for col in df.columns if is_categorical_series(df[col])]
+    return [col for col in df.columns if is_categorical_series(df[col])]
 
 
-def numeric_columns(df: pd.DataFrame) -> list[str]:
+def numeric_columns(df: pd.DataFrame) -> list[Hashable]:
     """Return the names of the numeric columns of a DataFrame.
 
     Booleans and datetimes are deliberately excluded: they are neither scaled
@@ -70,7 +71,7 @@ def numeric_columns(df: pd.DataFrame) -> list[str]:
         df (pd.DataFrame): The DataFrame to inspect.
 
     Returns:
-        list[str]: Column names classified as numeric, in column order.
+        list[Hashable]: Column labels classified as numeric, in column order.
 
     Examples:
         >>> import pandas as pd
@@ -78,7 +79,10 @@ def numeric_columns(df: pd.DataFrame) -> list[str]:
         >>> numeric_columns(pd.DataFrame({"n": [1], "c": ["x"]}))
         ['n']
     """
-    return [str(col) for col in df.select_dtypes(include=[np.number]).columns]
+    # The labels themselves, not str() of them: a DataFrame may legitimately
+    # have integer column names, and stringifying them made every later
+    # df[cols] lookup fail with a KeyError.
+    return list(df.select_dtypes(include=[np.number]).columns)
 
 
 def generate_synthetic_data(num_records: int, seed: int = 1305) -> pd.DataFrame:
@@ -91,7 +95,9 @@ def generate_synthetic_data(num_records: int, seed: int = 1305) -> pd.DataFrame:
     Returns:
         pd.DataFrame: A synthetic DataFrame with mixed data types.
     """
-    random.seed(seed)
+    # A private Random instance: seeding the global `random` module mutated
+    # the caller's process state as a side effect of asking for sample data.
+    py_random = random.Random(seed)
     rng = np.random.default_rng(seed)
 
     countries: list[str] = ["USA", "Canada", "Mexico", "Brazil", "Italy"]
@@ -99,8 +105,8 @@ def generate_synthetic_data(num_records: int, seed: int = 1305) -> pd.DataFrame:
 
     data: list[dict[str, Any]] = []
     for _ in range(num_records):
-        country: str = random.choice(countries)
-        product: str = random.choice(products)
+        country: str = py_random.choice(countries)
+        product: str = py_random.choice(products)
 
         sales: float
         if country in ["USA", "Canada"]:

@@ -126,6 +126,12 @@ def test_edge_cases_do_not_crash() -> None:
     imputed = AdaptiveImputer(ImputationConfig()).fit_transform(edge_df)
 
     assert len(imputed) == n
+    # A column with nothing observed cannot be imputed, and is left alone
+    # rather than invented. Everything else must come back complete.
+    fillable = [c for c in imputed.columns if c != "all_missing"]
+    assert imputed[fillable].isna().sum().sum() == 0
+    # The single-valued column's one gap must be filled with that value.
+    assert imputed["single_value"].nunique() == 1
 
 
 def test_fit_transform_matches_separate_fit_then_transform(
@@ -139,16 +145,36 @@ def test_fit_transform_matches_separate_fit_then_transform(
     combined = AdaptiveImputer(ImputationConfig()).fit_transform(missing_data)
 
     assert list(from_separate.columns) == list(combined.columns)
-    assert from_separate.shape == combined.shape
+    # Values, not just shape: an imputer that learned different statistics on
+    # the two paths would pass a shape comparison unchanged.
+    pd.testing.assert_frame_equal(from_separate, combined)
 
 
 def test_transform_applies_to_unseen_data(missing_data: pd.DataFrame) -> None:
-    """A fitted imputer can fill a second frame with the same structure."""
+    """A fitted imputer fills genuinely unseen rows, with fit-time statistics.
+
+    The previous version sampled its "unseen" data out of the training frame,
+    so it shared every column and every missingness pattern - which is why it
+    could not notice that columns clean at fit time were never imputed at all.
+    """
     imputer = AdaptiveImputer(ImputationConfig())
     imputer.fit(missing_data)
 
-    new_data = missing_data.sample(50, random_state=1305)
-    imputed = imputer.transform(new_data)
+    numeric_cols = missing_data.select_dtypes(include=[np.number]).columns
+    assert len(numeric_cols) > 0
 
-    assert len(imputed) == 50
-    assert imputed.isna().sum().sum() == 0
+    # Fresh rows, with holes in places the training frame did not have them.
+    unseen = missing_data.head(5).copy()
+    unseen.index = pd.Index([f"new{i}" for i in range(5)])
+    for col in numeric_cols:
+        unseen[col] = np.nan
+
+    imputed = imputer.transform(unseen)
+
+    assert len(imputed) == 5
+    assert imputed[numeric_cols].isna().sum().sum() == 0, (
+        "columns that happened to be complete at fit time were left unimputed"
+    )
+    # Each filled column must be constant: every row got the same learned value.
+    for col in numeric_cols:
+        assert imputed[col].nunique() == 1

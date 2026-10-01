@@ -1,69 +1,126 @@
-"""Scikit-learn integration for Row2Vec embeddings.
+"""Scikit-learn adapters for Row2Vec embeddings.
 
-This module provides scikit-learn compatible transformers for Row2Vec,
-allowing seamless integration with sklearn pipelines and workflows.
+These wrap :class:`row2vec.model.Row2VecModel` so row2vec can be dropped into a
+``Pipeline`` or a ``GridSearchCV``. Both classes follow the estimator contract:
+``fit`` learns and returns ``self``, ``transform`` only projects, and every
+constructor argument is a plain attribute of the same name so ``get_params``,
+``set_params`` and ``clone`` round-trip.
+
+That was not true before 0.3.0. ``transform`` re-ran the whole training on
+whatever frame it was handed, so inside cross-validation each fold learned its
+embedding from its own test fold; ``**kwargs`` in ``__init__`` meant ``clone``
+silently dropped every nested parameter, so a grid search over them tuned
+nothing; and ``fit_transform`` trained the model three times over.
 """
 
 from typing import Any
 
 import numpy as np
 import pandas as pd
-from sklearn.base import BaseEstimator, TransformerMixin
+from scipy.sparse import issparse  # type: ignore[import-untyped]
+from sklearn.base import (
+    BaseEstimator,
+    ClassifierMixin,
+    TransformerMixin,
+    clone,
+)
 from sklearn.utils.validation import check_is_fitted
 
-from .api import learn_embedding_v2, learn_embedding_with_model_v2
 from .config import EmbeddingConfig, create_config_for_mode
+from .model import MODES, Row2VecModel
+
+__all__ = ["Row2VecClassifier", "Row2VecTransformer"]
 
 
-class Row2VecModel:
-    """Wrapper for Row2Vec models to provide consistent interface."""
-
-    def __init__(
-        self,
-        model: Any,
-        preprocessor: Any,
-        metadata: dict[str, Any],
-        config: EmbeddingConfig,
-    ):
-        self.model = model
-        self.preprocessor = preprocessor
-        self.metadata = metadata
-        self.config = config
-
-    def embed(self, X: pd.DataFrame) -> pd.DataFrame:
-        """Generate embeddings for new data."""
-        # Use the existing API to generate embeddings with the same config
-        return learn_embedding_v2(X, self.config)
-
-
-class Row2VecTransformer(BaseEstimator, TransformerMixin):
-    """Scikit-learn compatible transformer for Row2Vec embeddings.
-
-    This transformer can be used in sklearn pipelines and follows the
-    standard fit/transform API. It internally uses Row2Vec's config-based
-    API for flexibility and type safety.
+def _as_dataframe(
+    X: Any,
+    feature_names: np.ndarray[Any, Any] | None,
+    estimator_name: str = "Row2VecTransformer",
+) -> pd.DataFrame:
+    """Coerce sklearn's assorted input types to a DataFrame.
 
     Args:
-        embedding_dim (int, default=10):
-            Dimensionality of the embedding space.
-        mode (str, default="unsupervised"):
-            Embedding mode. Options: "unsupervised", "target", "pca", "tsne", "umap", "contrastive".
-        reference_column (str, optional):
-            Reference column name for supervised ("target") mode.
-        config (EmbeddingConfig, optional):
-            Pre-configured EmbeddingConfig object. If provided, other parameters are ignored.
-        **kwargs: Additional parameters passed to the embedding configuration,
-            including nested ones such as ``neural__max_epochs=100``.
+        X: Input data: DataFrame, ndarray, or anything array-like.
+        feature_names: Column names seen during ``fit``, if fitted.
+        estimator_name: Name used in the feature-count mismatch message.
+
+    Returns:
+        pd.DataFrame: ``X`` as a DataFrame with usable column names.
+
+    Raises:
+        ValueError: If the column count disagrees with what ``fit`` saw.
+        TypeError: If ``X`` cannot be coerced at all.
+    """
+    if isinstance(X, pd.DataFrame):
+        return X.copy()
+
+    if issparse(X):
+        raise TypeError(
+            "Sparse input is not supported: row2vec embeds tabular data with "
+            "named, possibly categorical columns. Convert to a dense DataFrame "
+            "or array first.",
+        )
+
+    if not isinstance(X, np.ndarray):
+        try:
+            X = np.asarray(X)
+        except Exception as exc:
+            raise TypeError(f"Cannot convert input to DataFrame: {exc}") from exc
+
+    if X.ndim != 2:
+        raise ValueError(
+            "Expected a 2D array, got a 1D array instead. Reshape your data "
+            "with X.reshape(-1, 1) for a single feature, or X.reshape(1, -1) "
+            "for a single sample.",
+        )
+
+    if X.size == 0 or 0 in X.shape:
+        raise ValueError(
+            f"0 feature(s) (shape={X.shape}) while a minimum of 1 is required.",
+        )
+
+    if feature_names is not None:
+        if X.shape[1] != len(feature_names):
+            # Wording matched to scikit-learn's own, which its conformance
+            # suite looks for.
+            raise ValueError(
+                f"X has {X.shape[1]} features, but {estimator_name} "
+                f"is expecting {len(feature_names)} features as input.",
+            )
+        return pd.DataFrame(X, columns=feature_names)
+
+    return pd.DataFrame(X, columns=[f"feature_{i}" for i in range(X.shape[1])])
+
+
+class Row2VecTransformer(TransformerMixin, BaseEstimator):
+    """Scikit-learn transformer producing Row2Vec embeddings.
+
+    ``TransformerMixin`` comes first in the bases deliberately: scikit-learn
+    reads the transformer tags off the MRO, and with ``BaseEstimator`` first
+    ``check_estimator`` refuses to run at all.
+
+    Args:
+        embedding_dim (int): Width of the embedding space.
+        mode (str): ``"unsupervised"``, ``"target"``, ``"pca"``, ``"umap"`` or
+            ``"contrastive"``. ``"tsne"`` is rejected at ``fit`` time because it
+            cannot transform unseen rows, and a transformer that cannot
+            transform has no place in a pipeline.
+        reference_column (str, optional): Label column for ``mode="target"``.
+        max_epochs (int): Training epoch ceiling for neural modes.
+        batch_size (int): Training batch size.
+        dropout_rate (float): Dropout after each hidden layer.
+        hidden_units (int | list[int]): Hidden layer width, or widths.
+        activation (str): Hidden-layer activation.
+        seed (int): Random seed.
+        config (EmbeddingConfig, optional): A complete configuration. When
+            given, the other arguments are ignored.
 
     Attributes:
-        config_ (EmbeddingConfig):
-            The configuration object used for embedding generation.
-        model_ (object):
-            The trained Row2Vec model (if using model-based modes).
-        feature_names_in_ (ndarray of shape (n_features,)):
-            Names of features seen during fit.
-        n_features_in_ (int):
-            Number of features seen during fit.
+        model_ (Row2VecModel): The fitted model. ``transform`` projects with it
+            rather than refitting.
+        config_ (EmbeddingConfig): The configuration actually used.
+        n_features_in_ (int): Number of columns seen during ``fit``.
+        feature_names_in_ (ndarray): Column names seen during ``fit``.
 
     Examples:
         >>> import row2vec
@@ -73,14 +130,10 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):
         >>> transformer.fit_transform(df).shape
         (60, 2)
 
-        In a scikit-learn pipeline:
+        A fitted transformer embeds a single unseen row:
 
-        >>> from sklearn.pipeline import Pipeline
-        >>> pipeline = Pipeline(
-        ...     [("embed", Row2VecTransformer(embedding_dim=2, mode="pca"))]
-        ... )
-        >>> pipeline.fit_transform(df).shape
-        (60, 2)
+        >>> transformer.transform(df.head(1)).shape
+        (1, 2)
     """
 
     def __init__(
@@ -88,219 +141,158 @@ class Row2VecTransformer(BaseEstimator, TransformerMixin):
         embedding_dim: int = 10,
         mode: str = "unsupervised",
         reference_column: str | None = None,
+        max_epochs: int = 50,
+        batch_size: int = 64,
+        dropout_rate: float = 0.2,
+        hidden_units: int | list[int] = 128,
+        activation: str = "relu",
+        seed: int = 1305,
         config: EmbeddingConfig | None = None,
-        **kwargs: Any,
     ) -> None:
+        # Every argument is stored unchanged under its own name: sklearn's
+        # get_params/set_params/clone contract depends on exactly that.
         self.embedding_dim = embedding_dim
         self.mode = mode
         self.reference_column = reference_column
+        self.max_epochs = max_epochs
+        self.batch_size = batch_size
+        self.dropout_rate = dropout_rate
+        self.hidden_units = hidden_units
+        self.activation = activation
+        self.seed = seed
         self.config = config
-        self.kwargs = kwargs
-        # Initialize attributes that will be set in fit()
-        self.model_wrapper_: Row2VecModel | None = None
 
-    def _create_config(self) -> EmbeddingConfig:
-        """Create the embedding configuration."""
+    def _build_config(self) -> EmbeddingConfig:
+        """Assemble the configuration this transformer should fit with."""
         if self.config is not None:
             return self.config
 
-        # Create base config for the mode
-        config = create_config_for_mode(self.mode)
+        if self.mode == "target":
+            if self.reference_column is None:
+                raise ValueError(
+                    "mode='target' requires reference_column: the column whose "
+                    "labels supervise the encoder.",
+                )
+            config = create_config_for_mode(self.mode, reference_column=self.reference_column)
+        else:
+            config = create_config_for_mode(self.mode)
         config.embedding_dim = self.embedding_dim
-
-        if self.mode == "target" and self.reference_column is not None:
-            config.reference_column = self.reference_column
-
-        # Apply any additional kwargs
-        # Handle nested parameters like neural__max_epochs
-        for key, value in self.kwargs.items():
-            if "__" in key:
-                # Handle nested parameters (sklearn convention)
-                section, param = key.split("__", 1)
-                if hasattr(config, section):
-                    section_config = getattr(config, section)
-                    if hasattr(section_config, param):
-                        setattr(section_config, param, value)
-            # Handle top-level parameters
-            elif hasattr(config, key):
-                setattr(config, key, value)
+        config.seed = self.seed
+        config.neural.max_epochs = self.max_epochs
+        config.neural.batch_size = self.batch_size
+        config.neural.dropout_rate = self.dropout_rate
+        config.neural.hidden_units = self.hidden_units
+        config.neural.activation = self.activation
 
         return config
 
-    def _validate_input(self, X: Any) -> pd.DataFrame:
-        """Validate and convert input to DataFrame."""
-        if isinstance(X, np.ndarray):
-            # Convert numpy array to DataFrame
-            if hasattr(self, "feature_names_in_"):
-                if X.shape[1] != len(self.feature_names_in_):
-                    raise ValueError(
-                        f"X has {X.shape[1]} features, but transformer was fitted with "
-                        f"{len(self.feature_names_in_)} features",
-                    )
-                X = pd.DataFrame(X, columns=self.feature_names_in_)
-            else:
-                X = pd.DataFrame(X, columns=[f"feature_{i}" for i in range(X.shape[1])])
-        elif isinstance(X, pd.DataFrame):
-            X = X.copy()
-        else:
-            # Try to convert to numpy array first (handles sparse matrices, etc.)
-            try:
-                X = np.asarray(X)
-                if hasattr(self, "feature_names_in_"):
-                    if X.shape[1] != len(self.feature_names_in_):
-                        raise ValueError(
-                            f"X has {X.shape[1]} features, but transformer was fitted with "
-                            f"{len(self.feature_names_in_)} features",
-                        )
-                    X = pd.DataFrame(X, columns=self.feature_names_in_)
-                else:
-                    X = pd.DataFrame(X, columns=[f"feature_{i}" for i in range(X.shape[1])])
-            except Exception as e:
-                raise TypeError(f"Cannot convert input to DataFrame: {e}") from e
-
-        return X  # type: ignore[no-any-return]
-
     def fit(self, X: Any, y: Any = None) -> "Row2VecTransformer":
-        """Fit the Row2Vec transformer.
+        """Fit the embedding model.
 
         Args:
-            X (DataFrame or array-like of shape (n_samples, n_features)):
-                Training data.
-            y (array-like of shape (n_samples,), optional):
-                Target values (ignored, exists for sklearn compatibility).
+            X: Training data.
+            y: Ignored; present for the sklearn signature.
 
         Returns:
-            self (Row2VecTransformer):
-                Returns the instance itself.
+            Row2VecTransformer: ``self``.
+
+        Raises:
+            ValueError: If ``mode`` cannot support ``transform``.
         """
-        X = self._validate_input(X)
+        frame = _as_dataframe(X, None)
 
-        # Store input information for sklearn compatibility
-        self.n_features_in_ = X.shape[1]
-        self.feature_names_in_ = np.array(X.columns)
+        mode = self.config.mode if self.config is not None else self.mode
+        if mode in MODES and not MODES[mode].supports_transform:
+            raise ValueError(
+                f"Row2VecTransformer cannot use mode={mode!r}: "
+                f"{MODES[mode].no_transform_reason} A transformer must be able "
+                "to transform, so use row2vec.learn_embedding() directly for "
+                "a one-off embedding.",
+            )
 
-        # Create configuration
-        self.config_ = self._create_config()
-
-        # For modes that require a model, fit it
-        if self.mode in ["unsupervised", "target", "contrastive"]:
-            # Train the model and store it
-            result = learn_embedding_with_model_v2(X, self.config_)
-            _embeddings, model, preprocessor, metadata = result
-            self.model_wrapper_ = Row2VecModel(model, preprocessor, metadata, self.config_)
-        else:
-            # For classical methods, no model storage needed
-            self.model_wrapper_ = None
-
+        self.n_features_in_ = frame.shape[1]
+        self.feature_names_in_ = np.array(frame.columns)
+        self.config_ = self._build_config()
+        self.model_ = Row2VecModel(self.config_).fit(frame)
         return self
 
     def transform(self, X: Any) -> np.ndarray[Any, Any]:
-        """Transform data to embedding space.
+        """Project data into the fitted embedding space.
 
         Args:
-            X (DataFrame or array-like of shape (n_samples, n_features)):
-                Data to transform.
+            X: Data to transform. A single row is fine.
 
         Returns:
-            X_embedded (ndarray of shape (n_samples, embedding_dim)):
-                Embedded data.
+            ndarray of shape (n_samples, embedding_dim).
         """
-        check_is_fitted(self, ["config_"])
-
-        X = self._validate_input(X)
-
-        if self.model_wrapper_ is not None:
-            # Use the fitted model to embed new data
-            embeddings = self.model_wrapper_.embed(X)
-        else:
-            # For classical methods or fallback, apply transformation directly
-            embeddings = learn_embedding_v2(X, self.config_)
-
-        return embeddings.values
+        check_is_fitted(self, ["model_"])
+        frame = _as_dataframe(X, self.feature_names_in_, type(self).__name__)
+        return self.model_.transform(frame).to_numpy()
 
     def fit_transform(self, X: Any, y: Any = None, **fit_params: Any) -> np.ndarray[Any, Any]:
-        """Fit the transformer and transform the data.
+        """Fit and transform in a single training pass.
 
         Args:
-            X (DataFrame or array-like of shape (n_samples, n_features)):
-                Training data.
-            y (array-like of shape (n_samples,), optional):
-                Target values (ignored, exists for sklearn compatibility).
-            **fit_params (dict):
-                Additional parameters (ignored, exists for sklearn compatibility).
+            X: Training data.
+            y: Ignored; present for the sklearn signature.
+            **fit_params: Ignored; present for the sklearn signature.
 
         Returns:
-            X_embedded (ndarray of shape (n_samples, embedding_dim)):
-                Embedded training data.
+            ndarray of shape (n_samples, embedding_dim).
         """
-        X = self._validate_input(X)
+        self.fit(X, y)
+        frame = _as_dataframe(X, self.feature_names_in_, type(self).__name__)
+        return self.model_.transform(frame).to_numpy()
 
-        # Store input information for sklearn compatibility
-        self.n_features_in_ = X.shape[1]
-        self.feature_names_in_ = np.array(X.columns)
+    def __sklearn_tags__(self) -> Any:
+        """Declare what kind of input this estimator accepts.
 
-        # Create configuration
-        self.config_ = self._create_config()
-
-        # Generate embeddings
-        embeddings = learn_embedding_v2(X, self.config_)
-
-        # For neural modes, we might want to store the model for future transforms
-        if self.mode in ["unsupervised", "target", "contrastive"]:
-            try:
-                result = learn_embedding_with_model_v2(X, self.config_)
-                _embeddings_model, model, preprocessor, metadata = result
-                self.model_wrapper_ = Row2VecModel(model, preprocessor, metadata, self.config_)
-            except Exception:
-                # If model creation fails, fall back to no model
-                self.model_wrapper_ = None
-        else:
-            self.model_wrapper_ = None
-
-        return embeddings.values
+        row2vec embeds *tabular* data: mixed numeric and categorical columns,
+        with missing values imputed as part of the pipeline. Saying so here is
+        what stops scikit-learn's conformance suite testing it as though it
+        were a dense-numeric-array estimator.
+        """
+        tags = super().__sklearn_tags__()
+        tags.input_tags.sparse = False  # categorical columns are not sparse data
+        tags.input_tags.allow_nan = True  # missing values are imputed, not rejected
+        tags.input_tags.categorical = True
+        tags.input_tags.string = True
+        return tags
 
     def get_feature_names_out(
-        self, input_features: np.ndarray[Any, Any] | None = None
+        self,
+        input_features: np.ndarray[Any, Any] | None = None,
     ) -> np.ndarray[Any, Any]:
-        """Get output feature names for transformation.
+        """Names of the embedding columns.
 
         Args:
-            input_features (array-like of str or None, default=None):
-                Not used, exists for sklearn compatibility.
+            input_features: Ignored; present for the sklearn signature.
 
         Returns:
-            feature_names_out (ndarray of shape (embedding_dim,), dtype=str):
-                Feature names for the embedded space.
+            ndarray of str: ``row2vec_0`` through ``row2vec_{n-1}``.
         """
         check_is_fitted(self, ["config_"])
         return np.array([f"row2vec_{i}" for i in range(self.config_.embedding_dim)])
 
-    def _more_tags(self) -> dict[str, Any]:
-        """Return tags for sklearn compatibility."""
-        return {
-            "requires_y": False,
-            "requires_fit": True,
-            "X_types": ["2darray"],
-            "allow_nan": False,
-            "stateless": False,
-            "no_validation": False,
-        }
 
-
-class Row2VecClassifier(BaseEstimator):
-    """Scikit-learn compatible classifier using Row2Vec embeddings.
-
-    This combines Row2Vec embedding generation with a downstream classifier,
-    making it easy to use embeddings for classification tasks in sklearn pipelines.
+class Row2VecClassifier(ClassifierMixin, BaseEstimator):
+    """Classify rows using Row2Vec embeddings as features.
 
     Args:
-        embedding_dim (int, default=10):
-            Dimensionality of the embedding space.
-        classifier (sklearn classifier, optional):
-            The downstream classifier. If None, uses LogisticRegression.
-        embedding_config (EmbeddingConfig, optional):
-            Configuration for embedding generation.
-        **embedding_kwargs: Additional parameters for the embedding configuration.
+        embedding_dim (int): Width of the embedding space.
+        mode (str): Embedding mode. See :class:`Row2VecTransformer`.
+        reference_column (str, optional): Label column for ``mode="target"``.
+        classifier (sklearn estimator, optional): Downstream classifier.
+            Cloned before fitting, so the caller's instance is left alone.
+            Defaults to ``LogisticRegression``.
+        seed (int): Random seed.
+        embedding_config (EmbeddingConfig, optional): Complete embedding
+            configuration; overrides the individual arguments.
+
+    Attributes:
+        transformer_ (Row2VecTransformer): The fitted embedder.
+        classifier_ (sklearn estimator): The fitted downstream classifier.
+        classes_ (ndarray): Class labels seen during ``fit``.
 
     Examples:
         >>> import row2vec
@@ -316,50 +308,90 @@ class Row2VecClassifier(BaseEstimator):
     def __init__(
         self,
         embedding_dim: int = 10,
+        mode: str = "pca",
+        reference_column: str | None = None,
         classifier: Any = None,
+        seed: int = 1305,
         embedding_config: EmbeddingConfig | None = None,
-        **embedding_kwargs: Any,
     ) -> None:
         self.embedding_dim = embedding_dim
+        self.mode = mode
+        self.reference_column = reference_column
         self.classifier = classifier
+        self.seed = seed
         self.embedding_config = embedding_config
-        self.embedding_kwargs = embedding_kwargs
 
     def fit(self, X: Any, y: Any) -> "Row2VecClassifier":
-        """Fit the embedding and classifier."""
+        """Fit the embedder, then the downstream classifier on its output.
+
+        Args:
+            X: Training data.
+            y: Target labels.
+
+        Returns:
+            Row2VecClassifier: ``self``.
+        """
         from sklearn.linear_model import LogisticRegression
 
-        # Set up embedding transformer
-        self.embedding_transformer_ = Row2VecTransformer(
+        self.transformer_ = Row2VecTransformer(
             embedding_dim=self.embedding_dim,
+            mode=self.mode,
+            reference_column=self.reference_column,
+            seed=self.seed,
             config=self.embedding_config,
-            **self.embedding_kwargs,
         )
 
-        # Set up classifier
+        # Clone rather than fit the caller's object in place.
         if self.classifier is None:
-            self.classifier_ = LogisticRegression(random_state=1305)
+            self.classifier_ = LogisticRegression(random_state=self.seed)
         else:
-            self.classifier_ = self.classifier
+            self.classifier_ = clone(self.classifier)
 
-        # Fit embedding transformer and transform data
-        X_embedded = self.embedding_transformer_.fit_transform(X)
-
-        # Fit classifier on embedded data
-        self.classifier_.fit(X_embedded, y)
-
+        embedded = self.transformer_.fit_transform(X)
+        self.n_features_in_ = self.transformer_.n_features_in_
+        self.feature_names_in_ = self.transformer_.feature_names_in_
+        self.classifier_.fit(embedded, y)
+        if hasattr(self.classifier_, "classes_"):
+            self.classes_ = self.classifier_.classes_
+        else:
+            self.classes_ = np.unique(y)
         return self
 
-    def predict(self, X: Any) -> np.ndarray[Any, Any]:
-        """Make predictions on new data."""
-        check_is_fitted(self, ["embedding_transformer_", "classifier_"])
+    def __sklearn_tags__(self) -> Any:
+        """Declare what kind of input this estimator accepts.
 
-        X_embedded = self.embedding_transformer_.transform(X)
-        return self.classifier_.predict(X_embedded)  # type: ignore[no-any-return]
+        row2vec embeds *tabular* data: mixed numeric and categorical columns,
+        with missing values imputed as part of the pipeline. Saying so here is
+        what stops scikit-learn's conformance suite testing it as though it
+        were a dense-numeric-array estimator.
+        """
+        tags = super().__sklearn_tags__()
+        tags.input_tags.sparse = False  # categorical columns are not sparse data
+        tags.input_tags.allow_nan = True  # missing values are imputed, not rejected
+        tags.input_tags.categorical = True
+        tags.input_tags.string = True
+        return tags
+
+    def predict(self, X: Any) -> np.ndarray[Any, Any]:
+        """Predict labels for ``X``.
+
+        Args:
+            X: Data to classify.
+
+        Returns:
+            ndarray of predicted labels.
+        """
+        check_is_fitted(self, ["transformer_", "classifier_"])
+        return self.classifier_.predict(self.transformer_.transform(X))  # type: ignore[no-any-return]
 
     def predict_proba(self, X: Any) -> np.ndarray[Any, Any]:
-        """Predict class probabilities."""
-        check_is_fitted(self, ["embedding_transformer_", "classifier_"])
+        """Predict class probabilities for ``X``.
 
-        X_embedded = self.embedding_transformer_.transform(X)
-        return self.classifier_.predict_proba(X_embedded)  # type: ignore[no-any-return]
+        Args:
+            X: Data to classify.
+
+        Returns:
+            ndarray of shape (n_samples, n_classes).
+        """
+        check_is_fitted(self, ["transformer_", "classifier_"])
+        return self.classifier_.predict_proba(self.transformer_.transform(X))  # type: ignore[no-any-return]

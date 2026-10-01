@@ -14,6 +14,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.manifold import LocallyLinearEmbedding
 from sklearn.metrics import silhouette_score
 from sklearn.model_selection import cross_val_score
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import LabelEncoder
 
 from .api import learn_embedding_v2
@@ -39,6 +40,7 @@ class AutoDimensionSelector:
         min_dimension: int = 2,
         n_trials: int = 5,
         verbose: bool = True,
+        random_state: int = 1305,
     ):
         """Initialize automatic dimension selector.
 
@@ -50,6 +52,7 @@ class AutoDimensionSelector:
             max_dimension: Maximum dimension to consider (auto if None)
             min_dimension: Minimum dimension to consider
             n_trials: Number of trials for performance evaluation
+            random_state: Seed for every estimator this selector fits
             verbose: Whether to show selection progress
         """
         self.methods = methods or [
@@ -66,11 +69,42 @@ class AutoDimensionSelector:
         self.min_dimension = min_dimension
         self.n_trials = n_trials
         self.verbose = verbose
+        self.random_state = random_state
         self.logger = get_logger(__name__)
 
         # Results storage
         self.selection_results_: dict[str, Any] = {}
         self.dimension_scores_: dict[int, float] = {}
+
+    def _log(self, message: str) -> None:
+        """Emit a progress message when asked to be verbose.
+
+        ``verbose`` used to guard six empty ``pass`` statements, so the flag
+        documented as "Whether to show selection progress" did nothing at all.
+
+        Args:
+            message (str): The message to emit.
+        """
+        if self.verbose:
+            self.logger.log_debug_info(f"[auto-dimension] {message}")
+
+    def _failed_result(self, method: str, reason: str) -> dict[str, Any]:
+        """Record that a method could not produce a recommendation.
+
+        Every selection method used to answer a failure with the midpoint of
+        the candidate list and a score of 0.5, which is indistinguishable from
+        a real recommendation. A method that failed now abstains: it casts no
+        vote, and says why.
+
+        Args:
+            method (str): The method that failed.
+            reason (str): Why it could not recommend a dimension.
+
+        Returns:
+            dict[str, Any]: A result that scores nothing and votes for nothing.
+        """
+        self._log(f"{method} abstained: {reason}")
+        return {"recommended_dim": None, "score": 0.0, "failed_reason": reason}
 
     def select_dimension(
         self,
@@ -90,34 +124,25 @@ class AutoDimensionSelector:
         Returns:
             Tuple of (optimal_dimension, selection_metadata)
         """
-        if self.verbose:
-            pass
+        self._log(f"Selecting an embedding dimension for a {df.shape} frame")
 
         # Generate candidate dimensions if not provided
         if candidate_dims is None:
             candidate_dims = self._generate_candidate_dimensions(df)
 
-        if self.verbose:
-            pass
+        self._log(f"Candidate dimensions: {candidate_dims}")
 
         # Apply each selection method
         method_results = {}
 
         for method in self.methods:
             try:
-                if self.verbose:
-                    pass
-
+                self._log(f"Running {method}")
                 result = self._apply_method(method, df, config, candidate_dims, target_column)
                 method_results[method] = result
-
-                if self.verbose:
-                    pass
-
-            except Exception:
-                if self.verbose:
-                    pass
-                method_results[method] = {"recommended_dim": None, "score": 0.0}
+                self._log(f"{method} recommends {result['recommended_dim']}")
+            except Exception as exc:
+                method_results[method] = self._failed_result(method, str(exc))
 
         # Combine results using weighted voting
         optimal_dim = self._combine_recommendations(method_results, candidate_dims)
@@ -138,8 +163,7 @@ class AutoDimensionSelector:
             },
         }
 
-        if self.verbose:
-            pass
+        self._log(f"Selected embedding dimension {optimal_dim}")
 
         return optimal_dim, metadata
 
@@ -200,37 +224,74 @@ class AutoDimensionSelector:
             return self._heuristic_rules_method(df, candidate_dims)
         raise ValueError(f"Unknown method: {method}")
 
+    @staticmethod
+    def _variance_knee(explained_var: "np.ndarray[Any, Any]") -> int:
+        """Number of components at the knee of a cumulative-variance curve.
+
+        The previous implementation took ``argmax`` of the second difference of
+        the cumulative curve. Because the increments of that curve are
+        non-increasing, its second difference is almost always negative, so
+        argmax picked the least-negative entry - in practice index 0, giving a
+        constant answer of 3 regardless of the data.
+
+        This instead takes the point furthest from the chord joining the first
+        and last points of the curve, the standard knee construction, and
+        refuses to recommend more components than it takes to reach 95% of the
+        variance.
+
+        Args:
+            explained_var: Cumulative explained variance ratio, ascending.
+
+        Returns:
+            int: The recommended number of components, at least 1.
+        """
+        n = len(explained_var)
+        if n == 0:
+            return 1
+        if n < 3:
+            return n
+
+        # Distance from each point to the straight line between the endpoints.
+        x = np.arange(n, dtype=float)
+        y = np.asarray(explained_var, dtype=float)
+        x0, y0, x1, y1 = x[0], y[0], x[-1], y[-1]
+        denominator = np.hypot(y1 - y0, x1 - x0)
+        if denominator == 0:
+            return n
+        distances = np.abs((y1 - y0) * x - (x1 - x0) * y + x1 * y0 - y1 * x0) / denominator
+        knee = int(np.argmax(distances)) + 1
+
+        # Never ask for more components than reaching 95% of the variance needs.
+        enough = int(np.searchsorted(y, 0.95) + 1)
+        return max(1, min(knee, enough, n))
+
     def _pca_variance_method(self, df: pd.DataFrame, candidate_dims: list[int]) -> dict[str, Any]:
         """Select dimension based on PCA explained variance analysis."""
         # Prepare numeric data
         numeric_df = df.select_dtypes(include=[np.number])
         if numeric_df.empty:
-            return {
-                "recommended_dim": candidate_dims[len(candidate_dims) // 2],
-                "score": 0.0,
-            }
+            return self._failed_result("pca_variance", "no numeric columns to analyse")
 
-        # Fit PCA
-        max_components = min(len(candidate_dims), numeric_df.shape[1], numeric_df.shape[0])
-        pca = PCA(n_components=max_components)
+        # Fit PCA over as many components as the data allows. This used to be
+        # capped at len(candidate_dims) - the *count* of candidates, not any
+        # dimension - so a candidate list of [2, 4, 8, 16, 32] fitted five
+        # components and could never recommend more than five.
+        max_components = min(
+            max(candidate_dims),
+            numeric_df.shape[1],
+            numeric_df.shape[0],
+        )
+        pca = PCA(n_components=max_components, random_state=self.random_state)
         pca.fit(numeric_df.fillna(0))
 
-        # Find elbow point in explained variance
         explained_var = np.cumsum(pca.explained_variance_ratio_)
-
-        # Look for elbow using second derivative
-        if len(explained_var) >= 3:
-            second_deriv = np.diff(explained_var, 2)
-            elbow_idx = int(np.argmax(second_deriv)) + 2
-        else:
-            elbow_idx = len(explained_var) // 2
+        target_dim = self._variance_knee(explained_var)
 
         # Find closest candidate dimension
-        target_dim = min(int(elbow_idx + 1), max(candidate_dims))
         recommended_dim = min(candidate_dims, key=lambda x: abs(x - target_dim))
 
         # Score based on variance explained at recommended dimension
-        score = explained_var[min(recommended_dim - 1, len(explained_var) - 1)]
+        score = float(explained_var[min(recommended_dim - 1, len(explained_var) - 1)])
 
         return {
             "recommended_dim": recommended_dim,
@@ -246,16 +307,16 @@ class AutoDimensionSelector:
         # Prepare numeric data
         numeric_df = df.select_dtypes(include=[np.number])
         if numeric_df.empty or numeric_df.shape[0] < 20:
-            return {
-                "recommended_dim": candidate_dims[len(candidate_dims) // 2],
-                "score": 0.5,
-            }
+            return self._failed_result(
+                "intrinsic_dim",
+                "needs at least 20 rows of numeric data",
+            )
 
         try:
             # Use subset if data is large
             sample_size = min(1000, numeric_df.shape[0])
             if sample_size < numeric_df.shape[0]:
-                sample_data = numeric_df.sample(n=sample_size, random_state=1305)
+                sample_data = numeric_df.sample(n=sample_size, random_state=self.random_state)
             else:
                 sample_data = numeric_df
 
@@ -270,7 +331,7 @@ class AutoDimensionSelector:
                     lle = LocallyLinearEmbedding(
                         n_components=dim,
                         n_neighbors=min(10, sample_data.shape[0] - 1),
-                        random_state=1305,
+                        random_state=self.random_state,
                     )
                     lle.fit(sample_data)
                     errors.append(lle.reconstruction_error_)
@@ -278,10 +339,10 @@ class AutoDimensionSelector:
                     errors.append(np.inf)
 
             if not errors or all(e == np.inf for e in errors):
-                return {
-                    "recommended_dim": candidate_dims[len(candidate_dims) // 2],
-                    "score": 0.5,
-                }
+                return self._failed_result(
+                    "intrinsic_dim",
+                    "locally linear embedding failed at every candidate dimension",
+                )
 
             # Find dimension where error stabilizes
             error_array = np.array(errors)
@@ -305,8 +366,12 @@ class AutoDimensionSelector:
 
                 recommended_dim = test_dims[min(stabilization_idx, len(test_dims) - 1)]
 
-            # Score based on error reduction
-            score = 1.0 / (1.0 + error_array[test_dims.index(recommended_dim)])
+            # Score based on error reduction. recommended_dim may have come
+            # from the fallback above and not be in test_dims at all.
+            if recommended_dim in test_dims:
+                score = 1.0 / (1.0 + error_array[test_dims.index(recommended_dim)])
+            else:
+                score = 1.0 / (1.0 + float(valid_errors.min()))
 
             return {
                 "recommended_dim": recommended_dim,
@@ -315,11 +380,8 @@ class AutoDimensionSelector:
                 "test_dimensions": test_dims,
             }
 
-        except Exception:
-            return {
-                "recommended_dim": candidate_dims[len(candidate_dims) // 2],
-                "score": 0.5,
-            }
+        except Exception as exc:
+            return self._failed_result("intrinsic_dim", str(exc))
 
     def _performance_based_method(
         self,
@@ -343,6 +405,8 @@ class AutoDimensionSelector:
                 le = LabelEncoder()
                 y = le.fit_transform(y)
 
+            from .sklearn import Row2VecTransformer
+
             scores = []
             for dim in candidate_dims:
                 try:
@@ -356,21 +420,39 @@ class AutoDimensionSelector:
                         scaling=config.scaling,
                     )
 
-                    embeddings = learn_embedding_v2(X, test_config)
-
-                    # Evaluate with simple classifier
-                    clf = LogisticRegression(random_state=1305, max_iter=100)
-                    cv_scores = cross_val_score(clf, embeddings, y, cv=3, scoring="accuracy")
+                    # Embed inside the cross-validation, not before it. Fitting
+                    # the embedding on all of X and then cross-validating the
+                    # classifier let every test fold contribute to the
+                    # representation it was scored on, which inflated the score
+                    # and, since that score picks the dimension, the choice too.
+                    pipeline = Pipeline(
+                        [
+                            (
+                                "embed",
+                                Row2VecTransformer(
+                                    embedding_dim=dim,
+                                    mode=test_config.mode,
+                                    seed=test_config.seed,
+                                    config=test_config,
+                                ),
+                            ),
+                            (
+                                "clf",
+                                LogisticRegression(random_state=self.random_state, max_iter=100),
+                            ),
+                        ]
+                    )
+                    cv_scores = cross_val_score(pipeline, X, y, cv=3, scoring="accuracy")
                     scores.append(cv_scores.mean())
 
                 except Exception:
                     scores.append(0.0)
 
             if not scores or max(scores) == 0:
-                return {
-                    "recommended_dim": candidate_dims[len(candidate_dims) // 2],
-                    "score": 0.5,
-                }
+                return self._failed_result(
+                    "performance_based",
+                    "no candidate dimension scored above zero",
+                )
 
             best_idx = np.argmax(scores)
             recommended_dim = candidate_dims[best_idx]
@@ -382,11 +464,8 @@ class AutoDimensionSelector:
                 "evaluation_type": "supervised_classification",
             }
 
-        except Exception:
-            return {
-                "recommended_dim": candidate_dims[len(candidate_dims) // 2],
-                "score": 0.5,
-            }
+        except Exception as exc:
+            return self._failed_result("performance_based", str(exc))
 
     def _clustering_quality_method(
         self,
@@ -413,7 +492,7 @@ class AutoDimensionSelector:
 
                     # Perform clustering
                     n_clusters = min(max(2, int(np.sqrt(len(embeddings)))), 10)
-                    kmeans = KMeans(n_clusters=n_clusters, random_state=1305, n_init=3)
+                    kmeans = KMeans(n_clusters=n_clusters, random_state=self.random_state, n_init=3)
                     cluster_labels = kmeans.fit_predict(embeddings)
 
                     # Calculate silhouette score
@@ -428,10 +507,10 @@ class AutoDimensionSelector:
                     silhouette_scores.append(0.0)
 
             if not silhouette_scores or max(silhouette_scores) <= 0:
-                return {
-                    "recommended_dim": candidate_dims[len(candidate_dims) // 2],
-                    "score": 0.5,
-                }
+                return self._failed_result(
+                    "clustering_quality",
+                    "no candidate dimension produced a positive silhouette score",
+                )
 
             best_idx = np.argmax(silhouette_scores)
             recommended_dim = candidate_dims[best_idx]
@@ -443,11 +522,8 @@ class AutoDimensionSelector:
                 "evaluation_type": "clustering_quality",
             }
 
-        except Exception:
-            return {
-                "recommended_dim": candidate_dims[len(candidate_dims) // 2],
-                "score": 0.5,
-            }
+        except Exception as exc:
+            return self._failed_result("clustering_quality", str(exc))
 
     def _heuristic_rules_method(
         self, df: pd.DataFrame, candidate_dims: list[int]

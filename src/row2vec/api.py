@@ -8,15 +8,12 @@ be deprecated in future versions.
 from typing import TYPE_CHECKING, Any, Optional
 
 import pandas as pd
-from sklearn.base import BaseEstimator
-from sklearn.compose import ColumnTransformer
 
 if TYPE_CHECKING:
     from .architecture_search import ArchitectureSearchConfig
 
 from .config import EmbeddingConfig, create_config_for_mode
-from .core import learn_embedding as _legacy_learn_embedding
-from .core import learn_embedding_with_model as _legacy_learn_embedding_with_model
+from .model import Row2VecModel
 
 
 def learn_embedding_v2(
@@ -86,7 +83,16 @@ def learn_embedding_v2(
             df, config, architecture_search_config
         )
 
-        # Update config with best architecture
+        # A search where every trial failed returns an empty dict. Say so
+        # rather than dying on a KeyError several frames away.
+        if not best_architecture:
+            raise RuntimeError(
+                "Architecture search finished without a usable architecture: "
+                f"all {search_result.trials_completed} trial(s) failed. Run with "
+                "architecture_search_config.verbose=True to see why, or set "
+                "auto_architecture=False to use the configured architecture.",
+            )
+
         config.neural.hidden_units = best_architecture["hidden_units"]
         config.neural.dropout_rate = best_architecture["dropout_rate"]
         config.neural.activation = best_architecture["activation"]
@@ -94,17 +100,14 @@ def learn_embedding_v2(
         if architecture_search_config and architecture_search_config.verbose:
             search_result.summary()
 
-    # Convert config to legacy parameters and call the existing function
-    legacy_params = _config_to_legacy_params(config)
-
-    return _legacy_learn_embedding(df, **legacy_params)
+    return Row2VecModel(config).fit_transform(df)
 
 
 def learn_embedding_with_model_v2(
     df: pd.DataFrame,
     config: EmbeddingConfig | None = None,
     **config_overrides: Any,
-) -> tuple[pd.DataFrame, Any | BaseEstimator, ColumnTransformer, dict[str, Any]]:
+) -> tuple[pd.DataFrame, Row2VecModel]:
     """Modern config-based API for learning embeddings with model artifacts.
 
     This function returns the embeddings along with the trained model,
@@ -116,7 +119,9 @@ def learn_embedding_with_model_v2(
         **config_overrides: Override specific config values
 
     Returns:
-        Tuple of (embeddings, model, preprocessor, metadata)
+        Tuple of (embeddings, fitted Row2VecModel). The model holds the
+        fitted preprocessor, projector and embedding scaler, and can embed
+        new rows with ``.transform(df)``.
     """
     if config is None:
         config = EmbeddingConfig()
@@ -125,10 +130,9 @@ def learn_embedding_with_model_v2(
     if config_overrides:
         config = _apply_config_overrides(config, config_overrides)
 
-    # Convert config to legacy parameters and call the existing function
-    legacy_params = _config_to_legacy_params(config)
-
-    return _legacy_learn_embedding_with_model(df, **legacy_params)
+    model = Row2VecModel(config)
+    embeddings = model.fit_transform(df)
+    return embeddings, model
 
 
 def _apply_config_overrides(config: EmbeddingConfig, overrides: dict[str, Any]) -> EmbeddingConfig:
@@ -193,43 +197,6 @@ def _apply_config_overrides(config: EmbeddingConfig, overrides: dict[str, Any]) 
             config_dict[key] = value
 
     return EmbeddingConfig.from_dict(config_dict)
-
-
-def _config_to_legacy_params(config: EmbeddingConfig) -> dict[str, Any]:
-    """Convert an EmbeddingConfig to legacy function parameters."""
-    return {
-        # Core parameters
-        "embedding_dim": config.embedding_dim,
-        "mode": config.mode,
-        "reference_column": config.reference_column,
-        "seed": config.seed,
-        "verbose": config.verbose,
-        # Neural parameters
-        "max_epochs": config.neural.max_epochs,
-        "batch_size": config.neural.batch_size,
-        "dropout_rate": config.neural.dropout_rate,
-        "hidden_units": config.neural.hidden_units,
-        "early_stopping": config.neural.early_stopping,
-        # Classical parameters
-        "n_neighbors": config.classical.n_neighbors,
-        "perplexity": config.classical.perplexity,
-        "min_dist": config.classical.min_dist,
-        "n_iter": config.classical.n_iter,
-        # Contrastive parameters
-        "similar_pairs": config.contrastive.similar_pairs,
-        "dissimilar_pairs": config.contrastive.dissimilar_pairs,
-        "auto_pairs": config.contrastive.auto_pairs,
-        "contrastive_loss": config.contrastive.loss_type,
-        "margin": config.contrastive.margin,
-        "negative_samples": config.contrastive.negative_samples,
-        # Scaling parameters
-        "scale_method": config.scaling.method,
-        "scale_range": config.scaling.range,
-        # Logging parameters
-        "log_level": config.logging.level,
-        "log_file": config.logging.file,
-        "enable_logging": config.logging.enabled,
-    }
 
 
 # Convenience functions for common configurations

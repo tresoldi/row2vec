@@ -110,20 +110,26 @@ class TestSklearnIntegration:
         reason="sklearn integration not available",
     )
     def test_row2vec_transformer_nested_params(self, sample_data: pd.DataFrame) -> None:
-        """Test transformer with nested parameter overrides."""
+        """Neural parameters survive construction, get_params and clone."""
         from row2vec import Row2VecTransformer
 
         transformer = Row2VecTransformer(
             embedding_dim=7,
             mode="unsupervised",
-            neural__max_epochs=15,
-            neural__batch_size=16,
+            max_epochs=15,
+            batch_size=16,
         )
 
         X_embedded = transformer.fit_transform(sample_data)
         assert X_embedded.shape == (100, 7)
         assert transformer.config_.neural.max_epochs == 15
         assert transformer.config_.neural.batch_size == 16
+
+        # Explicit constructor parameters are what let clone() carry them over;
+        # the previous **kwargs signature dropped them silently.
+        from sklearn.base import clone
+
+        assert clone(transformer).get_params()["max_epochs"] == 15
 
     @pytest.mark.skipif(
         not hasattr(row2vec, "Row2VecTransformer"),
@@ -216,10 +222,9 @@ class TestPandasIntegration:
         embeddings = sample_data_with_target.row2vec.supervised("category", dim=4)
 
         assert isinstance(embeddings, pd.DataFrame)
-        # Should return category embeddings (one per unique category)
-        n_categories = sample_data_with_target["category"].nunique()
-        assert embeddings.shape[0] == n_categories
-        assert embeddings.shape[1] == 4
+        # One row per input row since 0.3.0, indexed like the source frame.
+        assert embeddings.shape == (len(sample_data_with_target), 4)
+        assert list(embeddings.index) == list(sample_data_with_target.index)
 
     def test_pandas_contrastive(self, sample_data: pd.DataFrame) -> None:
         """Test contrastive method."""
@@ -332,33 +337,3 @@ class TestIntegrationCompatibility:
             pandas_embeddings.values,
             rtol=1e-10,
         )
-
-
-def test_integrations_manually() -> None:
-    """Manual test function for integration testing."""
-    sample_data = generate_synthetic_data(50, seed=1305)
-
-    print("Testing pandas integration...")
-    try:
-        embeddings = sample_data.row2vec.embed(dim=3, mode="pca")
-        print(f"✅ Pandas integration works! Embeddings shape: {embeddings.shape}")
-    except Exception as e:
-        print(f"❌ Pandas integration failed: {e}")
-
-    print("\nTesting sklearn integration...")
-    try:
-        from row2vec import Row2VecTransformer
-
-        transformer = Row2VecTransformer(embedding_dim=3, mode="pca")
-        X_embedded = transformer.fit_transform(sample_data)
-        print(f"✅ Sklearn integration works! Embeddings shape: {X_embedded.shape}")
-    except ImportError:
-        print("⚠️  Sklearn integration not available")
-    except Exception as e:
-        print(f"❌ Sklearn integration failed: {e}")
-
-    print("\nAll tests completed!")
-
-
-if __name__ == "__main__":
-    test_integrations_manually()

@@ -9,8 +9,6 @@ import tempfile
 from pathlib import Path
 
 from row2vec import (
-    Row2VecModel,
-    Row2VecModelMetadata,
     generate_synthetic_data,
     learn_embedding_with_model,
     load_model,
@@ -85,7 +83,9 @@ def main():
         print("\n3. Manual training and saving workflow...")
         print("   Training with learn_embedding_with_model...")
 
-        _embeddings, model, preprocessor, metadata = learn_embedding_with_model(
+        # One training pass returns the embeddings and the fitted model that
+        # produced them; the model carries its own preprocessor and scaler.
+        _embeddings, model = learn_embedding_with_model(
             data,
             embedding_dim=2,
             mode="umap",
@@ -93,16 +93,9 @@ def main():
             enable_logging=False,
         )
 
-        # Create Row2Vec model object
-        row2vec_model = Row2VecModel(
-            model=model,
-            preprocessor=preprocessor,
-            metadata=Row2VecModelMetadata.from_dict(metadata),
-        )
-
-        # Save manually
+        # save_model derives the metadata from the fitted model.
         manual_script, _manual_binary = save_model(
-            row2vec_model,
+            model,
             tmpdir / "manual_model",
         )
         print(f"   ✅ Manually saved to: {manual_script}")

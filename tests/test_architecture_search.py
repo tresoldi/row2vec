@@ -3,7 +3,7 @@ Tests for neural architecture search functionality.
 """
 
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
@@ -355,38 +355,47 @@ class TestIntegrationWithAPI:
             }
         )
 
-    @patch("row2vec.architecture_search.search_architecture")
-    @patch("row2vec.api._legacy_learn_embedding")
-    def test_learn_embedding_v2_with_auto_architecture(
-        self, mock_legacy: Any, mock_search: Any, sample_data: pd.DataFrame
-    ) -> None:
-        """Test learn_embedding_v2 with auto_architecture=True."""
+    def test_learn_embedding_v2_with_auto_architecture(self, sample_data: pd.DataFrame) -> None:
+        """Architecture search actually drives the embedding that comes back.
+
+        The previous version of this test patched both the search and the
+        embedding call and then asserted that its own mocks had been called, so
+        it could not observe that every contrastive trial was failing or that
+        the chosen architecture never reached the model.
+        """
         from row2vec.api import learn_embedding_v2
+        from row2vec.architecture_search import ArchitectureSearchConfig
         from row2vec.config import EmbeddingConfig
 
-        # Mock search results
-        mock_best_arch = {
-            "hidden_units": [128, 64],
-            "dropout_rate": 0.2,
-            "activation": "relu",
-        }
-        mock_result = MagicMock()
-        mock_result.summary.return_value = {
-            "trials_completed": 10,
-            "total_time": 60.0,
-            "best_score": 0.85,
-        }
-        mock_search.return_value = (mock_best_arch, mock_result)
+        config = EmbeddingConfig(mode="unsupervised", embedding_dim=2)
+        config.neural.max_epochs = 2
+        # The fixture has 30 rows; the default batch size of 64 is rejected.
+        config.neural.batch_size = 8
+        config.logging.enabled = False
 
-        # Mock legacy embedding
-        mock_legacy.return_value = pd.DataFrame(np.random.randn(30, 5))
+        search_config = ArchitectureSearchConfig(
+            max_trials=2,
+            initial_epochs=1,
+            intermediate_epochs=1,
+            final_epochs=1,
+            top_k_intermediate=1,
+            top_k_final=1,
+        )
 
-        config = EmbeddingConfig(mode="unsupervised", embedding_dim=5)
-        result = learn_embedding_v2(sample_data, config, auto_architecture=True)
+        result = learn_embedding_v2(
+            sample_data,
+            config,
+            auto_architecture=True,
+            architecture_search_config=search_config,
+        )
 
-        assert mock_search.called
-        assert mock_legacy.called
         assert isinstance(result, pd.DataFrame)
+        assert result.shape == (len(sample_data), 2)
+        assert list(result.index) == list(sample_data.index)
+        assert not result.isnull().any().any()
+
+        # The search wrote its choice back into the config that was used.
+        assert config.neural.activation in search_config.activation_options
 
 
 class TestErrorHandling:

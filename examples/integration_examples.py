@@ -86,8 +86,8 @@ def sklearn_integration_examples():
     neural_transformer = Row2VecTransformer(
         embedding_dim=6,
         mode="unsupervised",
-        neural__max_epochs=15,
-        neural__batch_size=32,
+        max_epochs=15,
+        batch_size=32,
     )
 
     X_neural = neural_transformer.fit_transform(df)
@@ -156,8 +156,8 @@ def sklearn_integration_examples():
 
         classifier = Row2VecClassifier(
             embedding_dim=3,  # Smaller than input features (4)
-            neural__max_epochs=10,
-            neural__batch_size=min(32, len(X_train) // 2),  # Adaptive batch size
+            max_epochs=10,
+            batch_size=min(32, len(X_train) // 2),  # Adaptive batch size
         )
 
         classifier.fit(X_train, y_train)
@@ -246,8 +246,8 @@ def advanced_integration_examples():
                     Row2VecTransformer(
                         embedding_dim=5,  # Smaller than input features (7)
                         mode="unsupervised",
-                        neural__max_epochs=10,
-                        neural__batch_size=min(32, len(df_processed) // 2),
+                        max_epochs=10,
+                        batch_size=min(32, len(df_processed) // 2),
                     ),
                 ),
             ]
