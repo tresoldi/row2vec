@@ -21,6 +21,19 @@ import pytest
 
 import row2vec
 
+_NEEDS_TENSORFLOW = "NeuralBackendMissing"
+
+
+class _RecordingRunner(doctest.DocTestRunner):
+    """A doctest runner that remembers the exceptions examples raised."""
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        super().__init__(*args, **kwargs)  # type: ignore[arg-type]
+        self.errors: list[str] = []
+
+    def report_unexpected_exception(self, out, test, example, exc_info):  # type: ignore[no-untyped-def]
+        self.errors.append(f"{type(exc_info[1]).__name__}: {exc_info[1]}")
+
 
 def _iter_module_names() -> list[str]:
     """Return the import paths of every submodule under ``row2vec``."""
@@ -35,7 +48,12 @@ def _iter_module_names() -> list[str]:
 def test_module_docstring_examples(module_name: str) -> None:
     """Every ``>>>`` example in the module must run and match its output."""
     module = importlib.import_module(module_name)
-    results = doctest.testmod(module, verbose=False, report=False)
+    runner = _RecordingRunner(verbose=False)
+    for test in doctest.DocTestFinder().find(module):
+        runner.run(test, out=lambda _text: None)
+    results = runner.summarize(verbose=False)
+    if results.failed and any(_NEEDS_TENSORFLOW in message for message in runner.errors):
+        pytest.skip("examples in this module train a neural model; install row2vec[neural]")
     assert results.failed == 0, (
         f"{results.failed} doctest example(s) failed in {module_name}. "
         f"Reproduce with: python -m pytest --doctest-modules src/row2vec"

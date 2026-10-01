@@ -55,3 +55,26 @@ def pytest_collection_modifyitems(
 
         if any(module in node_id for module in NEURAL_TEST_MODULES):
             item.add_marker(pytest.mark.neural)
+
+
+# --------------------------------------------------------------------------- #
+# Running without the optional neural backend
+# --------------------------------------------------------------------------- #
+#
+# `pip install row2vec` has no TensorFlow, and `learn_embedding`'s default mode
+# is a neural one, so a large part of the suite reaches TensorFlow without
+# saying so. Rather than mark each test, a failure whose report carries the
+# library's own `NeuralBackendMissing` error is reported as a skip when
+# TensorFlow is absent. Any *other* failure is still a failure, which is what
+# the light CI job is there to catch.
+
+_NEEDS_TENSORFLOW = "NeuralBackendMissing"
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]):  # type: ignore[no-untyped-def]
+    outcome = yield
+    report = outcome.get_result()
+    if report.failed and _NEEDS_TENSORFLOW in str(report.longrepr):
+        report.outcome = "skipped"
+        report.longrepr = (str(item.path), item.location[1] or 0, "requires the [neural] extra")

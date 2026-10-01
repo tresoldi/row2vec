@@ -28,12 +28,10 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, normalize
-from tensorflow.keras.layers import Dense, Dropout, Input
-from tensorflow.keras.models import Model
 
+from ._backend import require_tensorflow
 from .config import EmbeddingConfig
 from .contrastive import (
     build_contrastive_model,
@@ -50,62 +48,81 @@ if TYPE_CHECKING:
 
     from sklearn.compose import ColumnTransformer
 
-try:  # pragma: no cover - exercised implicitly wherever Keras is present
-    from tensorflow.keras.callbacks import Callback, EarlyStopping
-except ImportError:  # pragma: no cover
-    Callback = object
-    EarlyStopping = object
-
 __all__ = [
     "MODES",
     "ModeSpec",
     "Row2VecModel",
-    "Row2VecTrainingCallback",
     "get_feature_names",
 ]
 
 
-class Row2VecTrainingCallback(Callback):
-    """Keras callback for Row2Vec training progress logging.
+_callback_class: type | None = None
 
-    Args:
-        logger (Row2VecLogger): Where to report progress.
-        total_epochs (int): The epoch ceiling, for "epoch 3/50" messages.
+
+def _training_callback_class() -> type:
+    """Build the Keras progress callback on first use.
+
+    The class has to subclass ``keras.callbacks.Callback``, so it cannot exist
+    until TensorFlow is imported; building it lazily keeps ``import row2vec``
+    free of TensorFlow.
     """
+    global _callback_class
+    if _callback_class is None:
+        require_tensorflow("Neural training")
+        from tensorflow.keras.callbacks import Callback
 
-    def __init__(self, logger: Row2VecLogger, total_epochs: int = 0):
-        super().__init__()
-        self.logger = logger
-        self.total_epochs = total_epochs
+        class Row2VecTrainingCallback(Callback):
+            """Keras callback for Row2Vec training progress logging.
 
-    def on_epoch_begin(self, epoch: int, logs: Any = None) -> None:
-        """Start the epoch clock.
+            Args:
+                logger (Row2VecLogger): Where to report progress.
+                total_epochs (int): The epoch ceiling, for "epoch 3/50" messages.
+            """
 
-        Without this the logger never learned when an epoch began, so
-        ``log_epoch_metrics`` returned early with a warning every single
-        epoch - meaning per-epoch metrics were never actually logged, and
-        every training run emitted one warning per epoch instead.
-        """
-        self.logger.start_epoch(epoch, self.total_epochs)
+            def __init__(self, logger: Row2VecLogger, total_epochs: int = 0):
+                super().__init__()
+                self.logger = logger
+                self.total_epochs = total_epochs
 
-    def on_epoch_end(self, epoch: int, logs: Any = None) -> None:
-        """Called at the end of each epoch."""
-        if logs is None:
-            logs = {}
+            def on_epoch_begin(self, epoch: int, logs: Any = None) -> None:
+                """Start the epoch clock.
 
-        # Extract metrics
-        loss = logs.get("loss", 0.0)
-        val_loss = logs.get("val_loss")
+                Without this the logger never learned when an epoch began, so
+                ``log_epoch_metrics`` returned early with a warning every single
+                epoch - meaning per-epoch metrics were never actually logged, and
+                every training run emitted one warning per epoch instead.
+                """
+                self.logger.start_epoch(epoch, self.total_epochs)
 
-        # Remove loss from additional metrics to avoid duplication
-        additional_metrics = {k: v for k, v in logs.items() if k not in ["loss", "val_loss"]}
+            def on_epoch_end(self, epoch: int, logs: Any = None) -> None:
+                """Called at the end of each epoch."""
+                if logs is None:
+                    logs = {}
 
-        self.logger.log_epoch_metrics(
-            epoch=epoch,
-            loss=loss,
-            val_loss=val_loss,
-            additional_metrics=additional_metrics if additional_metrics else None,
-        )
+                # Extract metrics
+                loss = logs.get("loss", 0.0)
+                val_loss = logs.get("val_loss")
+
+                # Remove loss from additional metrics to avoid duplication
+                additional_metrics = {
+                    k: v for k, v in logs.items() if k not in ["loss", "val_loss"]
+                }
+
+                self.logger.log_epoch_metrics(
+                    epoch=epoch,
+                    loss=loss,
+                    val_loss=val_loss,
+                    additional_metrics=additional_metrics if additional_metrics else None,
+                )
+
+        _callback_class = Row2VecTrainingCallback
+    return _callback_class
+
+
+def __getattr__(name: str) -> Any:
+    if name == "Row2VecTrainingCallback":
+        return _training_callback_class()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 # --------------------------------------------------------------------------- #
@@ -548,7 +565,7 @@ class Row2VecModel:
             negative_samples=config.contrastive.negative_samples,
         )
 
-        self._seed_everything(config.seed)
+        self._seed_everything(config.seed, neural=self.spec.family == "neural")
 
         if logger is not None:
             logger.start_training(
@@ -772,6 +789,11 @@ class Row2VecModel:
         logger: Row2VecLogger | None,
     ) -> None:
         """Build and train the autoencoder (or supervised encoder) model."""
+        require_tensorflow(f"mode={self.config.mode!r}")
+        from tensorflow.keras.callbacks import EarlyStopping
+        from tensorflow.keras.layers import Dense, Dropout, Input
+        from tensorflow.keras.models import Model
+
         config = self.config
         neural = config.neural
         activation = neural.activation
@@ -812,7 +834,7 @@ class Row2VecModel:
                 EarlyStopping(monitor="val_loss", patience=5, restore_best_weights=True),
             )
         if logger is not None:
-            callbacks.append(Row2VecTrainingCallback(logger, neural.max_epochs))
+            callbacks.append(_training_callback_class()(logger, neural.max_epochs))
 
         history = model.fit(
             X_train,
@@ -838,6 +860,9 @@ class Row2VecModel:
         logger: Row2VecLogger | None,
     ) -> None:
         """Build and train the siamese/triplet model."""
+        require_tensorflow("mode='contrastive'")
+        from tensorflow.keras.callbacks import EarlyStopping
+
         config = self.config
         contrastive = config.contrastive
 
@@ -885,7 +910,7 @@ class Row2VecModel:
                 EarlyStopping(monitor="loss", patience=5, restore_best_weights=True),
             )
         if logger is not None:
-            callbacks.append(Row2VecTrainingCallback(logger, config.neural.max_epochs))
+            callbacks.append(_training_callback_class()(logger, config.neural.max_epochs))
 
         history = model.fit(
             dataset,
@@ -1019,10 +1044,17 @@ class Row2VecModel:
         )
 
     @staticmethod
-    def _seed_everything(seed: int) -> None:
-        """Seed every RNG the training path draws from."""
+    def _seed_everything(seed: int, neural: bool = False) -> None:
+        """Seed every RNG the training path draws from.
+
+        TensorFlow is seeded only for the neural modes, so that fitting PCA or
+        UMAP never imports it.
+        """
         random.seed(seed)
         np.random.seed(seed)
+        if not neural:
+            return
+        tf = require_tensorflow("Neural training")
         tf.random.set_seed(seed)
         # Takes no arguments; the old call passed one and swallowed the
         # TypeError, so determinism was never actually enabled.
