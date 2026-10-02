@@ -112,6 +112,9 @@ you are after is linear; if it isn't, `unsupervised` is the next step.
   scales before the projection, so no single column decides the result, and the
   output can be rescaled (`minmax`, `standard`, `l2`, `tanh`). The scaler is
   kept with the model, so a saved model reproduces its training output.
+- **Choosing a mode** — `compare_modes(df, target=...)` fits several modes on
+  the same rows and scores them on held-out rows (neighbourhood preservation
+  and, given a target, a downstream score), next to a no-embedding baseline.
 - **Architecture** — for the neural modes, layer widths and even the embedding
   dimension can be searched rather than guessed (`search_architecture`,
   `auto_select_dimension`).
