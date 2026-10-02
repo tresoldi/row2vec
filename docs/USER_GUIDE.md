@@ -267,7 +267,7 @@ row_vectors = row2vec.learn_embedding(
     verbose=False,
 )
 
-# Since 0.3.0 target mode returns one row per input row, carrying df's index,
+# Since 0.4.0 target mode returns one row per input row, carrying df's index,
 # so it joins straight back on like every other mode.
 assert len(row_vectors) == len(df)
 assert list(row_vectors.index) == list(df.index)

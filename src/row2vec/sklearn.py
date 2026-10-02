@@ -6,7 +6,7 @@ These wrap :class:`row2vec.model.Row2VecModel` so row2vec can be dropped into a
 constructor argument is a plain attribute of the same name so ``get_params``,
 ``set_params`` and ``clone`` round-trip.
 
-That was not true before 0.3.0. ``transform`` re-ran the whole training on
+That was not true before 0.4.0. ``transform`` re-ran the whole training on
 whatever frame it was handed, so inside cross-validation each fold learned its
 embedding from its own test fold; ``**kwargs`` in ``__init__`` meant ``clone``
 silently dropped every nested parameter, so a grid search over them tuned

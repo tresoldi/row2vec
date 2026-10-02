@@ -47,7 +47,7 @@ def test_target_embedding(synthetic_data: pd.DataFrame) -> None:
         max_epochs=2,  # Keep it fast
     )
 
-    # Since 0.3.0 target mode returns one row per input row, indexed by
+    # Since 0.4.0 target mode returns one row per input row, indexed by
     # df.index. The per-category matrix is available via
     # aggregate_by_reference=True.
     assert embeddings.shape == (len(df), embedding_dim)

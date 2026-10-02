@@ -49,7 +49,7 @@ class TestStrategySelection:
     def test_target_encoding_is_never_chosen_without_a_target(self) -> None:
         """Without a target, target encoding degrades to raw ordinal codes.
 
-        Those codes are unbounded, and before 0.3.0 they went on to dominate
+        Those codes are unbounded, and before 0.4.0 they went on to dominate
         the embedding. The analyzer must not select a strategy it cannot carry
         out.
         """

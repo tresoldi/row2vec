@@ -259,7 +259,7 @@ class CategoricalAnalyzer:
         Entity embeddings train a Keras model. Without TensorFlow a column that
         would get them uses target encoding when a target allows it (with a
         warning), and otherwise raises, because the remaining encodings either
-        blow up the width (one-hot) or are the unbounded ordinal codes 0.3.0
+        blow up the width (one-hot) or are the unbounded ordinal codes 0.4.0
         removed.
         """
         strategy = self._ideal_strategy(

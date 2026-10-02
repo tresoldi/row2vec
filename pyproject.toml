@@ -82,7 +82,7 @@ dev = [
     # Type stubs for the third-party libraries we call into. pandas-stubs is
     # pinned exactly for the same reason ruff/mypy are: a stub release changes
     # what mypy reports without a line of our code changing. Leaving it open
-    # is what turned `make quality` red between 0.2.0 and 0.3.0.
+    # is what turned `make quality` red between 0.2.0 and 0.4.0.
     "pandas-stubs==3.0.5.260914",
     "types-psutil",
     "types-PyYAML>=6.0.0",

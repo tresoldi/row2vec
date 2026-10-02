@@ -210,7 +210,7 @@ class TestSklearnContract:
     def test_estimator_checks(self, estimator: Any, check: Any) -> None:
         """scikit-learn's own conformance suite.
 
-        Before 0.3.0 this could not even run on the transformer: with
+        Before 0.4.0 this could not even run on the transformer: with
         BaseEstimator ahead of TransformerMixin in the bases, sklearn refused
         with "the transformer_tags tag is not set".
         """

@@ -230,7 +230,7 @@ class TestLoggingIntegration:
             log_level="DEBUG",
         )
 
-        # One row per input row since 0.3.0, not one per category.
+        # One row per input row since 0.4.0, not one per category.
         assert result.shape == (len(df), 2)
 
     def test_performance_warnings(self) -> None:
