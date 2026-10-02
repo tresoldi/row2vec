@@ -7,7 +7,7 @@ request looks like.
 
 import pandas as pd
 
-from .utils import categorical_columns, numeric_columns
+from .utils import boolean_columns, categorical_columns, datetime_columns, numeric_columns
 
 __all__ = ["validate_inputs"]
 
@@ -284,8 +284,13 @@ def validate_inputs(
     if mode == "target" and reference_column in numeric_cols:
         numeric_cols = [col for col in numeric_cols if col != reference_column]
 
-    if not numeric_cols and not categorical_cols:
+    other_cols = [
+        col
+        for col in (*boolean_columns(df), *datetime_columns(df))
+        if not (mode == "target" and col == reference_column)
+    ]
+    if not numeric_cols and not categorical_cols and not other_cols:
         raise ValueError(
-            "DataFrame must contain at least one numeric or categorical column "
+            "DataFrame must contain at least one numeric, categorical, boolean or datetime column "
             "(excluding reference_column in target mode)",
         )

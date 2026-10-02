@@ -11,9 +11,11 @@ import pandas as pd
 def is_categorical_series(series: pd.Series) -> bool:
     """Report whether a column should be treated as categorical.
 
-    Row2Vec splits every column into exactly two buckets — numeric, which is
-    scaled, and categorical, which is encoded. This is the single place that
-    decides which bucket a column falls into.
+    Row2Vec splits every column into four buckets — numeric (scaled),
+    categorical (encoded), boolean (0/1) and datetime (cyclical features plus
+    a trend). This is the single place that decides whether a column is
+    categorical; see also :func:`numeric_columns`, :func:`boolean_columns` and
+    :func:`datetime_columns`.
 
     A plain ``series.dtype in ("object", "category")`` test is not sufficient:
     since pandas 3.0 a column of text is inferred as ``str`` (a ``StringDtype``)
@@ -65,7 +67,8 @@ def numeric_columns(df: pd.DataFrame) -> list[Hashable]:
     """Return the names of the numeric columns of a DataFrame.
 
     Booleans and datetimes are deliberately excluded: they are neither scaled
-    like numbers nor encoded like categories.
+    like numbers nor encoded like categories. See :func:`boolean_columns` and
+    :func:`datetime_columns`.
 
     Args:
         df (pd.DataFrame): The DataFrame to inspect.
@@ -83,6 +86,42 @@ def numeric_columns(df: pd.DataFrame) -> list[Hashable]:
     # have integer column names, and stringifying them made every later
     # df[cols] lookup fail with a KeyError.
     return list(df.select_dtypes(include=[np.number]).columns)
+
+
+def boolean_columns(df: pd.DataFrame) -> list[Hashable]:
+    """Return the names of the boolean columns (``bool`` and nullable ``boolean``).
+
+    Args:
+        df (pd.DataFrame): The DataFrame to inspect.
+
+    Returns:
+        list[Hashable]: Column labels classified as boolean, in column order.
+
+    Examples:
+        >>> import pandas as pd
+        >>> from row2vec.utils import boolean_columns
+        >>> boolean_columns(pd.DataFrame({"n": [1], "b": [True]}))
+        ['b']
+    """
+    return [col for col in df.columns if pd.api.types.is_bool_dtype(df[col].dtype)]
+
+
+def datetime_columns(df: pd.DataFrame) -> list[Hashable]:
+    """Return the names of the datetime columns (naive or timezone-aware).
+
+    Args:
+        df (pd.DataFrame): The DataFrame to inspect.
+
+    Returns:
+        list[Hashable]: Column labels classified as datetime, in column order.
+
+    Examples:
+        >>> import pandas as pd
+        >>> from row2vec.utils import datetime_columns
+        >>> datetime_columns(pd.DataFrame({"n": [1], "t": pd.to_datetime(["2024-01-01"])}))
+        ['t']
+    """
+    return [col for col in df.columns if pd.api.types.is_datetime64_any_dtype(df[col].dtype)]
 
 
 def generate_synthetic_data(num_records: int, seed: int = 1305) -> pd.DataFrame:

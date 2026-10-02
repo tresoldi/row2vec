@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Datetime columns** are encoded instead of silently dropped: sine/cosine pairs
+  for the hour, weekday, day-of-month and month that vary in the training data,
+  plus a standardised elapsed-time feature (`DatetimeEncoder`).
+- **Boolean columns** (including nullable `boolean`) are encoded as 0/1.
+- A `UserWarning` names any column whose dtype is still unsupported, such as
+  periods or intervals, instead of dropping it silently.
+
+### Changed
+
+- Models saved by this version that contain datetime or boolean columns cannot
+  be loaded by earlier versions. Embeddings of frames with boolean columns
+  differ from before, because those columns used to be ignored.
+
 ## [0.4.0] - unreleased
 
 Correctness release, now also a lighter install. An independent audit of 0.2.0 found nine data-integrity

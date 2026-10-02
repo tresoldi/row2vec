@@ -5,6 +5,7 @@ analyzes data characteristics and builds optimal preprocessing pipelines
 with adaptive categorical encoding strategies.
 """
 
+import warnings
 from collections.abc import Hashable
 from typing import Any
 
@@ -18,8 +19,15 @@ from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
 from .categorical_encoding import CategoricalEncoder, CategoricalEncodingConfig
 from .config import EmbeddingConfig
+from .datetime_encoding import DatetimeEncoder
 from .imputation import AdaptiveImputer, ImputationConfig
-from .utils import categorical_columns, is_categorical_series, numeric_columns
+from .utils import (
+    boolean_columns,
+    categorical_columns,
+    datetime_columns,
+    is_categorical_series,
+    numeric_columns,
+)
 
 
 class _TolerantMinMaxScaler(BaseEstimator, TransformerMixin):
@@ -48,6 +56,43 @@ class _TolerantMinMaxScaler(BaseEstimator, TransformerMixin):
         if self.scaler_ is None:
             return np.asarray(X)
         return self.scaler_.transform(np.asarray(X))
+
+
+class _BooleanEncoder(BaseEstimator, TransformerMixin):
+    """Boolean columns as 0/1 floats, with missing values set to the mode.
+
+    Booleans are already bounded, so they are neither scaled nor sent through
+    the categorical encoder. A nullable ``boolean`` column cannot go through
+    scikit-learn directly (``pd.NA`` is not a float), hence this small step.
+    """
+
+    def __init__(self) -> None:
+        self.fill_: list[float] | None = None
+        self.names_: list[str] | None = None
+
+    @staticmethod
+    def _as_float(X: Any) -> pd.DataFrame:
+        return pd.DataFrame(X).astype("boolean").astype("Float64").astype(float)
+
+    def fit(self, X: Any, y: Any = None) -> "_BooleanEncoder":
+        """Learn the per-column fill value (the most frequent value)."""
+        values = self._as_float(X)
+        self.names_ = [str(c) for c in values.columns]
+        self.fill_ = [
+            float(values[c].mode().iloc[0]) if values[c].notna().any() else 0.0
+            for c in values.columns
+        ]
+        return self
+
+    def transform(self, X: Any) -> np.ndarray:
+        """Return the columns as 0/1 floats."""
+        values = self._as_float(X)
+        fill = dict(zip(values.columns, self.fill_ or [], strict=False))
+        return np.asarray(values.fillna(fill))
+
+    def get_feature_names_out(self, input_features: Any = None) -> np.ndarray:
+        """Output names, one per input column."""
+        return np.asarray(self.names_, dtype=object)
 
 
 class PipelineBuilder:
@@ -87,6 +132,8 @@ class PipelineBuilder:
         # Separate numeric and categorical columns
         numeric_cols = self._get_numeric_columns(df)
         categorical_cols = self._get_categorical_columns(df)
+        boolean_cols = list(boolean_columns(df))
+        datetime_cols = list(datetime_columns(df))
 
         # Remove target column from features if in target mode
         if mode == "target" and target is not None and target.name in df.columns:
@@ -95,6 +142,12 @@ class PipelineBuilder:
                 numeric_cols.remove(target_name)
             if target_name in categorical_cols:
                 categorical_cols.remove(target_name)
+            if target_name in boolean_cols:
+                boolean_cols.remove(target_name)
+            if target_name in datetime_cols:
+                datetime_cols.remove(target_name)
+
+        self._warn_dropped(df, numeric_cols, categorical_cols, boolean_cols, datetime_cols, target)
 
         # Build numeric pipeline
         numeric_pipeline = self._build_numeric_pipeline(
@@ -116,6 +169,12 @@ class PipelineBuilder:
         if categorical_cols:
             transformers.append(("categorical", categorical_pipeline, categorical_cols))
 
+        if boolean_cols:
+            transformers.append(("boolean", _BooleanEncoder(), boolean_cols))
+
+        if datetime_cols:
+            transformers.append(("datetime", DatetimeEncoder(), datetime_cols))
+
         # Create final pipeline
         if not transformers:
             raise ValueError("No valid columns found for preprocessing")
@@ -132,6 +191,8 @@ class PipelineBuilder:
             categorical_cols,
             data_analysis,
             df,
+            boolean_cols,
+            datetime_cols,
         )
 
         return preprocessor, data_analysis
@@ -149,6 +210,8 @@ class PipelineBuilder:
             "missing_percentage": (df.isnull().sum().sum() / df.size) * 100,
             "numeric_columns": len(numeric_columns(df)),
             "categorical_columns": len(categorical_columns(df)),
+            "boolean_columns": len(boolean_columns(df)),
+            "datetime_columns": len(datetime_columns(df)),
             "memory_usage_mb": df.memory_usage(deep=True).sum() / 1024 / 1024,
             "has_target": target is not None,
             "target_type": None,
@@ -177,7 +240,12 @@ class PipelineBuilder:
                     df[col].value_counts().iloc[0] if len(df[col].value_counts()) > 0 else 0
                 )
                 col_analysis["frequency_distribution"] = df[col].value_counts().head(5).to_dict()
-            else:
+            elif pd.api.types.is_datetime64_any_dtype(df[col].dtype):
+                col_analysis["min"] = df[col].min() if not df[col].isnull().all() else None
+                col_analysis["max"] = df[col].max() if not df[col].isnull().all() else None
+            elif pd.api.types.is_numeric_dtype(df[col].dtype) or pd.api.types.is_bool_dtype(
+                df[col].dtype
+            ):
                 col_analysis["mean"] = df[col].mean() if not df[col].isnull().all() else None
                 col_analysis["std"] = df[col].std() if not df[col].isnull().all() else None
                 col_analysis["min"] = df[col].min() if not df[col].isnull().all() else None
@@ -188,6 +256,27 @@ class PipelineBuilder:
         analysis["column_analysis"] = column_analysis
 
         return analysis
+
+    def _warn_dropped(
+        self,
+        df: pd.DataFrame,
+        numeric_cols: list[Hashable],
+        categorical_cols: list[Hashable],
+        boolean_cols: list[Hashable],
+        datetime_cols: list[Hashable],
+        target: pd.Series | None,
+    ) -> None:
+        """Warn about columns that no branch handles, instead of dropping them silently."""
+        handled = {*numeric_cols, *categorical_cols, *boolean_cols, *datetime_cols}
+        if target is not None and target.name is not None:
+            handled.add(target.name)
+        dropped = [c for c in df.columns if c not in handled]
+        if dropped:
+            warnings.warn(
+                f"Columns {dropped} have an unsupported dtype and are ignored.",
+                UserWarning,
+                stacklevel=3,
+            )
 
     def _get_numeric_columns(self, df: pd.DataFrame) -> list[Hashable]:
         """Get list of numeric columns."""
@@ -326,6 +415,8 @@ class PipelineBuilder:
         categorical_cols: list[Hashable],
         analysis: dict[str, Any],
         df: pd.DataFrame,
+        boolean_cols: list[Hashable] | None = None,
+        datetime_cols: list[Hashable] | None = None,
     ) -> dict[str, Any]:
         """Describe the pipeline that was just built.
 
@@ -337,6 +428,8 @@ class PipelineBuilder:
                 because the description used to report the strategy for an
                 *empty* frame, which always answers "none", so the report said
                 "none" while the pipeline actually used, say, knn.
+            boolean_cols (list[Hashable], optional): Boolean column labels.
+            datetime_cols (list[Hashable], optional): Datetime column labels.
 
         Returns:
             dict[str, Any]: A human-readable description.
@@ -348,10 +441,14 @@ class PipelineBuilder:
                 "missing_percentage": f"{analysis['missing_percentage']:.1f}%",
                 "numeric_features": len(numeric_cols),
                 "categorical_features": len(categorical_cols),
+                "boolean_features": len(boolean_cols or []),
+                "datetime_features": len(datetime_cols or []),
                 "memory_usage": f"{analysis['memory_usage_mb']:.1f} MB",
             },
             "numeric_processing": [],
             "categorical_processing": [],
+            "boolean_processing": [],
+            "datetime_processing": [],
             "recommendations": [],
         }
 
@@ -370,6 +467,14 @@ class PipelineBuilder:
                 f"OneHot threshold: ≤{self.config.preprocessing.categorical_onehot_threshold} categories",
                 f"Target encoding threshold: ≤{self.config.preprocessing.categorical_target_threshold} categories",
                 f"Entity embedding threshold: ≤{self.config.preprocessing.categorical_entity_threshold} categories",
+            ]
+
+        if boolean_cols:
+            description["boolean_processing"] = ["Encoded as 0/1; missing set to the most frequent"]
+        if datetime_cols:
+            description["datetime_processing"] = [
+                "Sine/cosine of hour, weekday, day-of-month and month where they vary",
+                "Standardised elapsed time as the trend feature",
             ]
 
         # Add recommendations

@@ -411,6 +411,32 @@ assert analysis["cardinality"] == 3
 assert analysis["recommended_strategy"]  # a strategy name, e.g. "onehot"
 ```
 
+### Datetime and boolean columns
+
+A datetime column becomes cyclical features plus a trend. For each of hour,
+weekday, day-of-month and month that varies in the training data, the encoder
+emits a sine/cosine pair, so 23:00 sits next to 00:00 and December next to
+January. One standardised "elapsed time" feature separates 2019 from 2024.
+Missing timestamps take the training median, and timezone-aware columns are
+converted to UTC. Boolean columns (including nullable `boolean`) become 0/1.
+
+```python
+import pandas as pd
+
+from row2vec import learn_embedding
+
+df = pd.DataFrame(
+    {
+        "placed_at": pd.date_range("2024-01-01", periods=40, freq="13h"),
+        "express": [i % 3 == 0 for i in range(40)],
+        "amount": [float(i % 7) for i in range(40)],
+    }
+)
+
+embeddings = learn_embedding(df, mode="pca", embedding_dim=2, enable_logging=False)
+assert embeddings.shape == (40, 2)
+```
+
 ### Scaling the output
 
 `scale_method` rescales the embedding after it is computed — useful when a
@@ -652,9 +678,9 @@ assert embeddings.shape == (50, 2)
 
 ### What is not supported
 
-Free text and datetime columns are not embedded directly. Preprocess them
-yourself — sentence embeddings for text, explicit features (month, weekday,
-elapsed days) for timestamps — and pass the result as ordinary columns.
+Free text is not embedded directly. Preprocess it yourself, for example with
+sentence embeddings, and pass the result as ordinary columns. Columns of any
+other dtype (periods, intervals) are ignored, with a warning that names them.
 
 ---
 
