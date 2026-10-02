@@ -698,7 +698,7 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
         self.fitted_encoders_: dict[str, Any] = {}
         self.entity_embeddings_: dict[str, Any] = {}
         # Cross-fitted target encodings for the training rows, keyed by column.
-        self.cv_encodings_: dict[str, pd.Series] = {}
+        self.cv_encodings_: dict[str, NDArray[Any]] = {}
         self.feature_names_in_: list[str] | None = None
         self.feature_names_out_: list[str] | None = None
         self.analysis_report_: dict[str, Any] = {}
@@ -770,7 +770,11 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
 
         for col, cv_values in self.cv_encodings_.items():
             if col in encoded.columns:
-                encoded[col] = cv_values.to_numpy()
+                encoded[col] = cv_values
+
+        # One value per training row: needed only for the line above. Keeping it
+        # would put row-level data into every saved model.
+        self.cv_encodings_ = {}
 
         return encoded
 
@@ -856,7 +860,7 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
                 # Keep the cross-fitted values: these are what the training
                 # rows must receive. Discarding them and re-reading the
                 # full-data map is how each row got handed its own label back.
-                self.cv_encodings_[col] = encoder.fit_transform(series, target)
+                self.cv_encodings_[col] = np.asarray(encoder.fit_transform(series, target))
                 self.fitted_encoders_[col] = encoder
 
         elif strategy == "entity":

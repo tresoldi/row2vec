@@ -111,7 +111,7 @@ model_path = os.path.join(tmpdir, "my_model")
 
 #' ### Train and Save Model
 
-embeddings, script_path, binary_path = train_and_save_model(
+embeddings, saved_path = train_and_save_model(
     df,
     base_path=model_path,
     embedding_dim=6,
@@ -121,14 +121,13 @@ embeddings, script_path, binary_path = train_and_save_model(
 )
 
 print("\nModel saved:")
-print(f"  Script: {os.path.basename(script_path)}")
-print(f"  Binary: {os.path.basename(binary_path)}")
+print(f"  File: {os.path.basename(saved_path)}")
 print(f"  Training embeddings: {embeddings.shape}")
 
 #' ### Load and Use Saved Model
 
 # Load the model
-model = load_model(script_path)
+model = load_model(saved_path)
 
 # Generate embeddings for new data
 new_data = generate_synthetic_data(num_records=50, seed=999)

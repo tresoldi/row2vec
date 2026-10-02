@@ -90,7 +90,7 @@ src/row2vec/
 ├── evaluation.py          # compare_modes
 │
 │                          # -- boundaries --
-├── serialization.py       # save/load a fitted model with its pipeline
+├── serialization.py       # save/load a fitted model as one .r2v file; loading runs no code
 ├── cli.py                 # command-line interface
 ├── sklearn.py             # Row2VecTransformer / Row2VecClassifier
 ├── pandas.py              # the .row2vec DataFrame accessor
@@ -164,14 +164,19 @@ which has no out-of-sample extension and raises. The scikit-learn adapter's
 **Persistence.** A fitted model can be saved and restored with its preprocessing:
 
 ```python
-embeddings, script_path, binary_path = row2vec.train_and_save_model(df, base_path=...)
-model = row2vec.load_model(script_path)
+embeddings, path = row2vec.train_and_save_model(df, base_path=...)
+model = row2vec.load_model(path)
 model.predict(new_rows)
+row2vec.inspect_model(path)   # the manifest, without loading the model
 ```
 
-The format is deliberately two files: a **readable Python loader script** and a
-binary blob. The script documents what was trained and how to load it; the blob
-holds the fitted objects. The trade-off is that loading executes the script — see
+A model is one `.r2v` file, a zip archive of a `manifest.json` (versions,
+metadata, a checksum per member), tagged-JSON configuration and bookkeeping,
+skops files for the scikit-learn objects, and Keras's own format for a neural
+encoder. **Loading never executes code from the file:** skops may only build the
+types in `serialization.TRUSTED_TYPES`, the Keras config may only contain
+`Dense`/`Dropout` layers, and anything else raises `ModelFormatError`. The
+guarantee is against a malicious file, not an unauthenticated one — see
 `SECURITY.md`.
 
 ---
@@ -232,9 +237,13 @@ models saved by 0.2.0 cannot be loaded. See `MIGRATION.md`.
 3. **Preprocessing is persisted with the model.** The alternative — persisting
    only the estimator — makes inference silently inconsistent with training
    whenever the input distribution shifts (§2.2, §4).
-4. **Two-file model format.** A readable loader script plus a binary blob, in
-   preference to one opaque pickle. The cost is that loading executes code; that
-   is documented rather than hidden (§4, `SECURITY.md`).
+4. **One `.r2v` file that loads without running code (0.4.0).** Replaces a
+   readable loader script plus a pickle, whose cost was that loading executed
+   arbitrary code. The cost now is breadth: every type a saved preprocessor can
+   contain must be on an explicit allow-list, so a new fitted estimator is not
+   savable until it is added (and tested) there. UMAP's compiled distance
+   functions are dropped on save and rebuilt from the metric name on load (§4,
+   `SECURITY.md`).
 5. **Column classification centralised in `utils`.** One predicate, deferred to
    everywhere, rather than a dtype test repeated per module (§5).
 6. **scikit-learn and pandas integrations are adapters, not the core.** They

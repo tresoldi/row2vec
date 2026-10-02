@@ -347,7 +347,7 @@ def test_c7_saved_model_reproduces_training_embeddings(
     coordinates on reload.
     """
     base_path = tmp_path / "model"
-    trained, script_path, _binary_path = train_and_save_model(
+    trained, saved_path = train_and_save_model(
         labelled_frame,
         base_path,
         mode="pca",
@@ -357,7 +357,7 @@ def test_c7_saved_model_reproduces_training_embeddings(
         enable_logging=False,
     )
 
-    reloaded = load_model(script_path)
+    reloaded = load_model(saved_path)
     predicted = reloaded.predict(labelled_frame)
 
     np.testing.assert_allclose(
@@ -373,7 +373,7 @@ def test_c7_metadata_records_the_real_version(labelled_frame: pd.DataFrame, tmp_
     """Metadata must record the running version, not a hardcoded literal."""
     import row2vec
 
-    _embeddings, script_path, _binary_path = train_and_save_model(
+    _embeddings, saved_path = train_and_save_model(
         labelled_frame,
         tmp_path / "model",
         mode="pca",
@@ -381,7 +381,7 @@ def test_c7_metadata_records_the_real_version(labelled_frame: pd.DataFrame, tmp_
         enable_logging=False,
     )
 
-    assert load_model(script_path).metadata.row2vec_version == row2vec.__version__
+    assert load_model(saved_path).metadata.row2vec_version == row2vec.__version__
 
 
 # --------------------------------------------------------------------------- #

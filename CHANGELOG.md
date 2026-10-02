@@ -61,6 +61,20 @@ changes are folded in here.
 
 ### Changed
 
+- **Breaking: models are saved as one `.r2v` file, and loading runs no code.**
+  The script-and-pickle format executed the script on load (`exec`) and unpickled
+  a blob, so a model file could run anything. A model is now a zip of a JSON
+  manifest (versions, metadata, a checksum per member), JSON configuration and
+  state, scikit-learn objects written with `skops`, and a neural encoder in
+  Keras's own format. skops may only build an exact allow-list of types
+  (`row2vec.serialization.TRUSTED_TYPES`), Keras loads with `safe_mode` and only
+  `Dense`/`Dropout` layers, and anything else raises `ModelFormatError`. The
+  guarantee is against a malicious file, not an unauthenticated one; see
+  `SECURITY.md`. `save_model` returns one path, `train_and_save_model` returns
+  `(embeddings, path)`, the CLI takes `.r2v` files, and `load_model` refuses
+  `.py`/`.pkl` without running them. Neural models store only the encoder, not the
+  training network. UMAP models save and reload with identical output. `skops` is
+  a new core dependency.
 - **Breaking:** `learn_embedding_with_model` returns `(embeddings, model)`
   rather than a four-tuple.
 - **Breaking:** `mode="target"` returns one row per input row;
@@ -94,6 +108,9 @@ changes are folded in here.
 
 ### Added
 
+- `row2vec.inspect_model(path)` reads a saved model's manifest (format and library
+  versions, mode, metadata) without deserialising anything else, and
+  `row2vec.ModelFormatError`.
 - `row2vec.model.Row2VecModel`, the single object holding fitted state: the
   preprocessor, the projector, the encoder, and the embedding scaler. Every
   entry point is now a thin facade over it.

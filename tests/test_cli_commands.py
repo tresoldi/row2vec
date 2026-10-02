@@ -182,7 +182,7 @@ class TestAnnotate:
 class TestTrainAndPredict:
     def test_round_trip(self, workspace: Path) -> None:
         """Train a model, then use it to embed a second file."""
-        model = workspace / "model.py"
+        model = workspace / "model.r2v"
 
         train_code = run_cli(
             "train",
@@ -219,13 +219,28 @@ class TestTrainAndPredict:
         assert predict_code == 0
         assert len(pd.read_csv(predictions)) == 40
 
+    def test_train_refuses_the_old_script_format(self, workspace: Path) -> None:
+        code = run_cli(
+            "train",
+            "--input",
+            str(workspace / "data.csv"),
+            "--output",
+            str(workspace / "model.py"),
+            "--mode",
+            "pca",
+            "--quiet",
+        )
+
+        assert code == 1
+        assert not (workspace / "model.py").exists()
+
     def test_predict_with_missing_model_fails(self, workspace: Path) -> None:
         code = run_cli(
             "predict",
             "--input",
             str(workspace / "data.csv"),
             "--model",
-            str(workspace / "nonexistent.py"),
+            str(workspace / "nonexistent.r2v"),
             "--output",
             str(workspace / "out.csv"),
             "--quiet",

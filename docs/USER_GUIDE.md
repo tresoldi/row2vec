@@ -496,21 +496,43 @@ import row2vec
 df = row2vec.generate_synthetic_data(100)
 base = Path(tempfile.mkdtemp()) / "model"
 
-embeddings, script_path, _binary_path = row2vec.train_and_save_model(
+embeddings, saved = row2vec.train_and_save_model(
     df, base_path=str(base), mode="pca", embedding_dim=2
 )
 
-model = row2vec.load_model(script_path)
+model = row2vec.load_model(saved)
 new_rows = row2vec.generate_synthetic_data(20, seed=99)
+
+info = row2vec.inspect_model(saved)  # reads only the manifest
 
 assert embeddings.shape == (100, 2)
 assert model.predict(new_rows).shape == (20, 2)
+assert info["mode"] == "pca" and info["format"] == "row2vec-model"
 ```
 
-Saving produces two files: a readable Python loader script and a binary blob
-holding the fitted objects. Loading executes that script, so **only load models
-you trust** — see
+A saved model is a single `.r2v` file (a zip archive). It holds the fitted
+preprocessing, the projector or trained encoder, the configuration, and a
+`manifest.json` with the training metadata and the library versions that wrote
+it. `inspect_model` reads that manifest without loading anything else, and
+`unzip -l model.r2v` shows the members.
+
+**Loading runs no code from the file.** There is no loader script and no pickle:
+scikit-learn objects are read with [skops](https://skops.readthedocs.io), which
+refuses any type outside a short allow-list kept in row2vec, and the encoder of a
+neural mode is read in Keras's own format with `safe_mode` and only `Dense` and
+`Dropout` layers permitted. A file that names anything else raises
+`ModelFormatError` instead of loading. This defends against a *malicious* file,
+not an unauthenticated one: a checksum for each member catches corruption, but
+anyone who can rewrite the file can rewrite the checksums too, so still load
+models only from sources you trust. See
 [SECURITY.md](https://github.com/tresoldi/row2vec/blob/main/SECURITY.md).
+
+Two things to know. A model is read back by the same major row2vec and
+scikit-learn that wrote it; the manifest records both, and a file from a newer
+format version is refused with a request to upgrade. And a saved model contains
+the category values and summary statistics the preprocessing learned from your
+data (not the rows themselves), so treat it as derived from the data when you
+share it.
 
 ---
 

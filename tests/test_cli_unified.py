@@ -25,7 +25,7 @@ def test_subcommand_is_available(subcommand: str) -> None:
     """Each documented subcommand is registered and dispatches to a handler."""
     args = create_parser().parse_args(
         [subcommand, "--input", "in.csv", "--output", "out.csv"]
-        + (["--model", "model.py"] if subcommand == "predict" else [])
+        + (["--model", "model.r2v"] if subcommand == "predict" else [])
     )
     assert args.command == subcommand
     assert callable(args.func)
