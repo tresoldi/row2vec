@@ -165,9 +165,15 @@ it did not see, so a mode that memorises its training data gains nothing:
   embedding, which is the number an embedding has to justify itself against.
 
 t-SNE cannot embed unseen rows, so it is scored on trustworthiness alone, over
-all rows. Modes that need TensorFlow show up as `unavailable` when it is not
+a sample of at most `tsne_max_rows` rows (its cost grows steeply with row count). Modes that need TensorFlow show up as `unavailable` when it is not
 installed, and a mode that raises is reported as `failed` with the error, so one
-bad mode never hides the rest. Pass `max_epochs=20` (or any other
+bad mode never hides the rest.
+
+On the bundled data (`examples/compare_modes_real_data.py`, 4 dimensions, one run),
+PCA's 4 numbers predict Titanic survival about as well as the full preprocessed
+table (0.80 against 0.82 accuracy), and the supervised `target` mode did best
+(0.86). Treat figures like these as an illustration of the report, not a ranking:
+they move with the data, the split and the seed. Pass `max_epochs=20` (or any other
 `learn_embedding` argument) to keep the neural modes quick.
 
 ---

@@ -116,3 +116,17 @@ def test_high_cardinality_with_a_target_falls_back_to_target_encoding() -> None:
     )
     assert result.returncode == 0, result.stderr
     assert "ok" in result.stdout
+
+
+def test_install_hint_explains_python_314(monkeypatch: pytest.MonkeyPatch) -> None:
+    """TensorFlow has no Python 3.14 wheels; the hint must not just say 'pip install'."""
+    from collections import namedtuple
+
+    from row2vec import _backend
+
+    version = namedtuple("version", "major minor micro releaselevel serial")  # noqa: PYI024
+    monkeypatch.setattr(_backend.sys, "version_info", version(3, 14, 0, "final", 0))
+    assert "no wheels for Python 3.14" in _backend.install_hint()
+
+    monkeypatch.setattr(_backend.sys, "version_info", version(3, 12, 0, "final", 0))
+    assert _backend.install_hint() == 'pip install "row2vec[neural]"'

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+import sys
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -25,6 +26,17 @@ class NeuralBackendMissing(ImportError):
 
 
 _INSTALL_HINT = 'pip install "row2vec[neural]"'
+
+
+def install_hint() -> str:
+    """How to get the neural backend on this interpreter."""
+    if sys.version_info >= (3, 14):
+        return (
+            f"{_INSTALL_HINT} (TensorFlow publishes no wheels for Python "
+            f"{sys.version_info.major}.{sys.version_info.minor} yet; use Python 3.10-3.13 "
+            "for the neural modes)"
+        )
+    return _INSTALL_HINT
 
 
 def neural_available() -> bool:
@@ -46,5 +58,5 @@ def require_tensorflow(feature: str) -> ModuleType:
         return importlib.import_module("tensorflow")
     except ImportError as exc:
         raise NeuralBackendMissing(
-            f"{feature} needs TensorFlow, which is not installed. Install it with: {_INSTALL_HINT}"
+            f"{feature} needs TensorFlow, which is not installed. Install it with: {install_hint()}"
         ) from exc

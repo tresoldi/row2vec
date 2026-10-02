@@ -62,6 +62,17 @@ class CategoricalEncodingConfig:
     correlation_threshold: float = 0.1
     """Minimum mutual information score to prefer target/entity over onehot."""
 
+    drop_identifiers: bool = True
+    """Drop categorical columns whose every value is distinct (names, ids).
+
+    Such a column cannot generalise: no value seen at fit time ever recurs, so
+    whatever is learned about it describes only the training rows, and every new
+    row arrives with an unseen value. Encoding it anyway adds noise dimensions.
+    Applies from ``min_identifier_rows`` rows up."""
+
+    min_identifier_rows: int = 50
+    """Fewest rows at which an all-distinct column is judged an identifier."""
+
     # Target encoding configuration
     target_smoothing: float = 1.0
     """Bayesian smoothing factor for target encoding. Higher values = more smoothing."""
@@ -210,13 +221,25 @@ class CategoricalAnalyzer:
             except Exception:
                 target_correlation = 0.0
 
+        # An all-distinct column is an identifier, not a category.
+        non_null = int(series.notna().sum())
+        is_identifier = (
+            self.config.drop_identifiers
+            and non_null >= self.config.min_identifier_rows
+            and cardinality == non_null
+        )
+
         # Strategy recommendation
-        recommended_strategy = self._recommend_strategy(
-            cardinality,
-            target_correlation,
-            missing_rate,
-            imbalance_ratio,
-            target_usable=target_usable,
+        recommended_strategy = (
+            "drop"
+            if is_identifier
+            else self._recommend_strategy(
+                cardinality,
+                target_correlation,
+                missing_rate,
+                imbalance_ratio,
+                target_usable=target_usable,
+            )
         )
 
         # Embedding dimension recommendation (for entity embeddings)
@@ -230,10 +253,17 @@ class CategoricalAnalyzer:
             "target_correlation": target_correlation,
             "recommended_strategy": recommended_strategy,
             "embedding_dim": embedding_dim,
-            "reasoning": self._explain_recommendation(
-                cardinality,
-                target_correlation,
-                recommended_strategy,
+            "is_identifier": is_identifier,
+            "reasoning": (
+                f"Every one of its {cardinality} values is distinct, so it identifies rows "
+                "rather than describing them and cannot generalise to new ones. Dropped; "
+                "set drop_identifiers=False to encode it anyway."
+                if is_identifier
+                else self._explain_recommendation(
+                    cardinality,
+                    target_correlation,
+                    recommended_strategy,
+                )
             ),
         }
 
@@ -733,6 +763,14 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
                 strategy = self.config.encoding_strategy
 
             self.column_strategies_[col] = strategy
+
+            if strategy == "drop" and analysis["is_identifier"]:
+                warnings.warn(
+                    f"Column {col!r} has a distinct value in every row (an identifier), "
+                    "so it is dropped: it cannot generalise to new rows. Pass "
+                    "drop_identifiers=False in the categorical encoding config to keep it.",
+                    stacklevel=2,
+                )
 
             # Fit appropriate encoder
             self._fit_column_encoder(col, X[col], y, strategy, analysis)
