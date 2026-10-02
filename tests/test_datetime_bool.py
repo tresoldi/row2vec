@@ -67,7 +67,7 @@ def test_trend_is_standardised_and_monotonic() -> None:
 
 def test_missing_and_timezones_and_unseen() -> None:
     aware = pd.Series(pd.date_range("2024-01-01", periods=30, freq="7h", tz="Europe/Rome"))
-    aware.iloc[3] = pd.NaT
+    aware = aware.mask(aware.index == 3)
     enc = DatetimeEncoder().fit(pd.DataFrame({"t": aware}))
     out = enc.transform(pd.DataFrame({"t": aware}))
     assert np.isfinite(out).all()
@@ -87,7 +87,9 @@ def test_missing_and_timezones_and_unseen() -> None:
 
 def test_all_missing_datetime_column_raises() -> None:
     with pytest.raises(ValueError, match="no valid timestamps"):
-        DatetimeEncoder().fit(pd.DataFrame({"t": pd.to_datetime([None, None])}))
+        DatetimeEncoder().fit(
+            pd.DataFrame({"t": pd.Series([pd.NaT, pd.NaT], dtype="datetime64[ns]")})
+        )
 
 
 def test_pipeline_routes_columns_and_reports() -> None:
