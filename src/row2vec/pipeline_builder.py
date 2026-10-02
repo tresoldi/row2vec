@@ -21,6 +21,7 @@ from .categorical_encoding import CategoricalEncoder, CategoricalEncodingConfig
 from .config import EmbeddingConfig
 from .datetime_encoding import DatetimeEncoder
 from .imputation import AdaptiveImputer, ImputationConfig
+from .text_encoding import SharedHook, TextEncoder
 from .utils import (
     boolean_columns,
     categorical_columns,
@@ -134,6 +135,8 @@ class PipelineBuilder:
         categorical_cols = self._get_categorical_columns(df)
         boolean_cols = list(boolean_columns(df))
         datetime_cols = list(datetime_columns(df))
+        text_cols = self._resolve_text_columns(df, target, mode)
+        categorical_cols = [c for c in categorical_cols if c not in text_cols]
 
         # Remove target column from features if in target mode
         if mode == "target" and target is not None and target.name in df.columns:
@@ -147,7 +150,9 @@ class PipelineBuilder:
             if target_name in datetime_cols:
                 datetime_cols.remove(target_name)
 
-        self._warn_dropped(df, numeric_cols, categorical_cols, boolean_cols, datetime_cols, target)
+        self._warn_dropped(
+            df, [*numeric_cols, *text_cols], categorical_cols, boolean_cols, datetime_cols, target
+        )
 
         # Build numeric pipeline
         numeric_pipeline = self._build_numeric_pipeline(
@@ -175,6 +180,19 @@ class PipelineBuilder:
         if datetime_cols:
             transformers.append(("datetime", DatetimeEncoder(), datetime_cols))
 
+        if text_cols:
+            prep = self.config.preprocessing
+            hook = SharedHook(prep.text_encoder) if prep.text_encoder is not None else None
+            transformers.append(
+                (
+                    "text",
+                    TextEncoder(
+                        n_components=prep.text_dim, encoder=hook, random_state=self.config.seed
+                    ),
+                    text_cols,
+                )
+            )
+
         # Create final pipeline
         if not transformers:
             raise ValueError("No valid columns found for preprocessing")
@@ -193,6 +211,7 @@ class PipelineBuilder:
             df,
             boolean_cols,
             datetime_cols,
+            text_cols,
         )
 
         return preprocessor, data_analysis
@@ -212,6 +231,7 @@ class PipelineBuilder:
             "categorical_columns": len(categorical_columns(df)),
             "boolean_columns": len(boolean_columns(df)),
             "datetime_columns": len(datetime_columns(df)),
+            "text_columns": len(self.config.preprocessing.text_columns),
             "memory_usage_mb": df.memory_usage(deep=True).sum() / 1024 / 1024,
             "has_target": target is not None,
             "target_type": None,
@@ -256,6 +276,21 @@ class PipelineBuilder:
         analysis["column_analysis"] = column_analysis
 
         return analysis
+
+    def _resolve_text_columns(
+        self, df: pd.DataFrame, target: pd.Series | None, mode: str
+    ) -> list[Hashable]:
+        """The configured text columns, checked against the frame."""
+        names = self.config.preprocessing.text_columns
+        missing = [c for c in names if c not in df.columns]
+        if missing:
+            raise ValueError(f"text_columns not found in the data: {missing}")
+        not_text = [c for c in names if not is_categorical_series(df[c])]
+        if not_text:
+            raise ValueError(f"text_columns must be string columns; these are not: {not_text}")
+        if mode == "target" and target is not None and target.name in names:
+            raise ValueError(f"The target column {target.name!r} cannot also be a text column")
+        return list(names)
 
     def _warn_dropped(
         self,
@@ -417,6 +452,7 @@ class PipelineBuilder:
         df: pd.DataFrame,
         boolean_cols: list[Hashable] | None = None,
         datetime_cols: list[Hashable] | None = None,
+        text_cols: list[Hashable] | None = None,
     ) -> dict[str, Any]:
         """Describe the pipeline that was just built.
 
@@ -430,6 +466,7 @@ class PipelineBuilder:
                 "none" while the pipeline actually used, say, knn.
             boolean_cols (list[Hashable], optional): Boolean column labels.
             datetime_cols (list[Hashable], optional): Datetime column labels.
+            text_cols (list[Hashable], optional): Text column labels.
 
         Returns:
             dict[str, Any]: A human-readable description.
@@ -443,12 +480,14 @@ class PipelineBuilder:
                 "categorical_features": len(categorical_cols),
                 "boolean_features": len(boolean_cols or []),
                 "datetime_features": len(datetime_cols or []),
+                "text_features": len(text_cols or []),
                 "memory_usage": f"{analysis['memory_usage_mb']:.1f} MB",
             },
             "numeric_processing": [],
             "categorical_processing": [],
             "boolean_processing": [],
             "datetime_processing": [],
+            "text_processing": [],
             "recommendations": [],
         }
 
@@ -476,6 +515,11 @@ class PipelineBuilder:
                 "Sine/cosine of hour, weekday, day-of-month and month where they vary",
                 "Standardised elapsed time as the trend feature",
             ]
+
+        if text_cols:
+            prep = self.config.preprocessing
+            how = "custom text_encoder" if prep.text_encoder else f"TF-IDF + SVD ({prep.text_dim})"
+            description["text_processing"] = [f"Encoding: {how}"]
 
         # Add recommendations
         if analysis["missing_percentage"] > 20:

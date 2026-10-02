@@ -1,5 +1,6 @@
 """Configuration classes for Row2Vec embedding methods."""
 
+from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -152,8 +153,23 @@ class PreprocessingConfig:
     categorical_target_threshold: int = 100
     categorical_entity_threshold: int = 1000
 
+    # Free text. Opt-in: only columns named here are treated as text.
+    text_columns: list[str] = field(default_factory=list)
+    text_dim: int = 16
+    # callable(list[str]) -> array of shape (n, dim). Code, so it is never
+    # written to YAML or to a saved model; see text_encoding.py.
+    text_encoder: Callable[[list[str]], Any] | None = None
+
     def __post_init__(self) -> None:
         """Minimal validation for preprocessing config."""
+        if not isinstance(self.text_columns, list) or not all(
+            isinstance(c, str) for c in self.text_columns
+        ):
+            raise ValueError("text_columns must be a list of column names")
+        if self.text_dim <= 0:
+            raise ValueError("text_dim must be positive")
+        if self.text_encoder is not None and not callable(self.text_encoder):
+            raise ValueError("text_encoder must be callable: list[str] -> array of shape (n, dim)")
         valid_missing = ["auto", "drop", "impute", "custom"]
         if self.handle_missing not in valid_missing:
             raise ValueError(f"handle_missing must be one of: {valid_missing}")
@@ -284,6 +300,8 @@ class EmbeddingConfig:
             "categorical_onehot_threshold": self.preprocessing.categorical_onehot_threshold,
             "categorical_target_threshold": self.preprocessing.categorical_target_threshold,
             "categorical_entity_threshold": self.preprocessing.categorical_entity_threshold,
+            "text_columns": list(self.preprocessing.text_columns),
+            "text_dim": self.preprocessing.text_dim,
         }
 
         return result
