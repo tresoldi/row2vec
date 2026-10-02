@@ -18,6 +18,19 @@ now an optional extra, and `compare_modes` scores modes against each other.
 This release was developed as 0.3.0; that version was never published, so its
 changes are folded in here.
 
+### Added
+
+- **`scripts/benchmarks.py` is a real benchmark** (it printed "not yet
+  implemented"). It runs `compare_modes` over growing samples of the Adult data
+  and writes fit time, trustworthiness and downstream accuracy per mode and
+  size; the results are published in the docs under *Benchmarks*.
+
+### Changed
+
+- **One coverage gate, 80%**, in `pyproject.toml`, the Makefile and CI. They
+  said 75%, 75% and 70%. New tests lift the weakest modules (automatic
+  dimension selection, the CLI's error paths, imputation strategies).
+
 ### Fixed
 
 - **`data/ames_housing.csv` was Boston Housing**, headerless and mislabelled, so
