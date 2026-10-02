@@ -460,9 +460,7 @@ df = pd.DataFrame(
 config = EmbeddingConfig(
     preprocessing=PreprocessingConfig(text_columns=["review"], text_dim=4),
 )
-embeddings = learn_embedding(
-    df, mode="pca", embedding_dim=2, config=config, enable_logging=False
-)
+embeddings = learn_embedding(df, mode="pca", embedding_dim=2, config=config, enable_logging=False)
 assert embeddings.shape == (30, 2)
 ```
 
