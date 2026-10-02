@@ -266,3 +266,26 @@ models saved by 0.2.0 cannot be loaded. See `MIGRATION.md`.
    text_encoder=fn)` re-attaches it. The cost is that the caller must keep the
    function; the default TF-IDF/SVD encoder has no such cost. The hook is wrapped
    (`SharedHook`) so scikit-learn's `clone` does not deep-copy an embedding model.
+
+---
+
+## 9. Ideas (not scheduled)
+
+Things worth building that have no design or owner yet. They are here so the
+reasoning is not lost; none is a commitment. Datetime, boolean and text columns
+(formerly idea 7) shipped; see the CHANGELOG.
+
+8. **Explainability.** Map embedding dimensions back to the source columns, to
+   help people who need to explain what a vector means. The preprocessor already
+   knows which input column produced each preprocessed feature
+   (`get_feature_names`), so the open question is the second hop: how much a
+   column contributes to each output dimension. That is straightforward for the
+   linear modes (PCA loadings) and needs an attribution method for the neural
+   ones.
+9. **Interoperability.**
+   - `get_feature_names_out` on the fitted `Row2VecModel`. Today only the
+     scikit-learn adapter has it (`row2vec_0` ... `row2vec_{n-1}`).
+   - Polars input, alongside pandas, without making polars a hard dependency.
+   - A documented pattern for feeding embeddings into a nearest-neighbour index
+     (FAISS, Annoy, `sklearn.neighbors`), including embedding new rows with
+     `transform` at query time.
