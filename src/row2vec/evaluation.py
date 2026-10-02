@@ -31,10 +31,10 @@ from sklearn.manifold import trustworthiness
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 
-from ._backend import NeuralBackendMissing
+from ._backend import NeuralBackendMissing, neural_available
 from .config import EmbeddingConfig
 from .core import learn_embedding_with_model
-from .model import MODES
+from .model import MODES, Row2VecModel
 from .pipeline_builder import build_adaptive_pipeline
 from .utils import is_categorical_series
 
@@ -67,6 +67,7 @@ def compare_modes(
     n_neighbors: int = 10,
     test_size: float = 0.25,
     seed: int = 1305,
+    tsne_max_rows: int = 1500,
     **learn_kwargs: Any,
 ) -> pd.DataFrame:
     """Fit several embedding modes on one table and score them side by side.
@@ -84,6 +85,10 @@ def compare_modes(
         n_neighbors (int): Neighbourhood size for trustworthiness.
         test_size (float): Share of rows held out for scoring.
         seed (int): Seed for the split and for every mode.
+        tsne_max_rows (int): t-SNE embeds a seeded random sample of at most this
+            many rows, because its cost grows steeply with the row count (several
+            minutes at a few thousand rows). The sample size is given in its
+            ``note``.
         **learn_kwargs: Passed to :func:`row2vec.learn_embedding_with_model`
             for every mode, e.g. ``max_epochs=20`` to keep neural modes quick.
             Contrastive mode pairs nearest neighbours (``auto_pairs="neighbors"``)
@@ -113,6 +118,9 @@ def compare_modes(
         'ok'
     """
     chosen = _resolve_modes(modes, target)
+    # The reference space can contain a learned (entity-embedding) block, so it
+    # must be seeded like everything else or the baseline drifts between runs.
+    Row2VecModel._seed_everything(seed, neural=neural_available())
     features, y = _split_target(df, target)
 
     if not 0 < test_size < 1:
@@ -137,9 +145,7 @@ def compare_modes(
             target=target,
             train_pos=train_pos,
             test_pos=test_pos,
-            ref_all=None
-            if mode != "tsne"
-            else _dense(_fit_reference(features, seed).transform(features)),
+            tsne_max_rows=tsne_max_rows,
             ref_test=ref_test,
             embedding_dim=embedding_dim,
             n_neighbors=n_neighbors,
@@ -194,7 +200,7 @@ def _evaluate_mode(
     target: str | None,
     train_pos: np.ndarray[Any, Any],
     test_pos: np.ndarray[Any, Any],
-    ref_all: np.ndarray[Any, Any] | None,
+    tsne_max_rows: int,
     ref_test: np.ndarray[Any, Any],
     embedding_dim: int,
     n_neighbors: int,
@@ -218,14 +224,22 @@ def _evaluate_mode(
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             if mode == "tsne":
-                # Non-parametric: embed everything at once, score on everything.
+                # Non-parametric: embed one set of rows at once and score on it.
+                sample = features
+                if len(features) > tsne_max_rows:
+                    sample = features.sample(n=tsne_max_rows, random_state=seed)
+                ref_sample = _dense(_fit_reference(sample, seed).transform(sample))
+                started = time.perf_counter()
                 emb, _ = learn_embedding_with_model(
-                    features, embedding_dim=embedding_dim, mode=mode, **kwargs
+                    sample, embedding_dim=embedding_dim, mode=mode, **kwargs
                 )
                 row["fit_seconds"] = time.perf_counter() - started
-                assert ref_all is not None
-                row["trustworthiness"] = _trust(ref_all, emb.to_numpy(), n_neighbors)
-                row["note"] = "no out-of-sample embedding: scored on all rows, no downstream score"
+                row["trustworthiness"] = _trust(ref_sample, emb.to_numpy(), n_neighbors)
+                row["note"] = (
+                    "no out-of-sample embedding: no downstream score; "
+                    f"scored on {'a sample of ' if len(sample) < len(features) else ''}"
+                    f"{len(sample)} rows"
+                )
                 return row
 
             emb_train, model = learn_embedding_with_model(

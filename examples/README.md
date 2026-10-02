@@ -73,6 +73,7 @@ This directory contains example scripts demonstrating various features of the Ro
 - **`type_checking_demo.py`** - Type hints and validation
 
 ### Real-World Applications
+- **`compare_modes_real_data.py`** - `compare_modes` on the bundled Titanic and Adult data
 - **`real_world_usage.py`** - Practical use cases
   - Customer segmentation
   - Feature engineering

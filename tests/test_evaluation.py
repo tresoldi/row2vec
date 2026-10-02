@@ -95,6 +95,10 @@ class TestHeldOutAndNoLeakage:
 
         assert sizes == [len(df) - round(len(df) * 0.25)]
 
+    def test_tsne_is_capped_to_a_sample_and_says_so(self, df: pd.DataFrame) -> None:
+        report = row2vec.compare_modes(df, modes=["tsne"], perplexity=10, tsne_max_rows=100)
+        assert "a sample of 100 rows" in cell(report, "tsne", "note")
+
     def test_tsne_cannot_be_held_out_and_says_so(self, df: pd.DataFrame) -> None:
         report = row2vec.compare_modes(df, target="Country", modes=["tsne"], perplexity=10)
 
@@ -175,3 +179,23 @@ def test_neural_modes_run(df: pd.DataFrame) -> None:
         df, target="Country", modes=["unsupervised", "target", "contrastive"], max_epochs=2
     )
     assert list(report.loc[["unsupervised", "target", "contrastive"], "status"]) == ["ok"] * 3
+
+
+@pytest.mark.neural
+def test_baseline_is_reproducible_with_a_learned_encoding() -> None:
+    """A high-cardinality column gets entity embeddings; the baseline must not drift."""
+    pytest.importorskip("tensorflow")
+    rng = np.random.default_rng(0)
+    n = 900
+    frame = pd.DataFrame(
+        {
+            "code": [f"c{i % 150:03d}" for i in range(n)],
+            "x": rng.normal(size=n),
+            "label": rng.choice(["u", "v"], size=n),
+        }
+    )
+    first = row2vec.compare_modes(frame, target="label", modes=["pca"])
+    second = row2vec.compare_modes(frame, target="label", modes=["pca"])
+    assert cell(first, "baseline", "downstream_score") == cell(
+        second, "baseline", "downstream_score"
+    )

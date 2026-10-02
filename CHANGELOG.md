@@ -20,6 +20,15 @@ changes are folded in here.
 
 ### Fixed
 
+- **A column with a distinct value in every row is no longer encoded.** A name or
+  id column (Titanic's `Name`: 887 values in 887 rows) was given learned entity
+  embeddings. Nothing learned about it can transfer, because no value ever recurs,
+  so it only added noise dimensions, and a held-out k-NN accuracy on the
+  preprocessed features swung between 0.64 and 0.85 from run to run. It is now
+  dropped, with a warning naming the column; `drop_identifiers=False` in
+  `CategoricalEncodingConfig` keeps it. Applies from 50 rows up.
+- **`compare_modes`'s baseline is reproducible** when the preprocessing contains
+  learned encodings; the reference space is now seeded like everything else.
 - **Mid-cardinality categoricals no longer dominate the embedding.** Columns
   with roughly 100–1000 distinct values were encoded as raw, unscaled ordinal
   codes while numeric features were standardised. With a 150-level identifier
@@ -110,8 +119,9 @@ changes are folded in here.
   on held-out rows, returning a table of trustworthiness, a downstream k-NN score
   when a `target` column is given, and fit time, alongside a no-embedding
   baseline. The target is withheld from every mode except `mode="target"`;
-  t-SNE is scored on all rows without a downstream score because it has no
-  out-of-sample extension; modes needing TensorFlow are reported `unavailable`
+  t-SNE is scored without a downstream score because it has no out-of-sample
+  extension, on a sample of at most `tsne_max_rows` (1500) rows because its cost
+  grows steeply (328 s for 4,000 rows); modes needing TensorFlow are reported `unavailable`
   rather than raising.
 - A `light` CI job that runs the suite without TensorFlow, and
   `tests/test_optional_neural.py`, which checks in a fresh interpreter that the

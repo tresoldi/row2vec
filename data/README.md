@@ -53,13 +53,14 @@ This directory contains a collection of classic, public-domain datasets used for
 
 ---
 
-### 3. Ames Housing Dataset
+### 3. Housing data (`ames_housing.csv`, actually Boston Housing)
 
 -   **File:** `ames_housing.csv`
--   **Source:** [Kaggle / Dean De Cock](https://www.kaggle.com/c/house-prices-advanced-regression-techniques/data)
--   **Task:** Predict the final sale price of homes in Ames, Iowa.
--   **Description:** A modern and incredibly detailed dataset that has largely replaced the older Boston Housing dataset. It contains 79 explanatory variables describing almost every aspect of residential homes. It is excellent for demonstrating performance on datasets with a large number of features, many of which are high-cardinality categorical variables.
+-   **What it actually is:** the classic **Boston Housing** dataset (Harrison & Rubinfeld, 1978), not the Ames, Iowa dataset the file name suggests. It has **506 rows and 14 numeric columns** (13 features plus the median home value, `MEDV`, last), and **no header row**: `pd.read_csv` with its defaults turns the first record into the column names. Read it with `header=None`.
+-   **Task:** Predict the median value of owner-occupied homes (the last column).
 -   **Properties:**
-    -   Records: 2,919
-    -   Features: 79 + 1 target (`SalePrice`)
--   **Note:** The column names in `ames_housing.csv` are simplified. The original dataset has more descriptive names. This version is from a collection curated by Jason Brownlee.
+    -   Records: 506
+    -   Features: 13 numeric + 1 target (the last column)
+-   **Caveats:**
+    -   The earlier version of this README described the Ames dataset (2,919 records, 79 features, many categorical). That was wrong for this file, and the tests that load it only see anonymous numeric columns.
+    -   One Boston feature (`B`) is derived from the racial composition of each town, and the dataset has been withdrawn from some libraries (scikit-learn removed `load_boston`) for that reason. Consider replacing it with the real Ames data before using it for anything beyond a numeric smoke test.

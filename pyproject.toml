@@ -32,6 +32,8 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Scientific/Engineering",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
@@ -52,8 +54,10 @@ dependencies = [
 [project.optional-dependencies]
 # The neural modes (unsupervised, target, contrastive) and entity-embedding
 # categorical encoding. Without this extra, PCA / t-SNE / UMAP still work.
+# TensorFlow publishes no wheels for Python 3.14 yet, hence the marker: on 3.14
+# the extra installs nothing and the neural modes explain why.
 neural = [
-    "tensorflow>=2.8.0",
+    "tensorflow>=2.8.0; python_version < '3.14'",
 ]
 # Testing dependencies (lightweight; used by the CI test matrix)
 test = [

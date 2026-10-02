@@ -167,3 +167,50 @@ class TestConfigurationRoundTrip:
         assert restored.preprocessing.categorical_encoding_strategy == "adaptive"
         assert restored.preprocessing.categorical_onehot_threshold == 15
         assert restored.preprocessing.categorical_target_threshold == 50
+
+
+class TestIdentifierColumns:
+    """A column with a distinct value in every row identifies rows, not describes them."""
+
+    @staticmethod
+    def _frame(n: int = 120) -> pd.DataFrame:
+        rng = np.random.default_rng(0)
+        return pd.DataFrame(
+            {
+                "name": [f"person {i}" for i in range(n)],
+                "city": rng.choice(["a", "b", "c"], size=n),
+            }
+        )
+
+    def test_all_distinct_column_is_dropped_with_a_warning(self) -> None:
+        frame = self._frame()
+        encoder = CategoricalEncoder(CategoricalEncodingConfig())
+
+        with pytest.warns(UserWarning, match="'name'.*identifier"):
+            encoder.fit(frame)
+
+        assert encoder.column_strategies_["name"] == "drop"
+        assert encoder.column_strategies_["city"] != "drop"
+        assert encoder.analysis_report_["name"]["is_identifier"] is True
+
+    def test_dropped_column_adds_no_output_features(self) -> None:
+        encoded = CategoricalEncoder(CategoricalEncodingConfig()).fit_transform(self._frame())
+        assert not any(str(c).startswith("name") for c in encoded.columns)
+
+    def test_opt_out_keeps_the_column(self) -> None:
+        encoder = CategoricalEncoder(CategoricalEncodingConfig(drop_identifiers=False))
+        encoder.fit(self._frame())
+        assert encoder.column_strategies_["name"] != "drop"
+
+    def test_small_tables_are_left_alone(self) -> None:
+        """Ten distinct values in ten rows could simply be a small categorical."""
+        encoder = CategoricalEncoder(CategoricalEncodingConfig())
+        encoder.fit(self._frame(n=10))
+        assert encoder.column_strategies_["name"] != "drop"
+
+    def test_a_repeating_column_is_not_an_identifier(self) -> None:
+        frame = pd.DataFrame({"code": [f"c{i % 60}" for i in range(120)]})
+        encoder = CategoricalEncoder(CategoricalEncodingConfig())
+        encoder.fit(frame)
+        assert encoder.analysis_report_["code"]["is_identifier"] is False
+        assert encoder.column_strategies_["code"] != "drop"
