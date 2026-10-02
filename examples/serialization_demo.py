@@ -10,6 +10,7 @@ from pathlib import Path
 
 from row2vec import (
     generate_synthetic_data,
+    inspect_model,
     learn_embedding_with_model,
     load_model,
     save_model,
@@ -36,7 +37,7 @@ def main():
 
         # Train unsupervised model
         print("   Training unsupervised autoencoder...")
-        unsup_embeddings, unsup_script, unsup_binary = train_and_save_model(
+        unsup_embeddings, unsup_path = train_and_save_model(
             data,
             tmpdir / "unsupervised_model",
             embedding_dim=5,
@@ -46,13 +47,12 @@ def main():
             verbose=False,
             enable_logging=False,
         )
-        print(f"   ✅ Saved to: {unsup_script}")
-        print(f"   📁 Binary file: {unsup_binary}")
+        print(f"   ✅ Saved to: {unsup_path}")
         print(f"   🎯 Embeddings shape: {unsup_embeddings.shape}")
 
         # Train supervised model
         print("   Training supervised (target) model...")
-        sup_embeddings, sup_script, _sup_binary = train_and_save_model(
+        sup_embeddings, sup_path = train_and_save_model(
             data,
             tmpdir / "supervised_model",
             embedding_dim=3,
@@ -63,12 +63,12 @@ def main():
             verbose=False,
             enable_logging=False,
         )
-        print(f"   ✅ Saved to: {sup_script}")
+        print(f"   ✅ Saved to: {sup_path}")
         print(f"   🎯 Embeddings shape: {sup_embeddings.shape}")
 
         # Train PCA model
         print("   Training PCA model...")
-        pca_embeddings, pca_script, _pca_binary = train_and_save_model(
+        pca_embeddings, pca_path = train_and_save_model(
             data,
             tmpdir / "pca_model",
             embedding_dim=4,
@@ -76,7 +76,7 @@ def main():
             verbose=False,
             enable_logging=False,
         )
-        print(f"   ✅ Saved to: {pca_script}")
+        print(f"   ✅ Saved to: {pca_path}")
         print(f"   🎯 Embeddings shape: {pca_embeddings.shape}")
 
         # Example 2: Manual training and saving
@@ -94,11 +94,11 @@ def main():
         )
 
         # save_model derives the metadata from the fitted model.
-        manual_script, _manual_binary = save_model(
+        manual_path = save_model(
             model,
             tmpdir / "manual_model",
         )
-        print(f"   ✅ Manually saved to: {manual_script}")
+        print(f"   ✅ Manually saved to: {manual_path}")
 
         # Example 3: Loading and using models
         print("\n4. Loading and using saved models...")
@@ -108,17 +108,17 @@ def main():
         print(f"   Test data shape: {test_data.shape}")
 
         models_to_test = [
-            ("Unsupervised", unsup_script),
-            ("Supervised", sup_script),
-            ("PCA", pca_script),
-            ("UMAP (manual)", manual_script),
+            ("Unsupervised", unsup_path),
+            ("Supervised", sup_path),
+            ("PCA", pca_path),
+            ("UMAP (manual)", manual_path),
         ]
 
-        for model_name, script_path in models_to_test:
+        for model_name, model_file in models_to_test:
             print(f"\n   Testing {model_name} model:")
 
             # Load model
-            loaded_model = load_model(script_path)
+            loaded_model = load_model(model_file)
             print("     ✅ Model loaded successfully")
 
             # Show metadata
@@ -137,7 +137,7 @@ def main():
         print("\n5. Inspecting model metadata...")
 
         # Load a model and show its metadata
-        loaded = load_model(sup_script)
+        loaded = load_model(sup_path)
         metadata_dict = loaded.metadata.to_dict()
 
         print("   📋 Training configuration:")
@@ -177,22 +177,19 @@ def main():
         except ValueError:
             print("   ✅ Schema validation correctly failed for incorrect data")
 
-        # Example 6: Examining generated script
-        print("\n7. Generated script transparency...")
-        print("   📄 First few lines of generated script:")
-
-        with open(sup_script) as f:
-            lines = f.readlines()[:25]  # First 25 lines
-            for i, line in enumerate(lines, 1):
-                print(f"     {i:2d}: {line.rstrip()}")
-
-        print("   ... (script contains full metadata and loading logic)")
+        # Example 6: Reading a model's manifest without loading it
+        print("\n7. Inspecting the file without loading it...")
+        manifest = inspect_model(sup_path)
+        print(f"   📄 format: {manifest['format']} v{manifest['format_version']}")
+        print(f"   🏷️  written by row2vec {manifest['row2vec_version']}")
+        print(f"   📚 libraries: {manifest['libraries']}")
+        print(f"   📦 members: {sorted(manifest['members'])}")
 
     print("\n" + "=" * 50)
     print("🎉 Demo completed successfully!")
     print("\nKey features demonstrated:")
-    print("• Two-file approach (script + binary)")
-    print("• Transparent, inspectable metadata")
+    print("• One .r2v file; loading runs no code from it")
+    print("• Inspectable metadata (inspect_model)")
     print("• Support for all embedding modes")
     print("• Schema validation")
     print("• Easy loading and prediction")

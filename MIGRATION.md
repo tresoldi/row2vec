@@ -24,6 +24,13 @@ These raise, so you will find them immediately.
   `learn_embedding(df)` needs the extra. Add `row2vec[neural]` to your
   requirements to keep the old behaviour.
 
+- **Models are now a single `.r2v` file, and loading runs no code.** The old
+  script-plus-pickle format executed the script when loaded. `save_model` returns
+  one path and `train_and_save_model` returns `(embeddings, path)` instead of
+  `(embeddings, script_path, binary_path)`. `load_model` on a `.py` or `.pkl`
+  path raises `ModelFormatError` without executing it, and the CLI's `--output` /
+  `--model` take `.r2v` files. `row2vec.inspect_model(path)` reads the metadata
+  without loading the model. `skops` is now a dependency.
 - **Saved models must be retrained.** The saved format now carries the whole
   fitted state - preprocessor, projector, encoder and, new in 0.4.0, the fitted
   embedding scaler. Models written by 0.2.0 cannot be loaded.

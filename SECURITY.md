@@ -29,12 +29,29 @@ Because Row2Vec is a data-science library with no network or authentication
 surface, the most likely concerns are around untrusted input. Two areas are
 worth calling out:
 
-- **Model deserialization.** A saved model is two files: a readable Python
-  loader script and a binary blob. `load_model()` **executes that script** and
-  then unpickles the blob, so loading a model runs whatever code the script
-  contains - this is not only a pickle concern. Only load models from sources
-  you trust, and read the `.py` file first if you are unsure: it is plain
-  Python, written to be inspected.
+- **Model deserialization.** A saved model is a single `.r2v` file (a zip
+  archive). **Loading it does not execute code from the file**: there is no loader
+  script and no pickle. scikit-learn objects are read with
+  [skops](https://skops.readthedocs.io), restricted to an exact allow-list of
+  types (`row2vec.serialization.TRUSTED_TYPES`); the encoder of a neural model is
+  read in Keras's own format with `safe_mode=True` and only `InputLayer`, `Dense`
+  and `Dropout` layers permitted; everything else is JSON. A file that names
+  anything off the list raises `ModelFormatError` and is not loaded. The archive
+  is also checked for unexpected members and per-member checksums.
+
+  What this does **not** give you:
+  - *Authenticity.* The checksums detect corruption, not tampering by someone who
+    rewrites the file and its manifest. Load models only from sources you trust,
+    as you would any data file you are about to base decisions on.
+  - *Protection from a vulnerable dependency.* The guarantee rests on skops, h5py
+    and Keras behaving as documented; keep them updated.
+  - *Privacy.* A model contains the category values and summary statistics its
+    preprocessing learned from your data (not the rows themselves). Treat it as
+    derived from the training data when you share it.
+
+  The previous script-and-pickle format executed the script when loaded. It was
+  never released, and `load_model` refuses `.py` and `.pkl` paths without
+  running them.
 - **Untrusted DataFrames and configuration files.** Adversarial column names,
   dtypes, or YAML configuration passed to the CLI.
 

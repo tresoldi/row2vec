@@ -159,7 +159,7 @@ class TestSavedModelsReproduceTraining:
         """Including the embedding scaler, which used to be dropped."""
         from row2vec import load_model, train_and_save_model
 
-        trained, script_path, _binary = train_and_save_model(
+        trained, saved_path = train_and_save_model(
             frame,
             tmp_path / f"model_{scale_method}",
             mode="pca",
@@ -168,7 +168,7 @@ class TestSavedModelsReproduceTraining:
             enable_logging=False,
         )
 
-        reloaded = load_model(script_path).predict(frame)
+        reloaded = load_model(saved_path).predict(frame)
 
         np.testing.assert_allclose(reloaded.to_numpy(), trained.to_numpy(), rtol=1e-5, atol=1e-6)
         assert list(reloaded.index) == list(frame.index)

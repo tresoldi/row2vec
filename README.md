@@ -76,12 +76,11 @@ import row2vec
 df = row2vec.generate_synthetic_data(100)
 base = Path(tempfile.mkdtemp()) / "model"
 
-embeddings, script_path, _binary_path = row2vec.train_and_save_model(
+embeddings, saved = row2vec.train_and_save_model(
     df, base_path=str(base), mode="pca", embedding_dim=2
 )
-# load_model() executes the saved .py loader script and unpickles its blob,
-# so only load models you trust. See SECURITY.md.
-model = row2vec.load_model(script_path)
+# One .r2v file. Loading it runs no code from the file; see SECURITY.md.
+model = row2vec.load_model(saved)
 
 # The reloaded model reproduces what training returned, scaling included.
 assert model.predict(df).shape == embeddings.shape

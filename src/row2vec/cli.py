@@ -14,7 +14,7 @@ import pandas as pd
 
 from . import __version__
 from .core import learn_embedding
-from .serialization import load_model, train_and_save_model
+from .serialization import MODEL_SUFFIX, load_model, train_and_save_model
 from .utils import (
     categorical_columns,
     create_dataframe_schema,
@@ -471,19 +471,24 @@ def cmd_train(args: argparse.Namespace) -> int:
         # Generate model path if not provided
         if not args.output:
             model_name = _generate_model_name(args.mode)
-            model_path = Path.cwd() / f"{model_name}.py"
+            model_path = Path.cwd() / f"{model_name}{MODEL_SUFFIX}"
         else:
             model_path = Path(args.output)
-            if model_path.suffix != ".py":
-                model_path = model_path.with_suffix(".py")
+            if model_path.suffix in (".py", ".pkl"):
+                return _fail(
+                    f"{model_path.name}: models are now single {MODEL_SUFFIX} files, not a "
+                    f"script and a pickle; use --output {model_path.with_suffix(MODEL_SUFFIX).name}"
+                )
+            if model_path.suffix != MODEL_SUFFIX:
+                model_path = model_path.with_name(model_path.name + MODEL_SUFFIX)
 
         _emit(f"Writing model to {model_path}", quiet=args.quiet)
 
         # Train and save model
         start_time = time.time()
-        _embeddings, _script_path, _binary_path = train_and_save_model(
+        _embeddings, _saved_path = train_and_save_model(
             df=df,
-            base_path=str(model_path.with_suffix("")),
+            base_path=str(model_path),
             embedding_dim=args.dim,
             mode=args.mode,
             reference_column=args.target_col,
@@ -515,8 +520,7 @@ def cmd_train(args: argparse.Namespace) -> int:
 
         elapsed = time.time() - start_time
         _emit(
-            f"Trained on {len(df)} rows in {elapsed:.1f}s; saved {model_path} "
-            f"and {model_path.with_suffix('.pkl')}",
+            f"Trained on {len(df)} rows in {elapsed:.1f}s; saved {model_path}",
             quiet=args.quiet,
         )
 
@@ -547,9 +551,6 @@ def cmd_predict(args: argparse.Namespace) -> int:
 
         # Load model
         model_path = Path(args.model)
-        if not model_path.exists():
-            return _fail(f"model script not found: {model_path}")
-
         _emit(f"Loading model from {model_path}", quiet=args.quiet)
         model = load_model(str(model_path))
 
@@ -823,16 +824,16 @@ def create_parser() -> argparse.ArgumentParser:
         epilog="""
 Examples:
   # Train and save a model
-  row2vec train --input data.csv --output model.py --mode unsupervised --dim 10
+  row2vec train --input data.csv --output model.r2v --mode unsupervised --dim 10
 
   # Make predictions with saved model
-  row2vec predict --input new_data.csv --model model.py --output embeddings.csv
+  row2vec predict --input new_data.csv --model model.r2v --output embeddings.csv
 
   # Generate embeddings directly (no model saving)
   row2vec annotate --input data.csv --output embeddings.csv --mode pca --dim 5
 
   # Target-based embeddings
-  row2vec train --input data.csv --output model.py --mode target --target-col Country --dim 3
+  row2vec train --input data.csv --output model.r2v --mode target --target-col Country --dim 3
 
   # Validate data only
   row2vec train --input data.csv --validate-only
@@ -891,7 +892,7 @@ Supported formats: CSV, TSV, Parquet (auto-detected by file extension)
         "--model",
         "-m",
         required=True,
-        help="Saved Row2Vec model file (.py)",
+        help="Saved Row2Vec model file (.r2v)",
     )
     predict_parser.add_argument(
         "--output",

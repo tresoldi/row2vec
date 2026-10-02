@@ -48,8 +48,10 @@ from .pipeline_builder import (
     build_adaptive_pipeline,
 )
 from .serialization import (
+    ModelFormatError,
     Row2VecModel,
     Row2VecModelMetadata,
+    inspect_model,
     load_model,
     save_model,
     train_and_save_model,
@@ -96,6 +98,7 @@ __all__ = [
     "ImputationConfig",
     "LoggingConfig",
     "MissingPatternAnalyzer",
+    "ModelFormatError",
     "NeuralConfig",
     # Pipeline building
     "PipelineBuilder",
@@ -113,6 +116,7 @@ __all__ = [
     "generate_synthetic_data",
     # Utilities
     "get_logger",
+    "inspect_model",
     "learn_embedding",
     "learn_embedding_classical",
     "learn_embedding_contrastive",

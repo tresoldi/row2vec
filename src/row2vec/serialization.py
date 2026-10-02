@@ -1,18 +1,43 @@
 """Saving and loading trained models.
 
-This module provides functionality to save and load trained Row2Vec models
-with their preprocessing pipelines and training metadata using a transparent
-two-file approach (Python script + binary blob).
+A saved model is a single ``.r2v`` file: a zip archive holding
+
+* ``manifest.json`` - format version, versions of the libraries that wrote it, the
+  training metadata, and a SHA-256 for every other member. Plain JSON: read it
+  with :func:`inspect_model` or any zip tool, without loading the model.
+* ``config.json`` and ``state.json`` - the configuration and the fitted
+  bookkeeping (columns, dtypes, schema, training history), as tagged JSON.
+* ``preprocessor.skops`` and ``scaler.skops`` (and ``projector.skops`` for PCA,
+  UMAP and t-SNE) - scikit-learn objects written with
+  `skops <https://skops.readthedocs.io>`_.
+* ``encoder.keras`` - the trained encoder of a neural mode, in Keras's own format.
+
+**Loading never executes code from the file.** There is no loader script and no
+pickle. skops reconstructs only types on an allow-list kept in this module and
+refuses the file if it names anything else; Keras loads with ``safe_mode`` and
+only layers on a short allow-list. This protects against a *malicious* model
+file. It does not authenticate one: the SHA-256 values catch corruption, not an
+attacker who rewrites both the member and its hash. See ``SECURITY.md``.
 """
 
-import pickle
-from datetime import datetime
+from __future__ import annotations
+
+import copy
+import hashlib
+import io
+import json
+import os
+import tempfile
+import zipfile
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
+from ._backend import require_tensorflow
+from .config import EmbeddingConfig
 from .core import learn_embedding_with_model
 from .model import Row2VecModel, get_feature_names
 
@@ -142,7 +167,7 @@ class Row2VecModelMetadata:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Row2VecModelMetadata":
+    def from_dict(cls, data: dict[str, Any]) -> Row2VecModelMetadata:
         """Create metadata from dictionary."""
         # Extract only the parameters that the constructor accepts
         constructor_params = {
@@ -238,264 +263,465 @@ def describe_model(
     )
 
 
+# --------------------------------------------------------------------------- #
+# The file format
+# --------------------------------------------------------------------------- #
+
+FORMAT_NAME = "row2vec-model"
+FORMAT_VERSION = 1
+MODEL_SUFFIX = ".r2v"
+
+_MANIFEST = "manifest.json"
+_STATE = "state.json"
+_CONFIG = "config.json"
+_PREPROCESSOR = "preprocessor.skops"
+_SCALER = "scaler.skops"
+_PROJECTOR = "projector.skops"
+_ENCODER = "encoder.keras"
+_REQUIRED = frozenset({_MANIFEST, _STATE, _CONFIG, _PREPROCESSOR, _SCALER})
+_ALLOWED_MEMBERS = _REQUIRED | {_PROJECTOR, _ENCODER}
+_LEGACY_SUFFIXES = (".py", ".pkl")
+
+#: Largest member we will read, as a guard against a decompression bomb.
+_MAX_MEMBER_BYTES = 2 * 1024**3
+
+#: Types skops may reconstruct beyond the scikit-learn / NumPy ones it trusts by
+#: default. Exact names rather than a prefix: this list is the whole of what a
+#: model file can make the loader instantiate.
+TRUSTED_TYPES = frozenset(
+    {
+        "row2vec.categorical_encoding.CategoricalAnalyzer",
+        "row2vec.categorical_encoding.CategoricalEncoder",
+        "row2vec.categorical_encoding.CategoricalEncodingConfig",
+        "row2vec.categorical_encoding.TargetEncoder",
+        "row2vec.imputation.AdaptiveImputer",
+        "row2vec.imputation.ImputationConfig",
+        "row2vec.imputation.MissingPatternAnalyzer",
+        "row2vec.model.EmbeddingScaler",
+        "row2vec.pipeline_builder._TolerantMinMaxScaler",
+        "numpy.dtype",
+        "scipy.sparse._csr.csr_matrix",
+        "umap.umap_.UMAP",
+    }
+)
+
+#: Layers an encoder may contain. Row2Vec builds Dense/Dropout stacks only.
+_ALLOWED_KERAS_LAYERS = frozenset({"InputLayer", "Dense", "Dropout"})
+
+
+class ModelFormatError(ValueError):
+    """A saved model is not in a form that can be loaded safely."""
+
+
+# -- tagged JSON ------------------------------------------------------------ #
+#
+# Plain JSON loses tuples, non-string dict keys and NaN, all of which turn up in
+# schemas and training histories. These tags put them back. Decoding only builds
+# builtin containers, numbers, strings and pandas Timestamps: it never calls
+# anything named in the file.
+
+
+def _encode(obj: Any) -> Any:
+    if obj is None or isinstance(obj, bool | int | str):
+        return obj
+    if isinstance(obj, float):
+        if np.isnan(obj):
+            return {"__float__": "nan"}
+        if np.isinf(obj):
+            return {"__float__": "inf" if obj > 0 else "-inf"}
+        return obj
+    if isinstance(obj, np.generic):
+        return _encode(obj.item())
+    if isinstance(obj, np.ndarray):
+        return _encode(obj.tolist())
+    if isinstance(obj, tuple):
+        return {"__tuple__": [_encode(v) for v in obj]}
+    if isinstance(obj, list | set | frozenset):
+        return [_encode(v) for v in obj]
+    if isinstance(obj, dict):
+        if all(isinstance(k, str) and not k.startswith("__") for k in obj):
+            return {k: _encode(v) for k, v in obj.items()}
+        return {"__dict__": [[_encode(k), _encode(v)] for k, v in obj.items()]}
+    if isinstance(obj, pd.Timestamp | datetime | date):
+        return {"__datetime__": obj.isoformat()}
+    if isinstance(obj, Path):
+        return str(obj)
+    # Anything else (a stray object in a schema) is recorded as its text rather
+    # than blocking the save; none of it is read back as anything but text.
+    return str(obj)
+
+
+def _decode(obj: Any) -> Any:
+    if isinstance(obj, list):
+        return [_decode(v) for v in obj]
+    if isinstance(obj, dict):
+        if set(obj) == {"__float__"}:
+            return float(obj["__float__"])
+        if set(obj) == {"__tuple__"}:
+            return tuple(_decode(v) for v in obj["__tuple__"])
+        if set(obj) == {"__dict__"}:
+            return {_hashable(_decode(k)): _decode(v) for k, v in obj["__dict__"]}
+        if set(obj) == {"__datetime__"}:
+            return pd.Timestamp(obj["__datetime__"])
+        return {k: _decode(v) for k, v in obj.items()}
+    return obj
+
+
+def _hashable(key: Any) -> Any:
+    return tuple(key) if isinstance(key, list) else key
+
+
+def _dumps_json(obj: Any) -> bytes:
+    return json.dumps(_encode(obj), indent=2, sort_keys=False, allow_nan=False).encode("utf-8")
+
+
+# -- skops and Keras components --------------------------------------------- #
+
+_UMAP_DISTANCE_ATTRS = ("_input_distance_func", "_inverse_distance_func", "_output_distance_func")
+
+
+def _skops():  # type: ignore[no-untyped-def]
+    try:
+        import skops.io as sio
+    except ImportError as exc:  # pragma: no cover - skops is a core dependency
+        raise ImportError("Saving and loading models needs skops: pip install skops") from exc
+    return sio
+
+
+def _dump_sklearn(obj: Any) -> bytes:
+    """Serialise a scikit-learn style object with skops."""
+    if type(obj).__module__.startswith("umap"):
+        obj = _strip_umap(obj)
+    return bytes(_skops().dumps(obj))
+
+
+def _load_sklearn(blob: bytes, what: str) -> Any:
+    """Load a skops blob, refusing any type that is not on the allow-list."""
+    sio = _skops()
+    try:
+        named = set(sio.get_untrusted_types(data=blob))
+    except Exception as exc:
+        raise ModelFormatError(f"{what} is not a valid skops file: {exc}") from exc
+    unexpected = named - TRUSTED_TYPES
+    if unexpected:
+        raise ModelFormatError(
+            f"{what} refers to types this version of row2vec does not trust, so it "
+            f"was not loaded: {sorted(unexpected)}. A file written by row2vec only "
+            "names the types in row2vec.serialization.TRUSTED_TYPES; this one was "
+            "either written by a different version or has been tampered with."
+        )
+    obj = sio.loads(blob, trusted=sorted(named))
+    if type(obj).__module__.startswith("umap"):
+        _restore_umap(obj)
+    return obj
+
+
+def _strip_umap(model: Any) -> Any:
+    """A shallow copy of a UMAP model without its compiled distance functions.
+
+    Those three attributes are numba functions, which cannot be serialised; they
+    are derived from the metric names, so :func:`_restore_umap` rebuilds them.
+    Only named metrics round-trip; a callable metric cannot be stored safely.
+    """
+    for attr in ("metric", "output_metric"):
+        if not isinstance(getattr(model, attr, None), str):
+            raise ModelFormatError(
+                f"UMAP was fitted with a callable {attr}, which cannot be saved safely. "
+                "Use a named metric."
+            )
+    stripped = copy.copy(model)
+    for attr in _UMAP_DISTANCE_ATTRS:
+        stripped.__dict__.pop(attr, None)
+    return stripped
+
+
+def _restore_umap(model: Any) -> None:
+    try:
+        import umap.distances as dist
+
+        model._input_distance_func = dist.named_distances[model.metric]
+        model._inverse_distance_func = dist.named_distances_with_gradients.get(model.metric)
+        model._output_distance_func = dist.named_distances_with_gradients[model.output_metric]
+    except (ImportError, KeyError, AttributeError) as exc:
+        import umap
+
+        raise ModelFormatError(
+            "This UMAP model could not be rebuilt with the installed umap-learn "
+            f"({getattr(umap, '__version__', 'unknown')}); it was saved with a "
+            "different version whose internals differ. Retrain the model, or "
+            "install the umap-learn version recorded in the file's manifest."
+        ) from exc
+
+
+def _dump_keras(encoder: Any) -> bytes:
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "encoder.keras"
+        encoder.save(path)
+        return path.read_bytes()
+
+
+def _load_keras(blob: bytes) -> Any:
+    _check_keras_layers(blob)
+    require_tensorflow("Loading a neural model")
+    from tensorflow.keras.models import load_model as keras_load
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "encoder.keras"
+        path.write_bytes(blob)
+        return keras_load(path, compile=False, safe_mode=True)
+
+
+def _check_keras_layers(blob: bytes) -> None:
+    """Refuse an encoder that contains anything but plain Dense/Dropout layers."""
+    try:
+        with zipfile.ZipFile(io.BytesIO(blob)) as archive:
+            config = json.loads(archive.read("config.json"))
+        layers = config["config"]["layers"]
+        kinds = {layer["class_name"] for layer in layers}
+        modules = {layer.get("module", "") for layer in layers}
+    except (KeyError, ValueError, zipfile.BadZipFile) as exc:
+        raise ModelFormatError(f"The encoder is not a valid Keras file: {exc}") from exc
+    if config.get("class_name") != "Functional" or not kinds <= _ALLOWED_KERAS_LAYERS:
+        raise ModelFormatError(
+            "The encoder contains layers row2vec does not write "
+            f"({sorted(kinds - _ALLOWED_KERAS_LAYERS)}); it was not loaded."
+        )
+    if any(not m.startswith("keras") for m in modules):
+        raise ModelFormatError(f"The encoder names layers outside Keras: {sorted(modules)}")
+
+
+# -- paths ------------------------------------------------------------------ #
+
+
+def _model_path(path: str | Path) -> Path:
+    """``model`` and ``model.r2v`` both mean the same file."""
+    path = Path(path)
+    if path.suffix in _LEGACY_SUFFIXES:
+        raise ModelFormatError(
+            f"{path.name} looks like the script-and-pickle format of earlier "
+            "development versions. That format ran code from the file when loaded and is no "
+            f"longer supported (nothing was executed). Retrain the model and save it as a "
+            f"{MODEL_SUFFIX} file."
+        )
+    return path if path.suffix == MODEL_SUFFIX else path.with_name(path.name + MODEL_SUFFIX)
+
+
+def _libraries() -> dict[str, str]:
+    import sklearn
+
+    found = {"numpy": np.__version__, "pandas": pd.__version__, "scikit-learn": sklearn.__version__}
+    for name in ("skops", "umap", "tensorflow", "keras"):
+        try:
+            module = __import__(name)
+            found[name] = str(getattr(module, "__version__", "unknown"))
+        except ImportError:
+            continue
+    return found
+
+
+# --------------------------------------------------------------------------- #
+# Public API
+# --------------------------------------------------------------------------- #
+
+
 def save_model(
     model: Row2VecModel,
     base_path: str | Path,
     overwrite: bool = False,
-) -> tuple[str, str]:
-    """Save a Row2Vec model using the two-file approach.
+) -> str:
+    """Save a fitted model as a single ``.r2v`` file.
 
     Args:
-        model: The Row2Vec model to save
-        base_path: Base path for saving (without extension)
-        overwrite: Whether to overwrite existing files
+        model (Row2VecModel): The fitted model.
+        base_path (str | Path): Where to write it. ``.r2v`` is appended unless
+            already present.
+        overwrite (bool): Whether to replace an existing file.
 
     Returns:
-        Tuple of (script_path, binary_path)
+        str: The path of the file written.
 
     Raises:
-        FileExistsError: If files exist and overwrite=False
-        ValueError: If model is incomplete
+        FileExistsError: If the file exists and ``overwrite`` is false.
+        ValueError: If the model is not fitted.
+        ModelFormatError: If the model contains something that cannot be saved
+            safely, such as a UMAP model fitted with a custom metric.
+
+    Examples:
+        >>> import tempfile, row2vec
+        >>> df = row2vec.generate_synthetic_data(60)
+        >>> _, model = row2vec.learn_embedding_with_model(
+        ...     df, mode="pca", embedding_dim=2, enable_logging=False
+        ... )
+        >>> with tempfile.TemporaryDirectory() as tmp:
+        ...     path = row2vec.save_model(model, tmp + "/demo")
+        ...     restored = row2vec.load_model(path)
+        ...     path.endswith(".r2v"), restored.predict(df).shape
+        (True, (60, 2))
     """
-    base_path = Path(base_path)
-    script_path = base_path.with_suffix(".py")
-    binary_path = base_path.with_suffix(".pkl")
-
-    # Check for existing files
-    if not overwrite:
-        if script_path.exists():
-            raise FileExistsError(f"Script file already exists: {script_path}")
-        if binary_path.exists():
-            raise FileExistsError(f"Binary file already exists: {binary_path}")
-
-    # Validate model completeness
+    path = _model_path(base_path)
+    if path.exists() and not overwrite:
+        raise FileExistsError(f"Model file already exists: {path}")
     if not model.is_fitted:
         raise ValueError("Model must be fitted before saving")
     if model.metadata is None:
-        # Everything metadata needs was recorded during fit.
         model.metadata = describe_model(model)
 
-    # Persist the entire fitted state. Saving only the projector and the
-    # preprocessor is what left the embedding scaler behind, so a reloaded
-    # model returned differently scaled values than training had.
-    binary_data = {"state": model.to_state()}
-
-    with open(binary_path, "wb") as f:
-        pickle.dump(binary_data, f)
-
-    # Generate Python script with metadata and loading logic
-    script_content = _generate_model_script(model.metadata, binary_path.name)
-
-    with open(script_path, "w", encoding="utf-8") as f:
-        f.write(script_content)
-
-    return str(script_path), str(binary_path)
-
-
-def load_model(script_path: str | Path) -> Row2VecModel:
-    """Load a Row2Vec model from the script file.
-
-    Args:
-        script_path: Path to the Python script file
-
-    Returns:
-        Loaded Row2Vec model
-
-    Raises:
-        FileNotFoundError: If script or binary file not found
-        ValueError: If loading fails
-    """
-    script_path = Path(script_path)
-
-    if not script_path.exists():
-        raise FileNotFoundError(f"Script file not found: {script_path}")
-
-    # Execute the script in a controlled namespace
-    # Add the script directory to help find the binary file
-    namespace: dict[str, Any] = {
-        "__script_dir__": str(script_path.parent),
-        "__script_path__": str(script_path),
+    state = model.to_state()
+    members: dict[str, bytes] = {
+        _CONFIG: _dumps_json(state["config"].to_dict()),
+        _STATE: _dumps_json(
+            {
+                key: state[key]
+                for key in (
+                    "aggregate_by_reference",
+                    "feature_names_in_",
+                    "n_features_in_",
+                    "training_columns_",
+                    "training_shape_",
+                    "training_dtypes_",
+                    "training_schema_",
+                    "training_history_",
+                    "final_loss_",
+                    "epochs_trained_",
+                    "training_time_",
+                )
+            }
+        ),
+        _PREPROCESSOR: _dump_sklearn(state["preprocessor_"]),
+        _SCALER: _dump_sklearn(state["embedding_scaler_"]),
     }
-    # Row2Vec models are saved as a Python loader script plus a binary blob, so
-    # loading one runs its script. Only load models from a trusted source; see
-    # SECURITY.md.
-    exec(script_path.read_text(encoding="utf-8"), namespace)  # nosec B102
+    if state["encoder_"] is not None:
+        # A neural model needs only its encoder to embed rows; the full training
+        # network (decoder, classifier head, siamese wrapper) is not saved.
+        members[_ENCODER] = _dump_keras(state["encoder_"])
+    elif state["projector_"] is not None:
+        members[_PROJECTOR] = _dump_sklearn(state["projector_"])
 
-    # Get the load function from the script
-    if "load_model" not in namespace:
-        raise ValueError("Script does not contain load_model function")
+    manifest = {
+        "format": FORMAT_NAME,
+        "format_version": FORMAT_VERSION,
+        "row2vec_version": _package_version(),
+        "created_at": datetime.now().isoformat(),
+        "mode": model.config.mode,
+        "embedding_dim": model.config.embedding_dim,
+        "libraries": _libraries(),
+        "members": {name: hashlib.sha256(blob).hexdigest() for name, blob in members.items()},
+        "metadata": model.metadata.to_dict(),
+    }
 
-    # Load the model
-    loaded = namespace["load_model"]()
-    if not isinstance(loaded, Row2VecModel):
-        raise TypeError(f"Loader script returned {type(loaded).__name__}, expected Row2VecModel")
-    return loaded
-
-
-def _generate_model_script(metadata: Row2VecModelMetadata, binary_filename: str) -> str:
-    """Generate the Python script for model loading.
-
-    Args:
-        metadata: Model metadata
-        binary_filename: Name of the binary file
-
-    Returns:
-        Python script content as string
-    """
-
-    # Convert metadata to JSON for inclusion in script, handling None values
-    def json_serializer(obj: Any) -> Any:
-        """Custom JSON serializer to handle None and other Python objects."""
-        import numpy as np
-
-        if obj is None:
-            return None
-        if isinstance(obj, tuple | list):
-            return list(obj)
-        if isinstance(obj, np.floating | np.integer):
-            if np.isnan(obj):
-                return None
-            return float(obj)
-        return str(obj)
-
-    metadata_dict = metadata.to_dict()
-    # Convert None values and handle NaN values
-    for key, value in metadata_dict.items():
-        if value is None:
-            metadata_dict[key] = None  # Keep as Python None
-        elif isinstance(value, np.floating | np.integer):
-            if np.isnan(value):
-                metadata_dict[key] = None
-            else:
-                metadata_dict[key] = float(value)
-
-    # Use Python repr instead of JSON to handle None values properly
-    metadata_repr = repr(metadata_dict)
-
-    # Handle potential NaN values in metadata for f-string formatting
-    def safe_format(value: Any) -> Any:
-        if value is None:
-            return "Not recorded"
-        if isinstance(value, np.floating | np.integer) and np.isnan(value):
-            return "Not recorded"
-        return value
-
-    return f'''"""
-Row2Vec Model: {metadata.mode} mode, {metadata.embedding_dim}D embeddings
-Created: {metadata.created_at}
-Row2Vec Version: {metadata.row2vec_version}
-
-This script contains the metadata and loading logic for a trained Row2Vec model.
-The actual model weights and preprocessor are stored in the accompanying binary file.
-
-Training Configuration:
-- Mode: {metadata.mode}
-- Embedding Dimensions: {metadata.embedding_dim}
-- Reference Column: {safe_format(metadata.reference_column)}
-- Epochs Trained: {safe_format(metadata.epochs_trained)}
-- Final Loss: {safe_format(metadata.final_loss)}
-- Training Time: {safe_format(metadata.training_time)}s
-
-Data Information:
-- Original Shape: {metadata.data_shape}
-- Original Columns: {len(metadata.original_columns)} columns
-- Preprocessed Features: {len(metadata.preprocessed_feature_names)} features
-
-Usage:
-    from pathlib import Path
-    model = load_model()  # This function is defined below
-    embeddings = model.predict(your_dataframe)
-"""
-
-import pickle
-import numpy as np
-from pathlib import Path
-from typing import Any, Dict
-
-# Import Row2Vec components (assumes row2vec is installed)
-try:
-    from row2vec.serialization import Row2VecModelMetadata
-    from row2vec.model import Row2VecModel
-except ImportError:
-    raise ImportError(
-        "row2vec package not found. Please install it first: pip install row2vec"
-    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Write beside the target and move into place, so an interrupted save never
+    # leaves a half-written model where a good one used to be.
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    try:
+        with (
+            os.fdopen(fd, "wb") as handle,
+            zipfile.ZipFile(handle, "w", zipfile.ZIP_DEFLATED) as zf,
+        ):
+            zf.writestr(_MANIFEST, _dumps_json(manifest))
+            for name, blob in members.items():
+                zf.writestr(name, blob)
+        os.replace(tmp_name, path)
+    except BaseException:
+        Path(tmp_name).unlink(missing_ok=True)
+        raise
+    return str(path)
 
 
-# Model metadata (inspectable dictionary)
-METADATA = {metadata_repr}
-
-
-def get_metadata() -> Dict[str, Any]:
-    """Get the model metadata as an inspectable dictionary."""
-    return METADATA.copy()
-
-
-def load_model() -> Row2VecModel:
-    """
-    Load the complete Row2Vec model with preprocessor and metadata.
-
-    Returns:
-        Row2VecModel: Loaded model ready for inference
-
-    Raises:
-        FileNotFoundError: If binary file not found
-        Exception: If loading fails
-    """
-    # Get the path to the binary file using the script directory
-    binary_filename = "{binary_filename}"
-
-    # Try to use the script directory if available (passed from load_model function)
-    if "__script_dir__" in globals():
-        script_dir = Path(globals()["__script_dir__"])
-        binary_path = script_dir / binary_filename
-    else:
-        # Fallback to current working directory
-        binary_path = Path(binary_filename)
-
-    if not binary_path.exists():
-        raise FileNotFoundError(
-            f"Binary model file not found: {{binary_path}}\\n"
-            f"Expected filename: {{binary_filename}}\\n"
-            f"Searched in: {{binary_path.parent if binary_path.parent != binary_path else Path.cwd()}}"
-        )
+def _read_archive(path: Path) -> tuple[dict[str, Any], dict[str, bytes]]:
+    """Read and verify every member of a model file. Executes nothing."""
+    if not path.exists():
+        raise FileNotFoundError(f"Model file not found: {path}")
+    try:
+        archive = zipfile.ZipFile(path)
+    except zipfile.BadZipFile as exc:
+        raise ModelFormatError(f"{path.name} is not a row2vec model file.") from exc
+    with archive:
+        names = set(archive.namelist())
+        unknown = names - _ALLOWED_MEMBERS
+        if unknown:
+            raise ModelFormatError(f"{path.name} contains unexpected members: {sorted(unknown)}")
+        missing = _REQUIRED - names
+        if missing:
+            raise ModelFormatError(f"{path.name} is missing required members: {sorted(missing)}")
+        for info in archive.infolist():
+            if info.file_size > _MAX_MEMBER_BYTES:
+                raise ModelFormatError(
+                    f"{info.filename} is implausibly large; refusing to read it."
+                )
+        raw = {name: archive.read(name) for name in names}
 
     try:
-        # Load binary components
-        with open(binary_path, "rb") as f:
-            binary_data = pickle.load(f)
+        manifest = json.loads(raw[_MANIFEST])
+    except ValueError as exc:
+        raise ModelFormatError("manifest.json is not valid JSON.") from exc
+    if manifest.get("format") != FORMAT_NAME:
+        raise ModelFormatError(f"{path.name} is not a {FORMAT_NAME} file.")
+    version = manifest.get("format_version")
+    if version != FORMAT_VERSION:
+        raise ModelFormatError(
+            f"{path.name} uses model format version {version}; this row2vec reads version "
+            f"{FORMAT_VERSION}. Upgrade row2vec to read newer files."
+        )
+    for name, expected in manifest.get("members", {}).items():
+        if name not in raw or hashlib.sha256(raw[name]).hexdigest() != expected:
+            raise ModelFormatError(
+                f"{name} in {path.name} does not match its recorded checksum: the file is "
+                "corrupt or has been modified."
+            )
+    if set(manifest.get("members", {})) != names - {_MANIFEST}:
+        raise ModelFormatError(f"{path.name} has members that its manifest does not list.")
+    return _decode(manifest), raw
 
-        # Rebuild the fitted model and reattach its metadata
-        model = Row2VecModel.from_state(binary_data["state"])
-        model.metadata = Row2VecModelMetadata.from_dict(METADATA)
 
-        return model
+def inspect_model(path: str | Path) -> dict[str, Any]:
+    """Read a saved model's manifest without loading the model.
 
-    except Exception as e:
-        raise Exception(f"Failed to load model: {{str(e)}}")
+    Nothing from the file is deserialised beyond JSON, so this is safe to call
+    on a model you have not decided to trust yet.
+
+    Args:
+        path (str | Path): A ``.r2v`` file.
+
+    Returns:
+        dict[str, Any]: Format and library versions, mode, embedding dimension,
+        and the training metadata (columns, dtypes, history, ...).
+    """
+    manifest, _ = _read_archive(_model_path(path))
+    return manifest
 
 
-if __name__ == "__main__":
-    # Demo usage
-    print("Row2Vec Model Information:")
-    print("=" * 50)
+def load_model(path: str | Path) -> Row2VecModel:
+    """Load a model written by :func:`save_model`.
 
-    metadata = get_metadata()
-    print(f"Mode: {{metadata['mode']}}")
-    print(f"Embedding Dimensions: {{metadata['embedding_dim']}}")
-    print(f"Created: {{metadata['created_at']}}")
-    print(f"Training Time: {{metadata.get('training_time', 'N/A')}}s")
-    print(f"Final Loss: {{metadata.get('final_loss', 'N/A')}}")
-    print(f"Epochs Trained: {{metadata.get('epochs_trained', 'N/A')}}")
+    Loading does not execute code from the file; see the module docstring for
+    exactly what is and is not guaranteed.
 
-    print("\\nOriginal Columns:")
-    for col in metadata.get('original_columns', []):
-        print(f"  - {{col}}")
+    Args:
+        path (str | Path): The ``.r2v`` file (the suffix may be omitted).
 
-    print("\\nTo use this model:")
-    print("  model = load_model()")
-    print("  embeddings = model.predict(your_dataframe)")
-'''
+    Returns:
+        Row2VecModel: The restored model, ready to ``transform``/``predict``.
+
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        ModelFormatError: If the file is corrupt, from another format version,
+            names a type that is not on the allow-list, or is the old
+            script-and-pickle format.
+    """
+    manifest, raw = _read_archive(_model_path(path))
+    state = _decode(json.loads(raw[_STATE]))
+    state["config"] = EmbeddingConfig.from_dict(_decode(json.loads(raw[_CONFIG])))
+    state["preprocessor_"] = _load_sklearn(raw[_PREPROCESSOR], "preprocessor.skops")
+    state["embedding_scaler_"] = _load_sklearn(raw[_SCALER], "scaler.skops")
+    state["projector_"] = (
+        _load_sklearn(raw[_PROJECTOR], "projector.skops") if _PROJECTOR in raw else None
+    )
+    state["encoder_"] = _load_keras(raw[_ENCODER]) if _ENCODER in raw else None
+
+    model = Row2VecModel.from_state(state)
+    model.metadata = Row2VecModelMetadata.from_dict(manifest["metadata"])
+    return model
 
 
 def train_and_save_model(
@@ -531,14 +757,15 @@ def train_and_save_model(
     # Serialization parameters
     overwrite: bool = False,
     include_training_history: bool = True,
-) -> tuple[pd.DataFrame, str, str]:
-    """Train a Row2Vec model and save it using the two-file approach.
+) -> tuple[pd.DataFrame, str]:
+    """Train a Row2Vec model and save it as a single ``.r2v`` file.
 
     This is a convenience function that combines training and saving.
 
     Args:
         df (pd.DataFrame): The input DataFrame containing numeric and categorical features.
-        base_path (str | Path): Base path for the saved model, without a suffix.
+        base_path (str | Path): Where to save the model; ``.r2v`` is appended
+            unless present.
         embedding_dim (int): The dimensionality of the embedding space.
         mode (str): Embedding method - 'unsupervised' (autoencoder), 'target' (supervised),
                    'pca' (Principal Component Analysis), 'tsne' (t-SNE), 'umap' (UMAP),
@@ -576,10 +803,8 @@ def train_and_save_model(
         include_training_history (bool): Whether to include the full training history in the metadata.
 
     Returns:
-        Tuple of (embeddings, script_path, binary_path)
+        Tuple of (embeddings, path), where ``path`` is the ``.r2v`` file written.
     """
-    # Import here to avoid circular imports
-
     # One training pass produces both the embeddings and the fitted model.
     embeddings, model = learn_embedding_with_model(
         df=df,
@@ -613,6 +838,6 @@ def train_and_save_model(
     model.metadata = describe_model(model, include_training_history=include_training_history)
 
     # Save the model
-    script_path, binary_path = save_model(model, base_path, overwrite=overwrite)
+    path = save_model(model, base_path, overwrite=overwrite)
 
-    return embeddings, script_path, binary_path
+    return embeddings, path

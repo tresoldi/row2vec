@@ -12,6 +12,7 @@ import pytest
 from row2vec import (
     Row2VecModel,
     generate_synthetic_data,
+    inspect_model,
     learn_embedding_with_model,
     load_model,
     save_model,
@@ -137,20 +138,18 @@ class TestModelSerialization:
 
         # Save the model
         base_path = temp_dir / "test_model"
-        script_path, binary_path = save_model(row2vec_model, base_path)
+        saved_path = save_model(row2vec_model, base_path)
 
-        # Check files exist
-        assert Path(script_path).exists()
-        assert Path(binary_path).exists()
-        assert script_path.endswith(".py")
-        assert binary_path.endswith(".pkl")
+        # One file, with the .r2v suffix
+        assert Path(saved_path).exists()
+        assert saved_path.endswith(".r2v")
 
         # Load the model
-        loaded_model = load_model(script_path)
+        loaded_model = load_model(saved_path)
 
         # Check loaded model
         assert isinstance(loaded_model, Row2VecModel)
-        assert loaded_model.projector_ is not None
+        assert loaded_model.encoder_ is not None
         assert loaded_model.preprocessor_ is not None
         assert loaded_model.metadata is not None
 
@@ -178,10 +177,10 @@ class TestModelSerialization:
 
         # Save the model
         base_path = temp_dir / "test_pca_model"
-        script_path, _binary_path = save_model(row2vec_model, base_path)
+        saved_path = save_model(row2vec_model, base_path)
 
         # Load the model
-        loaded_model = load_model(script_path)
+        loaded_model = load_model(saved_path)
 
         # Test prediction with loaded model
         test_data = generate_synthetic_data(20, seed=123)
@@ -195,7 +194,7 @@ class TestModelSerialization:
         """Test the convenience function train_and_save_model."""
         base_path = temp_dir / "convenience_model"
 
-        embeddings, script_path, binary_path = train_and_save_model(
+        embeddings, saved_path = train_and_save_model(
             sample_data,
             base_path,
             embedding_dim=4,
@@ -208,11 +207,10 @@ class TestModelSerialization:
         # Check return values
         assert isinstance(embeddings, pd.DataFrame)
         assert embeddings.shape[1] == 4
-        assert Path(script_path).exists()
-        assert Path(binary_path).exists()
+        assert Path(saved_path).exists()
 
         # Load and test the saved model
-        loaded_model = load_model(script_path)
+        loaded_model = load_model(saved_path)
         test_data = generate_synthetic_data(15, seed=456)
         predictions = loaded_model.predict(test_data, validate_schema=False)
 
@@ -224,7 +222,7 @@ class TestModelSerialization:
         base_path = temp_dir / "metadata_test_model"
 
         # Train and save a model
-        _embeddings, script_path, _binary_path = train_and_save_model(
+        _embeddings, saved_path = train_and_save_model(
             sample_data,
             base_path,
             embedding_dim=3,
@@ -235,17 +233,14 @@ class TestModelSerialization:
             enable_logging=False,
         )
 
-        # Read the generated script as text to verify metadata is readable
-        script_content = Path(script_path).read_text()
-
-        # Check that key metadata is present in the script
-        assert "Mode: target" in script_content
-        assert "Embedding Dimensions: 3" in script_content
-        assert "Reference Column: Country" in script_content
-        assert "METADATA = {" in script_content
+        # The manifest is readable without loading the model.
+        manifest = inspect_model(saved_path)
+        assert manifest["mode"] == "target"
+        assert manifest["embedding_dim"] == 3
+        assert manifest["metadata"]["reference_column"] == "Country"
 
         # Load the model and check metadata access
-        loaded_model = load_model(script_path)
+        loaded_model = load_model(saved_path)
         metadata_dict = loaded_model.metadata.to_dict()
 
         assert metadata_dict["mode"] == "target"
@@ -270,8 +265,8 @@ class TestModelSerialization:
         row2vec_model = model
 
         base_path = temp_dir / "schema_test_model"
-        script_path, _binary_path = save_model(row2vec_model, base_path)
-        loaded_model = load_model(script_path)
+        saved_path = save_model(row2vec_model, base_path)
+        loaded_model = load_model(saved_path)
 
         # Test with correct schema
         correct_data = generate_synthetic_data(10, seed=789)
@@ -314,7 +309,7 @@ class TestModelSerialization:
             )
 
         # Try to save again with overwrite - should succeed
-        _embeddings, script_path, _binary_path = train_and_save_model(
+        _embeddings, saved_path = train_and_save_model(
             sample_data,
             base_path,
             embedding_dim=3,
@@ -325,7 +320,7 @@ class TestModelSerialization:
         )
 
         # Load and verify the new model has 3 dimensions
-        loaded_model = load_model(script_path)
+        loaded_model = load_model(saved_path)
         test_predictions = loaded_model.predict(
             generate_synthetic_data(5, seed=999),
             validate_schema=False,
