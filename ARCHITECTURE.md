@@ -183,9 +183,12 @@ guarantee is against a malicious file, not an unauthenticated one — see
 
 ## 5. Column classification
 
-Every column takes one of two paths: scaled as numeric, or encoded as
-categorical. That decision is made in exactly one place —
-`utils.is_categorical_series` — and every module defers to it.
+Every column takes one of four paths: scaled as numeric, encoded as categorical,
+mapped to 0/1 (boolean), or expanded into cyclical and trend features
+(datetime). The predicates live in `utils` — `is_categorical_series`,
+`numeric_columns`, `boolean_columns`, `datetime_columns` — and every module
+defers to them. A column no path accepts (periods, intervals) is ignored with a
+warning rather than dropped silently.
 
 This matters more than it looks. Testing `series.dtype in ("object", "category")`
 was correct until pandas 3.0, which infers `str` for text columns; the same test

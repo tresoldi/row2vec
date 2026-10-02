@@ -239,7 +239,7 @@ class TestInputValidation:
         df = pd.DataFrame({"target_only": ["A", "B", "A", "B", "A"]})
         with pytest.raises(
             ValueError,
-            match="DataFrame must contain at least one numeric or categorical column",
+            match="DataFrame must contain at least one numeric, categorical, boolean or datetime column",
         ):
             learn_embedding(
                 df,

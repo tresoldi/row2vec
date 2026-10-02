@@ -16,8 +16,10 @@ from . import __version__
 from .core import learn_embedding
 from .serialization import MODEL_SUFFIX, load_model, train_and_save_model
 from .utils import (
+    boolean_columns,
     categorical_columns,
     create_dataframe_schema,
+    datetime_columns,
     numeric_columns,
     validate_dataframe_schema,
 )
@@ -192,9 +194,15 @@ def _validate_schema_friendly(
         if reference_column and reference_column in categorical_cols:
             categorical_cols.remove(reference_column)
 
-        if len(numeric_cols) == 0 and len(categorical_cols) == 0:
+        if (
+            len(numeric_cols) == 0
+            and len(categorical_cols) == 0
+            and not boolean_columns(df)
+            and not datetime_columns(df)
+        ):
             raise ValueError(
-                "Dataset must contain at least one numeric or categorical column for embedding"
+                "Dataset must contain at least one numeric, categorical, boolean or "
+                "datetime column for embedding"
             )
 
         return True, warnings_found
