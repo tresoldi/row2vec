@@ -33,6 +33,7 @@ theme:
 nav:
   - Home: index.md
   - User Guide: USER_GUIDE.md
+  - Benchmarks: benchmarks.md
   - API Reference: reference.md
 
 plugins:

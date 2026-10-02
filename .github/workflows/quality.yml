@@ -52,7 +52,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[test,neural]"
       - name: Run tests with coverage
-        run: pytest tests/ --cov=row2vec --cov-report=term-missing --cov-report=xml --cov-fail-under=70
+        run: pytest tests/ --cov=row2vec --cov-report=term-missing --cov-report=xml --cov-fail-under=80
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         uses: codecov/codecov-action@v7

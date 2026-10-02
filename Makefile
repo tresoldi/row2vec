@@ -49,9 +49,9 @@ test: ## Run test suite
 	pytest tests/
 	@echo "✓ Tests passed!"
 
-test-cov: ## Run tests with coverage (HTML report in tests/htmlcov/, fails if <75%)
+test-cov: ## Run tests with coverage (HTML report in tests/htmlcov/, fails if <80%)
 	@echo "==> Running tests with coverage..."
-	pytest --cov=row2vec --cov-report=html:tests/htmlcov --cov-report=term-missing --cov-fail-under=75 tests/
+	pytest --cov=row2vec --cov-report=html:tests/htmlcov --cov-report=term-missing --cov-fail-under=80 tests/
 	@echo "✓ Coverage report generated in tests/htmlcov/"
 
 test-fast: ## Run tests in parallel, skipping slow ones (faster)
