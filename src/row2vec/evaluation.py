@@ -96,11 +96,13 @@ def compare_modes(
 
     Returns:
         pd.DataFrame: One row per mode, indexed by mode name, with columns
-        ``status`` (``"ok"``, ``"unavailable"`` or ``"failed"``),
+        ``status`` (``"ok"``, ``"unavailable"``, ``"skipped"`` or ``"failed"``),
         ``trustworthiness``, ``downstream_score``, ``downstream_metric``,
         ``fit_seconds`` and ``note``. A ``baseline`` row gives the same
         downstream score on the preprocessed features without any embedding, so
-        the numbers have something to be compared with. Modes that need
+        the numbers have something to be compared with. ``mode="target"`` is
+        ``skipped`` for a numeric target, which it would treat as one class per
+        value. Modes that need
         TensorFlow are reported as ``unavailable`` when it is not installed;
         a mode that raises is reported as ``failed`` with the error in ``note``.
 
@@ -209,6 +211,15 @@ def _evaluate_mode(
 ) -> dict[str, Any]:
     row: dict[str, Any] = dict.fromkeys(COLUMNS, np.nan)
     row.update(status="ok", downstream_metric="", note="")
+    if mode == "target" and y is not None and not _is_classification(y):
+        return {
+            **row,
+            "status": "skipped",
+            "note": (
+                f"mode='target' embeds the values of a categorical column; {target!r} has "
+                f"{y.nunique()} distinct numeric values, so each would be its own class"
+            ),
+        }
     kwargs = {"enable_logging": False, "seed": seed, **learn_kwargs}
     # `target` mode reads its label from the frame; every other mode must not
     # see the target column at all.
@@ -285,6 +296,10 @@ def _trust(reference: np.ndarray[Any, Any], embedding: np.ndarray[Any, Any], k: 
     return float(trustworthiness(reference, embedding, n_neighbors=k))
 
 
+def _is_classification(y: pd.Series) -> bool:
+    return bool(is_categorical_series(y) or y.nunique() <= _MAX_CLASSES)
+
+
 def _downstream(
     x_train: np.ndarray[Any, Any],
     y_train: pd.Series,
@@ -293,7 +308,7 @@ def _downstream(
 ) -> tuple[float, str]:
     """Fit a k-NN probe on the training embedding, score it on the held-out one."""
     k = min(_KNN_NEIGHBOURS, len(x_train))
-    if is_categorical_series(y_train) or y_train.nunique() <= _MAX_CLASSES:
+    if _is_classification(y_train):
         probe = KNeighborsClassifier(n_neighbors=k).fit(x_train, y_train.astype(str))
         return float(probe.score(x_test, y_test.astype(str))), "accuracy"
     regressor = KNeighborsRegressor(n_neighbors=k).fit(x_train, y_train.astype(float))

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import random
 import time
+import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -977,6 +978,14 @@ class Row2VecModel:
                 "Fill or drop those rows before calling; row2vec will not drop "
                 "them for you, because that would change which rows the "
                 "returned embeddings correspond to.",
+            )
+        if len(series) >= 50 and series.nunique() > 0.5 * len(series):
+            warnings.warn(
+                f"reference_column '{column}' has {series.nunique()} distinct values in "
+                f"{len(series)} rows. mode='target' treats each value as its own class, "
+                "which is rarely what you want for an identifier or a continuous column; "
+                "use a categorical column, or another mode.",
+                stacklevel=2,
             )
         return series
 

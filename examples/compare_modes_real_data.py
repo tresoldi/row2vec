@@ -4,6 +4,7 @@ Run from the repository root:
 
     python examples/compare_modes_real_data.py titanic
     python examples/compare_modes_real_data.py adult
+    python examples/compare_modes_real_data.py ames
 
 Each dataset is embedded with every mode that can run, and the table shows how
 well each one keeps neighbourhoods (``trustworthiness``) and how well a
@@ -26,6 +27,7 @@ DATASETS = {
     # file, target column, rows to sample (None = all), t-SNE perplexity
     "titanic": ("titanic.csv", "Survived", None, 15.0),
     "adult": ("adult.csv", "income", 4000, 30.0),
+    "ames": ("ames_housing.csv", "SalePrice", None, 30.0),
 }
 
 
@@ -38,6 +40,8 @@ def main() -> None:
 
     filename, target, sample, perplexity = DATASETS[args.dataset]
     df = pd.read_csv(DATA / filename)
+    if "Id" in df.columns:
+        df = df.drop(columns="Id")  # a row counter, not a feature
     if sample is not None and len(df) > sample:
         df = df.sample(sample, random_state=1).reset_index(drop=True)
     print(f"{args.dataset}: {len(df)} rows, target {target!r}")

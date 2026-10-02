@@ -53,14 +53,17 @@ This directory contains a collection of classic, public-domain datasets used for
 
 ---
 
-### 3. Housing data (`ames_housing.csv`, actually Boston Housing)
+### 3. Ames Housing Dataset
 
 -   **File:** `ames_housing.csv`
--   **What it actually is:** the classic **Boston Housing** dataset (Harrison & Rubinfeld, 1978), not the Ames, Iowa dataset the file name suggests. It has **506 rows and 14 numeric columns** (13 features plus the median home value, `MEDV`, last), and **no header row**: `pd.read_csv` with its defaults turns the first record into the column names. Read it with `header=None`.
--   **Task:** Predict the median value of owner-occupied homes (the last column).
+-   **Source:** [Dean De Cock, "Ames, Iowa: Alternative to the Boston Housing Data as an End of Semester Regression Project", *Journal of Statistics Education* 19(3), 2011](https://jse.amstat.org/v19n3/decock.pdf). This copy is the Kaggle "House Prices" training set derived from it, as published on [OpenML (id 42165)](https://www.openml.org/d/42165).
+-   **Task:** Predict the final sale price of homes in Ames, Iowa (`SalePrice`, numeric).
+-   **Description:** A detailed dataset of residential sales with a large number of features, many of them categorical, and missing values in 19 columns. It is a good test of mixed-type preprocessing at a width where most columns are not numeric.
 -   **Properties:**
-    -   Records: 506
-    -   Features: 13 numeric + 1 target (the last column)
--   **Caveats:**
-    -   The earlier version of this README described the Ames dataset (2,919 records, 79 features, many categorical). That was wrong for this file, and the tests that load it only see anonymous numeric columns.
-    -   One Boston feature (`B`) is derived from the racial composition of each town, and the dataset has been withdrawn from some libraries (scikit-learn removed `load_boston`) for that reason. Consider replacing it with the real Ames data before using it for anything beyond a numeric smoke test.
+    -   Records: 1,460
+    -   Columns: `Id`, 79 features (43 categorical, 36 numeric) and the target `SalePrice`
+-   **Notes:**
+    -   `Id` is a row counter, not a feature; drop it before embedding.
+    -   In several columns a missing value means the feature is absent (no pool, no alley, no garage); `PoolQC` is 99% missing for that reason. `pandas.read_csv` reads the literal `NA` as missing too, which matches that convention.
+    -   This is the 1,460-row training half of the Kaggle split, not the full 2,930-row Ames table.
+    -   An earlier version of this repository shipped the Boston Housing data under this file name. It was replaced (and the Boston data removed, partly because one of its features is derived from the racial composition of each town).

@@ -32,7 +32,7 @@ class TestRealDatasetIntegration:
 
     @pytest.fixture(scope="class")
     def housing_data(self, data_dir: Path) -> pd.DataFrame:
-        """Load Ames housing dataset."""
+        """Load the Ames housing dataset."""
         housing_path = data_dir / "ames_housing.csv"
         if not housing_path.exists():
             pytest.skip("Housing dataset not available")
