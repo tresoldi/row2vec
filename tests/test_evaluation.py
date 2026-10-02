@@ -108,6 +108,28 @@ class TestHeldOutAndNoLeakage:
         assert cell(report, "tsne", "trustworthiness") > 0.5
 
 
+class TestTargetModeNeedsACategoricalTarget:
+    def test_numeric_target_skips_target_mode(self, df: pd.DataFrame) -> None:
+        report = row2vec.compare_modes(df, target="Sales", modes=["target", "pca"])
+
+        assert cell(report, "target", "status") == "skipped"
+        assert "distinct numeric values" in cell(report, "target", "note")
+        assert cell(report, "pca", "status") == "ok"
+
+    @pytest.mark.neural
+    def test_target_mode_warns_for_an_all_distinct_reference(self, df: pd.DataFrame) -> None:
+        pytest.importorskip("tensorflow")
+        with pytest.warns(UserWarning, match="treats each value as its own class"):
+            row2vec.learn_embedding(
+                df,
+                mode="target",
+                reference_column="Sales",
+                embedding_dim=2,
+                max_epochs=1,
+                enable_logging=False,
+            )
+
+
 class TestFailureReporting:
     def test_missing_tensorflow_is_unavailable_not_an_error(
         self, df: pd.DataFrame, monkeypatch: pytest.MonkeyPatch

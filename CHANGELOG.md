@@ -20,6 +20,15 @@ changes are folded in here.
 
 ### Fixed
 
+- **`data/ames_housing.csv` was Boston Housing**, headerless and mislabelled, so
+  the tests that loaded it saw anonymous numeric columns. It is now the real
+  Ames data (1,460 x 81, with categorical columns and missing values), and the
+  Boston data is gone.
+- **`mode="target"` warns when the reference column is nearly all distinct**
+  (more than half of the values distinct, 50 rows or more). It treats each value
+  as its own class, so a continuous or identifier column trains a classifier with
+  one class per row. `compare_modes` reports `target` as `skipped` for a numeric
+  target instead of scoring it.
 - **A column with a distinct value in every row is no longer encoded.** A name or
   id column (Titanic's `Name`: 887 values in 887 rows) was given learned entity
   embeddings. Nothing learned about it can transfer, because no value ever recurs,
