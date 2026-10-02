@@ -258,3 +258,11 @@ models saved by 0.2.0 cannot be loaded. See `MIGRATION.md`.
    the preprocessor, projector, encoder view, and embedding scaler. The
    alternative — each entry point assembling its own pipeline — produced three
    divergent implementations and the defects the 0.4.0 audit found (§2.2, §3).
+9. **A text hook is never persisted.** `text_encoder` is an arbitrary callable, and
+   loading must not run code from the file (decision 4). The alternative —
+   pickling it — was rejected; so is refusing to save such models. The saved
+   preprocessor has the hook detached (`text_encoding.detached_hooks`), the
+   manifest records `text_encoder_required`, and `load_model(path,
+   text_encoder=fn)` re-attaches it. The cost is that the caller must keep the
+   function; the default TF-IDF/SVD encoder has no such cost. The hook is wrapped
+   (`SharedHook`) so scikit-learn's `clone` does not deep-copy an embedding model.

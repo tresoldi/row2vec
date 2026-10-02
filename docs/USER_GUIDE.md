@@ -437,6 +437,67 @@ embeddings = learn_embedding(df, mode="pca", embedding_dim=2, enable_logging=Fal
 assert embeddings.shape == (40, 2)
 ```
 
+### Text columns
+
+A string column is a category unless you say otherwise. To treat it as free text,
+name it in `text_columns`. The default encoding is TF-IDF followed by a truncated
+SVD, which needs no extra dependency; `text_dim` is the most features each
+column gets (fewer if the vocabulary is smaller).
+
+```python
+import pandas as pd
+
+from row2vec import EmbeddingConfig, PreprocessingConfig, learn_embedding
+
+df = pd.DataFrame(
+    {
+        "price": [float(i) for i in range(30)],
+        "review": ["great apple pie", "blue sky today", "apple tart recipe"] * 10,
+    }
+)
+
+# `config` carries the preprocessing settings; mode and size are keywords.
+config = EmbeddingConfig(
+    preprocessing=PreprocessingConfig(text_columns=["review"], text_dim=4),
+)
+embeddings = learn_embedding(
+    df, mode="pca", embedding_dim=2, config=config, enable_logging=False
+)
+assert embeddings.shape == (30, 2)
+```
+
+To use a sentence-embedding model instead, pass `text_encoder`: any callable that
+takes a list of strings and returns an array of shape `(len(texts), dim)`. Each
+text column goes through it independently, in batches, and its output width is
+fixed when the model is fitted.
+
+```py
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+encode = lambda texts: model.encode(texts, normalize_embeddings=True)
+
+config = EmbeddingConfig(
+    preprocessing=PreprocessingConfig(text_columns=["review"], text_encoder=encode)
+)
+embeddings = learn_embedding(df, mode="pca", embedding_dim=8, config=config)
+```
+
+Text features are not rescaled, so a hook that returns unit-length vectors gives
+each text column roughly the weight of one standardised numeric column.
+
+A custom `text_encoder` is code, and a saved model never runs code from its
+file, so the function is **not saved**. The model records that it needs one, and
+loading it again requires the same function:
+
+```py
+model = row2vec.load_model("reviews.r2v", text_encoder=encode)
+```
+
+Without it `load_model` raises a `ModelFormatError` that says so. The default
+TF-IDF encoder is saved with the model and needs nothing at load time. Only
+`text_columns` and `text_dim` can be set in a YAML config; the callable cannot.
+
 ### Scaling the output
 
 `scale_method` rescales the embedding after it is computed — useful when a
@@ -678,9 +739,8 @@ assert embeddings.shape == (50, 2)
 
 ### What is not supported
 
-Free text is not embedded directly. Preprocess it yourself, for example with
-sentence embeddings, and pass the result as ordinary columns. Columns of any
-other dtype (periods, intervals) are ignored, with a warning that names them.
+Columns of any dtype other than numeric, categorical, boolean, datetime or
+declared text (periods, intervals) are ignored, with a warning that names them.
 
 ---
 

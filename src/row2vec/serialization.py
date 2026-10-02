@@ -31,15 +31,19 @@ import tempfile
 import zipfile
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 from ._backend import require_tensorflow
 from .config import EmbeddingConfig
 from .core import learn_embedding_with_model
 from .model import Row2VecModel, get_feature_names
+from .text_encoding import attach_hook, detached_hooks, iter_text_encoders
 
 
 def _package_version() -> str:
@@ -301,6 +305,7 @@ TRUSTED_TYPES = frozenset(
         "row2vec.model.EmbeddingScaler",
         "row2vec.pipeline_builder._BooleanEncoder",
         "row2vec.pipeline_builder._TolerantMinMaxScaler",
+        "row2vec.text_encoding.TextEncoder",
         "numpy.dtype",
         "scipy.sparse._csr.csr_matrix",
         "umap.umap_.UMAP",
@@ -569,6 +574,10 @@ def save_model(
         model.metadata = describe_model(model)
 
     state = model.to_state()
+    # A custom text hook is code and is never written; the model records that
+    # it needs one (see text_encoding.py).
+    with detached_hooks(state["preprocessor_"]) as hooked:
+        preprocessor_blob = _dump_sklearn(state["preprocessor_"])
     members: dict[str, bytes] = {
         _CONFIG: _dumps_json(state["config"].to_dict()),
         _STATE: _dumps_json(
@@ -589,7 +598,7 @@ def save_model(
                 )
             }
         ),
-        _PREPROCESSOR: _dump_sklearn(state["preprocessor_"]),
+        _PREPROCESSOR: preprocessor_blob,
         _SCALER: _dump_sklearn(state["embedding_scaler_"]),
     }
     if state["encoder_"] is not None:
@@ -607,6 +616,7 @@ def save_model(
         "mode": model.config.mode,
         "embedding_dim": model.config.embedding_dim,
         "libraries": _libraries(),
+        "text_encoder_required": bool(hooked),
         "members": {name: hashlib.sha256(blob).hexdigest() for name, blob in members.items()},
         "metadata": model.metadata.to_dict(),
     }
@@ -693,7 +703,10 @@ def inspect_model(path: str | Path) -> dict[str, Any]:
     return manifest
 
 
-def load_model(path: str | Path) -> Row2VecModel:
+def load_model(
+    path: str | Path,
+    text_encoder: Callable[[list[str]], Any] | None = None,
+) -> Row2VecModel:
     """Load a model written by :func:`save_model`.
 
     Loading does not execute code from the file; see the module docstring for
@@ -701,6 +714,10 @@ def load_model(path: str | Path) -> Row2VecModel:
 
     Args:
         path (str | Path): The ``.r2v`` file (the suffix may be omitted).
+        text_encoder (callable, optional): The ``list[str] -> array`` hook the
+            model was trained with. Required, and only allowed, for a model
+            trained with a custom ``text_encoder``: the callable is code, so it
+            is not stored in the file.
 
     Returns:
         Row2VecModel: The restored model, ready to ``transform``/``predict``.
@@ -708,13 +725,28 @@ def load_model(path: str | Path) -> Row2VecModel:
     Raises:
         FileNotFoundError: If the file does not exist.
         ModelFormatError: If the file is corrupt, from another format version,
-            names a type that is not on the allow-list, or is the old
-            script-and-pickle format.
+            names a type that is not on the allow-list, is the old
+            script-and-pickle format, or needs a ``text_encoder`` that was not
+            given.
+        ValueError: If a ``text_encoder`` is given for a model that has none.
     """
     manifest, raw = _read_archive(_model_path(path))
     state = _decode(json.loads(raw[_STATE]))
     state["config"] = EmbeddingConfig.from_dict(_decode(json.loads(raw[_CONFIG])))
     state["preprocessor_"] = _load_sklearn(raw[_PREPROCESSOR], "preprocessor.skops")
+    needs_hook = any(
+        getattr(enc, "uses_hook_", False) for enc in iter_text_encoders(state["preprocessor_"])
+    )
+    if needs_hook and text_encoder is None:
+        raise ModelFormatError(
+            "This model was trained with a custom text encoder, which is code and so is "
+            "not stored in the file. Load it with load_model(path, text_encoder=...), "
+            "passing the same function."
+        )
+    if text_encoder is not None:
+        if not needs_hook:
+            raise ValueError("This model does not use a custom text encoder; remove text_encoder=.")
+        attach_hook(state["preprocessor_"], text_encoder)
     state["embedding_scaler_"] = _load_sklearn(raw[_SCALER], "scaler.skops")
     state["projector_"] = (
         _load_sklearn(raw[_PROJECTOR], "projector.skops") if _PROJECTOR in raw else None

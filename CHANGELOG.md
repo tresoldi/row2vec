@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for the hour, weekday, day-of-month and month that vary in the training data,
   plus a standardised elapsed-time feature (`DatetimeEncoder`).
 - **Boolean columns** (including nullable `boolean`) are encoded as 0/1.
+- **Text columns, opt-in.** Name them in `PreprocessingConfig.text_columns`; they
+  are encoded with TF-IDF and a truncated SVD (`text_dim` features per column),
+  or with your own `text_encoder` (`list[str] -> array`), for example a
+  sentence-embedding model. A custom encoder is code and is never saved:
+  `load_model(path, text_encoder=fn)` supplies it again, and `load_model` raises
+  a clear `ModelFormatError` without it. The default encoder is saved in full.
 - A `UserWarning` names any column whose dtype is still unsupported, such as
   periods or intervals, instead of dropping it silently.
 

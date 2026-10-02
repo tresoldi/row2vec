@@ -38,6 +38,9 @@ worth calling out:
   and `Dropout` layers permitted; everything else is JSON. A file that names
   anything off the list raises `ModelFormatError` and is not loaded. The archive
   is also checked for unexpected members and per-member checksums.
+  A custom `text_encoder` is a Python callable, so it is never written to the
+  file: `load_model(path, text_encoder=fn)` takes it from the caller, which means
+  the code that runs is the code you passed, not anything in the archive.
 
   What this does **not** give you:
   - *Authenticity.* The checksums detect corruption, not tampering by someone who
