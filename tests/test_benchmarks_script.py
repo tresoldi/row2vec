@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
-from types import ModuleType
+from typing import TYPE_CHECKING
 
 import pandas as pd
+
+if TYPE_CHECKING:
+    from types import ModuleType
 
 SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "benchmarks.py"
 
