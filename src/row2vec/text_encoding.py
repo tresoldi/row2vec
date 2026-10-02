@@ -106,7 +106,8 @@ class TextEncoder(BaseEstimator, TransformerMixin):
         for name, col in zip(self.columns_, frame.columns, strict=True):
             # scikit-learn's default pattern drops one-character tokens, which in
             # short tabular text ("size L", "type 7") are often the signal.
-            vectorizer = TfidfVectorizer(token_pattern=r"(?u)\b\w+\b")
+            # "token_pattern" is a regex, not a credential (bandit B106).
+            vectorizer = TfidfVectorizer(token_pattern=r"(?u)\b\w+\b")  # nosec B106
             try:
                 tfidf = vectorizer.fit_transform(_texts(frame[col]))
             except ValueError as exc:
