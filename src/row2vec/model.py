@@ -1,6 +1,6 @@
 """The fitted model behind every embedding row2vec produces.
 
-Before 0.3.0 no object held fitted state. ``learn_embedding`` built a
+Before 0.4.0 no object held fitted state. ``learn_embedding`` built a
 preprocessor, fitted it, projected, and dropped every fitted part on the floor;
 ``learn_embedding_with_model`` then trained a *second*, subtly different model
 to hand back; and the scikit-learn adapter re-ran training inside

@@ -1,7 +1,7 @@
 """Public entry points for learning embeddings.
 
 Both functions here are thin facades over :class:`row2vec.model.Row2VecModel`,
-which owns every piece of fitted state. Before 0.3.0 this module carried two
+which owns every piece of fitted state. Before 0.4.0 this module carried two
 near-duplicate 400-line implementations that had quietly diverged on nine
 separate points - multi-layer support, embedding scaling, null-target
 handling, the t-SNE iteration keyword, output indexing - and

@@ -12,7 +12,7 @@ authors:
   - family-names: Tresoldi
     given-names: Tiago
     email: row2vec@tresoldi.org
-version: 0.2.0
+version: 0.4.0
 date-released: 2026-07-31
 license: MIT
 repository-code: "https://github.com/tresoldi/row2vec"

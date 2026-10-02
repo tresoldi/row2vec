@@ -304,7 +304,7 @@ class TestValidInputs:
             max_epochs=1,
             batch_size=4,
         )
-        # One row per input row since 0.3.0; the per-category matrix is
+        # One row per input row since 0.4.0; the per-category matrix is
         # opt-in via aggregate_by_reference=True.
         assert result.shape == (4, 1)
         assert list(result.index) == list(df.index)

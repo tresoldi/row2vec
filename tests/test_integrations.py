@@ -222,7 +222,7 @@ class TestPandasIntegration:
         embeddings = sample_data_with_target.row2vec.supervised("category", dim=4)
 
         assert isinstance(embeddings, pd.DataFrame)
-        # One row per input row since 0.3.0, indexed like the source frame.
+        # One row per input row since 0.4.0, indexed like the source frame.
         assert embeddings.shape == (len(sample_data_with_target), 4)
         assert list(embeddings.index) == list(sample_data_with_target.index)
 

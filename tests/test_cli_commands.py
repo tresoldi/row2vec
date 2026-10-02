@@ -56,7 +56,7 @@ class TestAnnotate:
 
         assert code == 0
         assert out.exists()
-        # Since 0.3.0 the input frame's index is written alongside the
+        # Since 0.4.0 the input frame's index is written alongside the
         # embedding columns, so the output can be joined back to the input
         # rather than matched positionally. --no-index opts out.
         result = pd.read_csv(out, index_col=0)
@@ -112,7 +112,7 @@ class TestAnnotate:
         assert joined.isnull().sum().sum() == 0
 
     def test_no_index_omits_the_index_column(self, workspace: Path) -> None:
-        """--no-index restores the pre-0.3.0 output shape."""
+        """--no-index restores the pre-0.4.0 output shape."""
         out = workspace / "no_index.csv"
 
         code = run_cli(

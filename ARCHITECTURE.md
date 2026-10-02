@@ -1,6 +1,6 @@
 # Row2Vec Architecture
 
-> Status: **describes the delivered architecture as of 0.3.0.**
+> Status: **describes the delivered architecture as of 0.4.0.**
 > This document defines the structure, boundaries, and design principles of
 > Row2Vec. New modules should fit within it; changes that move away from it
 > should update it in the same PR. Key design decisions are recorded in §8.
@@ -103,7 +103,7 @@ src/row2vec/
   preprocessing and validation that splitting them per method would mean either
   duplicating that work or inventing an abstraction nobody asked for (YAGNI,
   §2.5). `core.py` and `api.py` only translate arguments into a model and call
-  `fit`/`transform`; before 0.3.0 `core.py` also carried a second, divergent
+  `fit`/`transform`; before 0.4.0 `core.py` also carried a second, divergent
   training implementation, which is why it shrank from 1919 lines to 355.
 - The **preprocessing** modules form a stack: `pipeline_builder` composes
   `imputation` and `categorical_encoding` into a single fitted transformer. That
@@ -138,7 +138,7 @@ embeddings = row2vec.learn_embedding(df, mode=..., embedding_dim=...)
 - The return value is a `DataFrame` with the same index as `df` and
   `embedding_dim` columns. This holds for every mode: `target` mode returns one
   row per input row like the rest, and `aggregate_by_reference=True` asks for
-  the per-category matrix instead. Before 0.3.0 the index was a fresh
+  the per-category matrix instead. Before 0.4.0 the index was a fresh
   `RangeIndex`, so the promise above was true only for input that already had
   one.
 - `seed` makes a run reproducible.
@@ -215,7 +215,7 @@ documented in `MIGRATION.md` and flagged in the `CHANGELOG`.
 0.2.0 moved the package to a `src/` layout and rebuilt the documentation and
 tooling. The import path did not change, so no user code needed editing.
 
-0.3.0 is a correctness release and **does** change numerical output and some
+0.4.0 is a correctness release and **does** change numerical output and some
 signatures (`learn_embedding_with_model`, `Row2VecTransformer`, target mode);
 models saved by 0.2.0 cannot be loaded. See `MIGRATION.md`.
 
@@ -242,7 +242,7 @@ models saved by 0.2.0 cannot be loaded. See `MIGRATION.md`.
    either convention (§3).
 7. **Docs tooling:** MkDocs-Material + mkdocstrings, published to GitHub Pages,
    with every example executed in CI (§6).
-8. **One fitted object behind every entry point (0.3.0).** `Row2VecModel` owns
+8. **One fitted object behind every entry point (0.4.0).** `Row2VecModel` owns
    the preprocessor, projector, encoder view, and embedding scaler. The
    alternative — each entry point assembling its own pipeline — produced three
-   divergent implementations and the defects the 0.3.0 audit found (§2.2, §3).
+   divergent implementations and the defects the 0.4.0 audit found (§2.2, §3).

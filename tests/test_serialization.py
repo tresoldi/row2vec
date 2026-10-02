@@ -72,7 +72,7 @@ class TestModelSerialization:
             enable_logging=False,
         )
 
-        # Since 0.3.0 target mode returns one row per input row, indexed by
+        # Since 0.4.0 target mode returns one row per input row, indexed by
         # df.index, like every other mode. The per-category matrix is opt-in.
         assert isinstance(embeddings, pd.DataFrame)
         assert embeddings.shape == (len(sample_data), 3)

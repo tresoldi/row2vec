@@ -1,7 +1,7 @@
 """Shared pytest configuration.
 
 The project registers ``slow``, ``neural``, ``integration`` and ``unit``
-markers in ``pyproject.toml``, but before 0.3.0 nothing carried them, so
+markers in ``pyproject.toml``, but before 0.4.0 nothing carried them, so
 ``make test-fast`` (``pytest -n auto -m "not slow"``) deselected nothing and
 took as long as a full run.
 

@@ -1,11 +1,11 @@
 # Migration Guide
 
-## Migrating to 0.3.0
+## Migrating to 0.4.0
 
-Version 0.3.0 is a correctness release. An independent audit of 0.2.0 found
+Version 0.4.0 is a correctness release. An independent audit of 0.2.0 found
 nine data-integrity defects, none of which the test suite caught, because they
 changed *values* rather than raising. Fixing them changes what row2vec returns,
-so **embeddings produced by 0.3.0 will differ numerically from 0.2.0's for most
+so **embeddings produced by 0.4.0 will differ numerically from 0.2.0's for most
 inputs**. That is the point: the old numbers were wrong.
 
 Read this section if you have saved models, stored embeddings, or code that
@@ -15,8 +15,17 @@ depends on the shape of what `learn_embedding` returns.
 
 These raise, so you will find them immediately.
 
+- **TensorFlow is no longer installed by default.** `pip install row2vec` now
+  gives PCA, t-SNE and UMAP. The `unsupervised`, `target` and `contrastive`
+  modes, architecture search and entity embeddings need
+  `pip install "row2vec[neural]"`; without it they raise a
+  `NeuralBackendMissing` error (an `ImportError`) that says so. Note that
+  `learn_embedding`'s default mode is `unsupervised`, so a bare
+  `learn_embedding(df)` needs the extra. Add `row2vec[neural]` to your
+  requirements to keep the old behaviour.
+
 - **Saved models must be retrained.** The saved format now carries the whole
-  fitted state - preprocessor, projector, encoder and, new in 0.3.0, the fitted
+  fitted state - preprocessor, projector, encoder and, new in 0.4.0, the fitted
   embedding scaler. Models written by 0.2.0 cannot be loaded.
 - **`learn_embedding_with_model` returns two values, not four.** It was
   `(embeddings, model, preprocessor, metadata)`; it is now

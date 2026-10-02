@@ -7,43 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
+## [0.4.0] - unreleased
 
-- **Breaking:** TensorFlow is no longer a hard dependency. `pip install row2vec`
-  gives PCA, t-SNE and UMAP; the autoencoder, target and contrastive modes,
-  architecture search, and entity-embedding categorical encoding need
-  `pip install "row2vec[neural]"`. Using one without it raises
-  `row2vec._backend.NeuralBackendMissing` (an `ImportError`) naming the extra.
-- `import row2vec` no longer imports TensorFlow, and fitting PCA, t-SNE or UMAP
-  never loads it.
-- Without TensorFlow, a high-cardinality categorical column that would get
-  entity embeddings uses target encoding when a usable target exists (with a
-  warning), and otherwise raises rather than falling back to an unbounded
-  encoding.
-- `Row2VecTrainingCallback` is built on first use; it is still available as
-  `row2vec.model.Row2VecTrainingCallback` and `row2vec.core.Row2VecTrainingCallback`.
-- `row2vec[dev]` and `row2vec[all]` include the `neural` extra.
-
-### Added
-
-- **`row2vec.compare_modes`**: fits several modes on one table and scores them
-  on held-out rows, returning a table of trustworthiness, a downstream k-NN score
-  when a `target` column is given, and fit time, alongside a no-embedding
-  baseline. The target is withheld from every mode except `mode="target"`;
-  t-SNE is scored on all rows without a downstream score because it has no
-  out-of-sample extension; modes needing TensorFlow are reported `unavailable`
-  rather than raising.
-- A `light` CI job that runs the suite without TensorFlow, and
-  `tests/test_optional_neural.py`, which checks in a fresh interpreter that the
-  classical modes work and the neural ones fail helpfully when TensorFlow is
-  blocked.
-
-## [0.3.0] - 2026-09-28
-
-Correctness release. An independent audit of 0.2.0 found nine data-integrity
+Correctness release, now also a lighter install. An independent audit of 0.2.0 found nine data-integrity
 defects that the 278-test suite did not catch, because they changed values
-rather than raising. **Embeddings will differ numerically from 0.2.0's** — see
-[MIGRATION.md](MIGRATION.md) for everything that changed and why.
+rather than raising. **Embeddings will differ numerically from 0.2.0's** - see
+[MIGRATION.md](MIGRATION.md) for everything that changed and why. TensorFlow is
+now an optional extra, and `compare_modes` scores modes against each other.
+
+This release was developed as 0.3.0; that version was never published, so its
+changes are folded in here.
 
 ### Fixed
 
@@ -104,6 +77,20 @@ rather than raising. **Embeddings will differ numerically from 0.2.0's** — see
   early stopping are no longer inflated.
 - The CLI writes the index by default; `--no-index` opts out.
 - `generate_synthetic_data` no longer seeds the global `random` module.
+- **Breaking:** TensorFlow is no longer a hard dependency. `pip install row2vec`
+  gives PCA, t-SNE and UMAP; the autoencoder, target and contrastive modes,
+  architecture search, and entity-embedding categorical encoding need
+  `pip install "row2vec[neural]"`. Using one without it raises
+  `row2vec._backend.NeuralBackendMissing` (an `ImportError`) naming the extra.
+- `import row2vec` no longer imports TensorFlow, and fitting PCA, t-SNE or UMAP
+  never loads it.
+- Without TensorFlow, a high-cardinality categorical column that would get
+  entity embeddings uses target encoding when a usable target exists (with a
+  warning), and otherwise raises rather than falling back to an unbounded
+  encoding.
+- `Row2VecTrainingCallback` is built on first use; it is still available as
+  `row2vec.model.Row2VecTrainingCallback` and `row2vec.core.Row2VecTrainingCallback`.
+- `row2vec[dev]` and `row2vec[all]` include the `neural` extra.
 
 ### Added
 
@@ -119,6 +106,17 @@ rather than raising. **Embeddings will differ numerically from 0.2.0's** — see
   scikit-learn's full `check_estimator` conformance suite over both adapters.
 - Working `slow` and `neural` pytest markers, so `make test-fast` deselects
   something.
+- **`row2vec.compare_modes`**: fits several modes on one table and scores them
+  on held-out rows, returning a table of trustworthiness, a downstream k-NN score
+  when a `target` column is given, and fit time, alongside a no-embedding
+  baseline. The target is withheld from every mode except `mode="target"`;
+  t-SNE is scored on all rows without a downstream score because it has no
+  out-of-sample extension; modes needing TensorFlow are reported `unavailable`
+  rather than raising.
+- A `light` CI job that runs the suite without TensorFlow, and
+  `tests/test_optional_neural.py`, which checks in a fresh interpreter that the
+  classical modes work and the neural ones fail helpfully when TensorFlow is
+  blocked.
 
 ### Removed
 
@@ -305,7 +303,7 @@ shape. **The public API is unchanged** — see [MIGRATION.md](MIGRATION.md).
 - Logging infrastructure with configurable levels
 - Memory monitoring for large datasets
 
-[Unreleased]: https://github.com/tresoldi/row2vec/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/tresoldi/row2vec/compare/v0.2.0...v0.3.0
+[Unreleased]: https://github.com/tresoldi/row2vec/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/tresoldi/row2vec/compare/v0.1.0...v0.4.0
 [0.2.0]: https://github.com/tresoldi/row2vec/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/tresoldi/row2vec/releases/tag/v0.1.0
