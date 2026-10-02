@@ -167,7 +167,7 @@ which has no out-of-sample extension and raises. The scikit-learn adapter's
 embeddings, path = row2vec.train_and_save_model(df, base_path=...)
 model = row2vec.load_model(path)
 model.predict(new_rows)
-row2vec.inspect_model(path)   # the manifest, without loading the model
+row2vec.inspect_model(path)  # the manifest, without loading the model
 ```
 
 A model is one `.r2v` file, a zip archive of a `manifest.json` (versions,
