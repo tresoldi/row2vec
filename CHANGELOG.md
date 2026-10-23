@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Python 3.11 or newer is required** (was 3.10). `pandas-stubs`, a dev
+  dependency, needs 3.11, so `uv sync` could not resolve with 3.10 allowed;
+  3.10 also reaches end of life this month. A `uv.lock` is now committed.
+
 ### Added
 
 - **Datetime columns** are encoded instead of silently dropped: sine/cosine pairs

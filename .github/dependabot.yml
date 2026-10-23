@@ -11,8 +11,9 @@ updates:
   # (numpy 1.21 -> 2.2.6, pandas 1.5.3 -> 2.3.3, and so on).
   #
   # Keeping the floors low has already earned its keep: a categorical-imputation
-  # bug reproduced only *below* pandas 3, and the 3.10 CI leg — which resolves
-  # pandas 2 — is what caught it. Raising the floor would have hidden it.
+  # bug reproduced only *below* pandas 3, and a CI leg on pandas 2 (then the
+  # 3.10 leg; since 3.10 was dropped, the explicit `pandas2` job) is what caught
+  # it. Raising the floor would have hidden it.
   #
   # The ignore rule below suppresses version updates while leaving security
   # updates, which Dependabot raises regardless, untouched. Upper bounds and

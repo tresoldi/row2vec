@@ -139,7 +139,7 @@ A **scikit-learn** transformer and classifier (`Row2VecTransformer`,
 - **Preprocessing travels with the model** — a saved model carries its own
   encoders and imputers, so inference on new data reproduces training exactly.
 - **Typed and production-ready** — full type hints (`py.typed`), strict linting
-  and type-checking, and a test suite run across Python 3.10–3.12 on Linux,
+  and type-checking, and a test suite run across Python 3.11–3.13 on Linux,
   macOS, and Windows. Every example in this README and in the User Guide is
   executed by that suite.
 
